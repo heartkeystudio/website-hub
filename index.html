@@ -1,16 +1,458 @@
-<!doctype html>
-<html lang="en" dir="ltr" class="plugin-pages plugin-id-default" data-has-hydrated="false">
+<!DOCTYPE html>
+<html lang="pt-br">
 <head>
-<meta charset="UTF-8">
-<meta name="generator" content="Docusaurus v3.9.2">
-<title data-rh="true">Início | Hub HeartKey</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:image" content="https://hub.heartkeystudio.com/img/docusaurus-social-card.jpg"><meta data-rh="true" name="twitter:image" content="https://hub.heartkeystudio.com/img/docusaurus-social-card.jpg"><meta data-rh="true" property="og:url" content="https://hub.heartkeystudio.com/"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docusaurus_tag" content="default"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docsearch:docusaurus_tag" content="default"><meta data-rh="true" property="og:title" content="Início | Hub HeartKey"><meta data-rh="true" name="description" content="Hub central do estúdio"><meta data-rh="true" property="og:description" content="Hub central do estúdio"><link data-rh="true" rel="icon" href="/img/favicon.ico"><link data-rh="true" rel="canonical" href="https://hub.heartkeystudio.com/"><link data-rh="true" rel="alternate" href="https://hub.heartkeystudio.com/" hreflang="en"><link data-rh="true" rel="alternate" href="https://hub.heartkeystudio.com/" hreflang="x-default"><script data-rh="true">function insertBanner(){var n=document.createElement("div");n.id="__docusaurus-base-url-issue-banner-container";n.innerHTML='\n<div id="__docusaurus-base-url-issue-banner" style="border: thick solid red; background-color: rgb(255, 230, 179); margin: 20px; padding: 20px; font-size: 20px;">\n   <p style="font-weight: bold; font-size: 30px;">Your Docusaurus site did not load properly.</p>\n   <p>A very common reason is a wrong site <a href="https://docusaurus.io/docs/docusaurus.config.js/#baseUrl" style="font-weight: bold;">baseUrl configuration</a>.</p>\n   <p>Current configured baseUrl = <span style="font-weight: bold; color: red;">/</span>  (default value)</p>\n   <p>We suggest trying baseUrl = <span id="__docusaurus-base-url-issue-banner-suggestion-container" style="font-weight: bold; color: green;"></span></p>\n</div>\n',document.body.prepend(n);var e=document.getElementById("__docusaurus-base-url-issue-banner-suggestion-container"),s=window.location.pathname,o="/"===s.substr(-1)?s:s+"/";e.innerHTML=o}document.addEventListener("DOMContentLoaded",function(){void 0===window.docusaurus&&insertBanner()})</script><link rel="stylesheet" href="/assets/css/styles.7782c9f8.css">
-<script src="/assets/js/runtime~main.f713bdaa.js" defer="defer"></script>
-<script src="/assets/js/main.dc73fcbc.js" defer="defer"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HeartKey Hub | Workspace</title>
+    <link rel="stylesheet" href="hub.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&display=swap">
 </head>
-<body class="navigation-with-keyboard">
-<svg style="display: none;"><defs>
-<symbol id="theme-svg-external-link" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"/></symbol>
-</defs></svg>
-<script>!function(){var t=function(){try{return new URLSearchParams(window.location.search).get("docusaurus-theme")}catch(t){}}()||function(){try{return window.localStorage.getItem("theme")}catch(t){}}();document.documentElement.setAttribute("data-theme",t||(window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")),document.documentElement.setAttribute("data-theme-choice",t||"system")}(),function(){try{const c=new URLSearchParams(window.location.search).entries();for(var[t,e]of c)if(t.startsWith("docusaurus-data-")){var a=t.replace("docusaurus-data-","data-");document.documentElement.setAttribute(a,e)}}catch(t){}}()</script><div id="__docusaurus"><link rel="preload" as="image" href="/img/logo.png"><div role="region" aria-label="Skip to main content"><a class="skipToContent_fXgn" href="#__docusaurus_skipToContent_fallback">Skip to main content</a></div><nav aria-label="Main" class="theme-layout-navbar navbar navbar--fixed-top"><div class="navbar__inner"><div class="theme-layout-navbar-left navbar__items"><button aria-label="Toggle navigation bar" aria-expanded="false" class="navbar__toggle clean-btn" type="button"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><path stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="2" d="M4 7h22M4 15h22M4 23h22"></path></svg></button><a class="navbar__brand" href="/"><div class="navbar__logo"><img src="/img/logo.png" alt="My Site Logo" class="themedComponent_mlkZ themedComponent--light_NVdE"><img src="/img/logo.png" alt="My Site Logo" class="themedComponent_mlkZ themedComponent--dark_xIcU"></div><b class="navbar__title text--truncate">HK - Central Office</b></a><a class="navbar__item navbar__link" href="/docs/intro">Documentos</a></div><div class="theme-layout-navbar-right navbar__items navbar__items--right"><div class="toggle_vylO colorModeToggle_DEke"><button class="clean-btn toggleButton_gllP toggleButtonDisabled_aARS" type="button" disabled="" title="system mode" aria-label="Switch between dark and light mode (currently system mode)"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="toggleIcon_g3eP lightToggleIcon_pyhR"><path fill="currentColor" d="M12,9c1.65,0,3,1.35,3,3s-1.35,3-3,3s-3-1.35-3-3S10.35,9,12,9 M12,7c-2.76,0-5,2.24-5,5s2.24,5,5,5s5-2.24,5-5 S14.76,7,12,7L12,7z M2,13l2,0c0.55,0,1-0.45,1-1s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S1.45,13,2,13z M20,13l2,0c0.55,0,1-0.45,1-1 s-0.45-1-1-1l-2,0c-0.55,0-1,0.45-1,1S19.45,13,20,13z M11,2v2c0,0.55,0.45,1,1,1s1-0.45,1-1V2c0-0.55-0.45-1-1-1S11,1.45,11,2z M11,20v2c0,0.55,0.45,1,1,1s1-0.45,1-1v-2c0-0.55-0.45-1-1-1C11.45,19,11,19.45,11,20z M5.99,4.58c-0.39-0.39-1.03-0.39-1.41,0 c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0s0.39-1.03,0-1.41L5.99,4.58z M18.36,16.95 c-0.39-0.39-1.03-0.39-1.41,0c-0.39,0.39-0.39,1.03,0,1.41l1.06,1.06c0.39,0.39,1.03,0.39,1.41,0c0.39-0.39,0.39-1.03,0-1.41 L18.36,16.95z M19.42,5.99c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06c-0.39,0.39-0.39,1.03,0,1.41 s1.03,0.39,1.41,0L19.42,5.99z M7.05,18.36c0.39-0.39,0.39-1.03,0-1.41c-0.39-0.39-1.03-0.39-1.41,0l-1.06,1.06 c-0.39,0.39-0.39,1.03,0,1.41s1.03,0.39,1.41,0L7.05,18.36z"></path></svg><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="toggleIcon_g3eP darkToggleIcon_wfgR"><path fill="currentColor" d="M9.37,5.51C9.19,6.15,9.1,6.82,9.1,7.5c0,4.08,3.32,7.4,7.4,7.4c0.68,0,1.35-0.09,1.99-0.27C17.45,17.19,14.93,19,12,19 c-3.86,0-7-3.14-7-7C5,9.07,6.81,6.55,9.37,5.51z M12,3c-4.97,0-9,4.03-9,9s4.03,9,9,9s9-4.03,9-9c0-0.46-0.04-0.92-0.1-1.36 c-0.98,1.37-2.58,2.26-4.4,2.26c-2.98,0-5.4-2.42-5.4-5.4c0-1.81,0.89-3.42,2.26-4.4C12.92,3.04,12.46,3,12,3L12,3z"></path></svg><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="toggleIcon_g3eP systemToggleIcon_QzmC"><path fill="currentColor" d="m12 21c4.971 0 9-4.029 9-9s-4.029-9-9-9-9 4.029-9 9 4.029 9 9 9zm4.95-13.95c1.313 1.313 2.05 3.093 2.05 4.95s-0.738 3.637-2.05 4.95c-1.313 1.313-3.093 2.05-4.95 2.05v-14c1.857 0 3.637 0.737 4.95 2.05z"></path></svg></button></div><div class="navbarSearchContainer_Bca1"></div></div></div><div role="presentation" class="navbar-sidebar__backdrop"></div></nav><div id="__docusaurus_skipToContent_fallback" class="theme-layout-main main-wrapper mainWrapper_z2l0"><header class="hero hero--primary heroBanner_qdFl"><div class="container"><h1 class="hero__title">Hub HeartKey</h1><p class="hero__subtitle">Central de Conhecimento e Assets</p><div class="buttons_AeoN"><a class="button button--secondary button--lg" href="/docs/intro">Lista de tarefas 📑</a><a class="button button--secondary button--lg" href="/docs/intro">Acessar Documentos e Assets 📂</a></div></div></header><main><div class="container padding-vert--xl"><div class="row"><div class="col col--4"><h3>🎨 Área Visual</h3><p>Diretrizes de marca, logos, referências e assets visuais.</p></div><div class="col col--4"><h3>🎵 Área de Áudio</h3><p>Stems, samples, mixagem e documentação de projetos.</p></div><div class="col col--4"><h3>📢 Produção</h3><p>Cronogramas, contatos e planilhas administrativas.</p></div></div></div></main></div><footer class="theme-layout-footer footer footer--dark"><div class="container container-fluid"><div class="row footer__links"><div class="theme-layout-footer-column col footer__col"><div class="footer__title">Páginas</div><ul class="footer__items clean-list"><li class="footer__item"><a class="footer__link-item" href="/docs/intro">Documentos</a></li></ul></div><div class="theme-layout-footer-column col footer__col"><div class="footer__title">Comunidade</div><ul class="footer__items clean-list"><li class="footer__item"><a href="https://discord.gg/Ny5rnjhgpY" target="_blank" rel="noopener noreferrer" class="footer__link-item">Discord<svg width="13.5" height="13.5" aria-label="(opens in new tab)" class="iconExternalLink_nPIU"><use href="#theme-svg-external-link"></use></svg></a></li><li class="footer__item"><a href="https://www.instagram.com/heartkey.studio/" target="_blank" rel="noopener noreferrer" class="footer__link-item">Instagram<svg width="13.5" height="13.5" aria-label="(opens in new tab)" class="iconExternalLink_nPIU"><use href="#theme-svg-external-link"></use></svg></a></li><li class="footer__item"><a href="https://x.com/HeartKeyStudio" target="_blank" rel="noopener noreferrer" class="footer__link-item">X<svg width="13.5" height="13.5" aria-label="(opens in new tab)" class="iconExternalLink_nPIU"><use href="#theme-svg-external-link"></use></svg></a></li></ul></div><div class="theme-layout-footer-column col footer__col"><div class="footer__title">More</div><ul class="footer__items clean-list"><li class="footer__item"><a href="https://github.com/heartkeystudio" target="_blank" rel="noopener noreferrer" class="footer__link-item">GitHub<svg width="13.5" height="13.5" aria-label="(opens in new tab)" class="iconExternalLink_nPIU"><use href="#theme-svg-external-link"></use></svg></a></li></ul></div></div><div class="footer__bottom text--center"><div class="footer__copyright">Copyright © 2025 Heartkey, Inc. Built with Docusaurus.</div></div></div></footer></div>
+<body>
+    <div id="login-screen" class="login-overlay">
+        <div class="login-box">
+            <img src="images/logo.jpg" alt="HeartKey Logo" class="login-logo" onerror="this.style.display='none'">
+            <h2>HeartKey Hub</h2>
+            <p>Acesso restrito para equipe.</p>
+            <button id="btn-login-google" class="btn-primary login-btn">
+                <span class="icon">G</span> Entrar com Google
+            </button>
+        </div>
+    </div>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <h2>HeartKey<span>.</span></h2>
+            <p class="user-email">user@gmail.com</p>
+        </div>
+        <nav class="menu">
+            <button class="nav-btn active" data-target="dashboard">Dashboard</button>
+            <button class="nav-btn" data-target="projetos">Projetos</button>
+            <button class="nav-btn" data-target="clientes">Clientes</button>
+            <button class="nav-btn" data-target="cronograma">Cronograma</button>
+            <button class="nav-btn" data-target="financeiro">Financeiro</button>
+            <button class="nav-btn" data-target="reunioes">Reuniões</button>
+            <button class="nav-btn" data-target="diario">Diário Pessoal</button>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="logout-btn">Sair (Logout)</button>
+        </div>
+    </aside>
+
+    <main class="content-area">
+        
+        <section id="dashboard" class="page-section active">
+            <div class="section-header">
+                <div>
+                    <h1>Visão Geral</h1>
+                    <p class="subtitle">Bem-vindo de volta, Dev_AO. Aqui está o resumo do seu dia.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-secondary">Bater Ponto</button> 
+                </div>
+            </div>
+
+            <div class="dashboard-stats">
+                <div class="stat-card">
+                    <div class="stat-icon">💰</div>
+                    <div class="stat-info">
+                        <h3>Saldo Previsto (Mês)</h3>
+                        <p class="text-green" id="dash-saldo">R$ 0,00</p>
+                        <div id="dash-trend" style="font-size: 0.75rem; margin-top: 5px; font-weight: bold;">Calculando...</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⚡</div>
+                    <div class="stat-info">
+                        <h3>Tarefas em Andamento</h3>
+                        <p class="text-neon" id="dash-tasks">0 Tasks</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📅</div>
+                    <div class="stat-info">
+                        <h3>Próximo Evento</h3>
+                        <p id="dash-event" style="font-size: 1rem;">Buscando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="dash-panel priorities">
+                    <div class="panel-header">
+                        <h3>🎯 Prioridades de Hoje</h3>
+                        <button class="icon-btn" onclick="document.querySelector('[data-target=\'projetos\']').click()">Ver Kanban</button>
+                    </div>
+                    
+                    <div class="priority-list" id="dash-priorities">
+                        <p style="color: #666; font-size: 0.85rem;">Analisando suas tarefas...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="projetos" class="page-section">
+            <div class="section-header">
+                <div>
+                    <h1>Gestão de Projetos</h1>
+                    <p class="subtitle">Acompanhamento de tarefas, assets e integração.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-primary" onclick="openModal('modalTarefa')">+ Nova Tarefa</button>
+                </div>
+            </div>
+
+            <div class="kanban-board">
+                <div class="kanban-column">
+                    <div class="kanban-column-header">
+                        <h2>A Fazer <span class="task-count" id="count-todo">0</span></h2>
+                    </div>
+                    <div class="kanban-dropzone" id="todo" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+                </div>
+
+                <div class="kanban-column">
+                    <div class="kanban-column-header">
+                        <h2>Fazendo <span class="task-count highlight" id="count-doing">0</span></h2>
+                    </div>
+                    <div class="kanban-dropzone" id="doing" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+                </div>
+
+                <div class="kanban-column">
+                    <div class="kanban-column-header">
+                        <h2>Feito <span class="task-count" id="count-done">0</span></h2>
+                    </div>
+                    <div class="kanban-dropzone" id="done" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+                </div>
+            </div>
+        </section>
+
+        <div id="modalTarefa" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Criar Nova Tarefa</h2>
+                    <button class="close-btn" onclick="closeModal('modalTarefa')">&times;</button>
+                </div>
+                <form class="hub-form" id="formTarefa" onsubmit="salvarTarefa(event)">
+                    <div class="form-group">
+                        <label>Título da Tarefa</label>
+                        <input type="text" id="taskTitle" placeholder="Ex: Criar sprite do inimigo" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Projeto / Jogo</label>
+                            <input type="text" id="taskProject" placeholder="Ex: Freak Hunter" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Tag (Categoria)</label>
+                            <select id="taskTag">
+                                <option value="bug">Bug</option>
+                                <option value="feature">Feature</option>
+                                <option value="art">Arte/Design</option>
+                                <option value="docs">Documentação</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary" onclick="closeModal('modalTarefa')">Cancelar</button>
+                        <button type="submit" class="btn-primary">Criar Tarefa</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <section id="clientes" class="page-section">
+            <div class="section-header">
+                <div>
+                    <h1>Gerenciador de Clientes</h1>
+                    <p class="subtitle">Mantenha os contatos, contratos e dados dos seus parceiros centralizados.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-primary" onclick="openModal('modalCliente')">+ Novo Cliente</button>
+                </div>
+            </div>
+
+            <div class="client-grid" id="client-entries"></div>
+        </section>
+
+<div id="modalCliente" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Cadastrar Novo Cliente</h2>
+                <button class="close-btn" onclick="closeModal('modalCliente')">&times;</button>
+            </div>
+            <form class="hub-form" id="formCliente" onsubmit="salvarCliente(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nome ou Empresa</label>
+                        <input type="text" id="clienteNome" placeholder="Ex: Estúdio XYZ" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo de Cliente</label>
+                        <select id="clienteTipo">
+                            <option value="estudio">Estúdio / Empresa</option>
+                            <option value="indie">Desenvolvedor Indie</option>
+                            <option value="freela">Contrato Freelance</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Email de Contato</label>
+                        <input type="email" id="clienteEmail" placeholder="email@empresa.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Discord / Telefone</label>
+                        <input type="text" id="clienteDiscord" placeholder="@usuario ou (11) 9999-9999">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Anotações Internas (Opcional)</label>
+                    <textarea id="clienteNotas" rows="3" placeholder="Informações de prazos, etc..." style="background: #000; border: 1px solid #333; padding: 12px; color: #fff; border-radius: 4px; font-family: inherit; width: 100%; resize: none;"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalCliente')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar Cliente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+        <section id="cronograma" class="page-section">
+            <div class="section-header">
+                <div>
+                    <h1>Cronograma e Agenda</h1>
+                    <p class="subtitle">Acompanhe prazos de projetos, reuniões e eventos do estúdio.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-primary" onclick="openModal('modalEvento')">+ Novo Evento</button>
+                </div>
+            </div>
+
+            <div class="agenda-layout">
+                <div class="calendar-panel">
+                    <div class="calendar-header">
+                        <button class="icon-btn">&lt;</button>
+                        <h2>Abril 2026</h2>
+                        <button class="icon-btn">&gt;</button>
+                    </div>
+                    
+                    <div class="calendar-grid">
+                        <div class="weekday">Dom</div>
+                        <div class="weekday">Seg</div>
+                        <div class="weekday">Ter</div>
+                        <div class="weekday">Qua</div>
+                        <div class="weekday">Qui</div>
+                        <div class="weekday">Sex</div>
+                        <div class="weekday">Sáb</div>
+
+                        <div class="day empty">29</div>
+                        <div class="day empty">30</div>
+                        <div class="day empty">31</div>
+                        <div class="day">1</div>
+                        <div class="day">2</div>
+                        <div class="day">3</div>
+                        <div class="day">4</div>
+                        <div class="day">5</div>
+                        <div class="day">6</div>
+                        <div class="day today">7 <div class="event-dots"><span class="dot meeting"></span></div></div>
+                        <div class="day">8</div>
+                        <div class="day">9</div>
+                        <div class="day">10 <div class="event-dots"><span class="dot deadline"></span></div></div>
+                        <div class="day">11</div>
+                        <div class="day">12</div>
+                        <div class="day">13</div>
+                        <div class="day">14</div>
+                        <div class="day">15 <div class="event-dots"><span class="dot release"></span></div></div>
+                        <div class="day">16</div><div class="day">17</div><div class="day">18</div><div class="day">19</div>
+                        <div class="day">20</div><div class="day">21</div><div class="day">22</div><div class="day">23</div>
+                        <div class="day">24</div><div class="day">25</div><div class="day">26</div><div class="day">27</div>
+                        <div class="day">28</div><div class="day">29</div><div class="day">30</div><div class="day empty">1</div>
+                        <div class="day empty">2</div>
+                    </div>
+                </div>
+
+                <div class="upcoming-panel">
+                    <h3>Próximos Eventos</h3>
+                    
+                    <div class="event-list" id="event-entries">
+                        
+                    </div>
+                </div>
+            </div>
+        </section>
+
+<div id="modalEvento" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Agendar Novo Evento</h2>
+                <button class="close-btn" onclick="closeModal('modalEvento')">&times;</button>
+            </div>
+            <form class="hub-form" id="formEvento" onsubmit="salvarEvento(event)">
+                <div class="form-group">
+                    <label>Título do Evento</label>
+                    <input type="text" id="eventoTitulo" placeholder="Ex: Reunião de Pauta, Entrega de Milestone..." required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Data</label>
+                        <input type="date" id="eventoData" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Horário</label>
+                        <input type="time" id="eventoHora">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Tipo de Evento</label>
+                    <select id="eventoTipo">
+                        <option value="reuniao">Reunião / Call</option>
+                        <option value="deadline">Deadline (Prazo de Entrega)</option>
+                        <option value="release">Lançamento / Build</option>
+                        <option value="geral">Lembrete Geral</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Link ou Local (Opcional)</label>
+                    <input type="url" id="eventoLink" placeholder="Link do Google Meet, Discord, etc...">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalEvento')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar na Agenda</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+        <section id="financeiro" class="page-section">
+            <div class="section-header">
+                <div>
+                    <h1>Gestão Financeira</h1>
+                    <p class="subtitle">Controle de receitas, despesas e fluxo de caixa.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-secondary">Gerar Mensalidades</button>
+                    <button class="btn-primary" onclick="openModal('modalLancamento')">+ Novo Lançamento</button>
+                </div>
+            </div>
+
+            <div class="summary-cards">
+                <div class="card">
+                    <h3>Previsão de Receita</h3>
+                    <p class="valor text-green" id="resumoReceita">R$ 0,00</p>
+                </div>
+                <div class="card">
+                    <h3>Previsão de Custo</h3>
+                    <p class="valor text-red" id="resumoCusto">R$ 0,00</p>
+                </div>
+                <div class="card highlight">
+                    <h3>Saldo / Lucro Previsto</h3>
+                    <p class="valor text-neon" id="resumoSaldo">R$ 0,00</p>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Cliente / Origem</th>
+                            <th>Descrição</th>
+                            <th>Tipo</th>
+                            <th>Valor</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="finance-entries">
+                    </tbody>
+                </table>
+            </div>
+
+            
+        </section>
+
+    <section id="diario" class="page-section">
+            <div class="section-header">
+                <div>
+                    <h1>Diário e Anotações</h1>
+                    <p class="subtitle">Seu espaço pessoal. Anote ideias, faça devlogs ou guarde referências.</p>
+                </div>
+            </div>
+
+            <div class="diary-editor">
+                <input type="text" id="noteTitle" placeholder="Título da anotação (Opcional)" class="diary-title-input">
+                <textarea id="noteContent" placeholder="Sobre o que você quer escrever hoje?" rows="4" class="diary-textarea"></textarea>
+                <div class="diary-editor-footer">
+                    <span class="diary-date-indicator">Hoje</span>
+                    <button class="btn-primary" onclick="salvarNota()">Salvar Anotação</button>
+                </div>
+            </div>
+
+            <div class="diary-grid" id="diary-entries"></div>
+        </section>
+
+    </main> <div id="modalLancamento" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Novo Lançamento</h2>
+                <button class="close-btn" onclick="closeModal('modalLancamento')">&times;</button>
+            </div>
+            <form class="hub-form" id="formFinanceiro" onsubmit="salvarLancamento(event)">
+                <div class="form-group">
+                    <label>Tipo de Lançamento</label>
+                    <select id="financeTipo" required>
+                        <option value="receita">Receita (Entrada)</option>
+                        <option value="custo">Custo (Saída)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Cliente / Origem</label>
+                    <input type="text" id="financeOrigem" placeholder="Ex: Projeto X, Assinatura Y..." required>
+                </div>
+                <div class="form-group">
+                    <label>Descrição</label>
+                    <input type="text" id="financeDescricao" placeholder="Detalhes do lançamento" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Valor (R$)</label>
+                        <input type="number" id="financeValor" step="0.01" placeholder="0,00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Data</label>
+                        <input type="date" id="financeData" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalLancamento')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar Lançamento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+        <section id="reunioes" class="page-section">
+            <div class="section-header">
+                <div>
+                    <h1>Reuniões com a HeartKey</h1>
+                    <p class="subtitle">Gerencie seus convites oficiais e chamadas agendadas pelo ADM.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-secondary" onclick="criarConviteTeste()">Simular Convite do ADM</button>
+                </div>
+            </div>
+
+            <div class="meetings-group">
+                <h3 class="group-title">Convites Pendentes</h3>
+                <div class="invites-grid" id="invites-entries"></div>
+            </div>
+
+            <div class="meetings-group confirmed-group">
+                <h3 class="group-title">Próximas Reuniões Confirmadas</h3>
+                <div class="confirmed-list" id="confirmed-entries"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <script type="module" src="hub.js"></script>
 </body>
 </html>
