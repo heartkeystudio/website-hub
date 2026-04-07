@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HeartKey Hub | Workspace</title>
+    <link rel="stylesheet" href="hub.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&display=swap">
+</head>
+<body>
+    <div id="login-screen" class="login-overlay">
+        <div class="login-box">
+            <img src="images/logo.jpg" alt="HeartKey Logo" class="login-logo" onerror="this.style.display='none'">
+            <h2>HeartKey Hub</h2>
+            <p>Acesso restrito para equipe.</p>
+            <button id="btn-login-google" class="btn-primary login-btn">
+                <span class="icon">G</span> Entrar com Google
+            </button>
+        </div>
+    </div>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <h2>HeartKey<span>.</span></h2>
+            <p class="user-email">user@gmail.com</p>
+        </div>
+        <nav class="menu">
+            <button class="nav-btn active" data-target="dashboard">Dashboard</button>
+            <button class="nav-btn" data-target="projetos">Projetos</button>
+            <button class="nav-btn" data-target="clientes">Clientes</button>
+            <button class="nav-btn" data-target="cronograma">Cronograma</button>
+            <button class="nav-btn" data-target="financeiro">Financeiro</button>
+            <button class="nav-btn" data-target="reunioes">Reuniões</button>
+            <button class="nav-btn" data-target="diario">Diário Pessoal</button>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="logout-btn">Sair (Logout)</button>
+        </div>
+    </aside>
+
+    <main class="content-area">
+        
+        <section id="dashboard" class="page-section active">
+            <div class="section-header">
+                <div>
+                    <h1>Visão Geral</h1>
+                    <p class="subtitle">Bem-vindo de volta, Dev_AO. Aqui está o resumo do seu dia.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-secondary">Bater Ponto</button> 
+                </div>
+            </div>
+
+            <div class="dashboard-stats">
+                <div class="stat-card">
+                    <div class="stat-icon">💰</div>
+                    <div class="stat-info">
+                        <h3>Saldo Previsto (Mês)</h3>
+                        <p class="text-green" id="dash-saldo">R$ 0,00</p>
+                        <div id="dash-trend" style="font-size: 0.75rem; margin-top: 5px; font-weight: bold;">Calculando...</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⚡</div>
+                    <div class="stat-info">
+                        <h3>Tarefas em Andamento</h3>
+                        <p class="text-neon" id="dash-tasks">0 Tasks</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📅</div>
+                    <div class="stat-info">
+                        <h3>Próximo Evento</h3>
+                        <p id="dash-event" style="font-size: 1rem;">Buscando...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="dash-panel priorities">
+                    <div class="panel-header">
+                        <h3>🎯 Prioridades de Hoje</h3>
+                        <button class="icon-btn" onclick="document.querySelector('[data-target=\'projetos\']').click()">Ver Kanban</button>
+                    </div>
+                    
+                    <div class="priority-list" id="dash-priorities">
+                        <p style="color: #666; font-size: 0.85rem;">Analisando suas tarefas...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="projetos" class="page-section">
+            <div class="section-header">
+                <div>
+                    <h1>Gestão de Projetos</h1>
+                    <p class="subtitle">Acompanhamento de tarefas, assets e integração.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-primary" onclick="openModal('modalTarefa')">+ Nova Tarefa</button>
+                </div>
+            </div>
+
+            <div class="kanban-board">
+                <div class="kanban-column">
+                    <div class="kanban-column-header">
+                        <h2>A Fazer <span class="task-count" id="count-todo">0</span></h2>
+                    </div>
+                    <div class="kanban-dropzone" id="todo" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+                </div>
+
+                <div class="kanban-column">
+                    <div class="kanban-column-header">
+                        <h2>Fazendo <span class="task-count highlight" id="count-doing">0</span></h2>
+                    </div>
+                    <div class="kanban-dropzone" id="doing" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+                </div>
+
+                <div class="kanban-column">
+                    <div class="kanban-column-header">
+                        <h2>Feito <span class="task-count" id="count-done">0</span></h2>
+                    </div>
+                    <div class="kanban-dropzone" id="done" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+                </div>
+            </div>
+        </section>
+
+        <div id="modalTarefa" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Criar Nova Tarefa</h2>
+                    <button class="close-btn" onclick="closeModal('modalTarefa')">&times;</button>
+                </div>
+                <form class="hub-form" id="formTarefa" onsubmit="salvarTarefa(event)">
+                    <div class="form-group">
+                        <label>Título da Tarefa</label>
+                        <input type="text" id="taskTitle" placeholder="Ex: Criar sprite do inimigo" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Projeto / Jogo</label>
+                            <input type="text" id="taskProject" placeholder="Ex: Freak Hunter" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Tag (Categoria)</label>
+                            <select id="taskTag">
+                                <option value="bug">Bug</option>
+                                <option value="feature">Feature</option>
+                                <option value="art">Arte/Design</option>
+                                <option value="docs">Documentação</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary" onclick="closeModal('modalTarefa')">Cancelar</button>
+                        <button type="submit" class="btn-primary">Criar Tarefa</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <section id="clientes" class="page-section">
+            <div class="section-header">
+                <div>
+                    <h1>Gerenciador de Clientes</h1>
+                    <p class="subtitle">Mantenha os contatos, contratos e dados dos seus parceiros centralizados.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-primary" onclick="openModal('modalCliente')">+ Novo Cliente</button>
+                </div>
+            </div>
+
+            <div class="client-grid" id="client-entries"></div>
+        </section>
+
+<div id="modalCliente" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Cadastrar Novo Cliente</h2>
+                <button class="close-btn" onclick="closeModal('modalCliente')">&times;</button>
+            </div>
+            <form class="hub-form" id="formCliente" onsubmit="salvarCliente(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nome ou Empresa</label>
+                        <input type="text" id="clienteNome" placeholder="Ex: Estúdio XYZ" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo de Cliente</label>
+                        <select id="clienteTipo">
+                            <option value="estudio">Estúdio / Empresa</option>
+                            <option value="indie">Desenvolvedor Indie</option>
+                            <option value="freela">Contrato Freelance</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Email de Contato</label>
+                        <input type="email" id="clienteEmail" placeholder="email@empresa.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Discord / Telefone</label>
+                        <input type="text" id="clienteDiscord" placeholder="@usuario ou (11) 9999-9999">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Anotações Internas (Opcional)</label>
+                    <textarea id="clienteNotas" rows="3" placeholder="Informações de prazos, etc..." style="background: #000; border: 1px solid #333; padding: 12px; color: #fff; border-radius: 4px; font-family: inherit; width: 100%; resize: none;"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalCliente')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar Cliente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+        <section id="cronograma" class="page-section">
+            <div class="section-header">
+                <div>
+                    <h1>Cronograma e Agenda</h1>
+                    <p class="subtitle">Acompanhe prazos de projetos, reuniões e eventos do estúdio.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-primary" onclick="openModal('modalEvento')">+ Novo Evento</button>
+                </div>
+            </div>
+
+            <div class="agenda-layout">
+                <div class="calendar-panel">
+                    <div class="calendar-header">
+                        <button class="icon-btn">&lt;</button>
+                        <h2>Abril 2026</h2>
+                        <button class="icon-btn">&gt;</button>
+                    </div>
+                    
+                    <div class="calendar-grid">
+                        <div class="weekday">Dom</div>
+                        <div class="weekday">Seg</div>
+                        <div class="weekday">Ter</div>
+                        <div class="weekday">Qua</div>
+                        <div class="weekday">Qui</div>
+                        <div class="weekday">Sex</div>
+                        <div class="weekday">Sáb</div>
+
+                        <div class="day empty">29</div>
+                        <div class="day empty">30</div>
+                        <div class="day empty">31</div>
+                        <div class="day">1</div>
+                        <div class="day">2</div>
+                        <div class="day">3</div>
+                        <div class="day">4</div>
+                        <div class="day">5</div>
+                        <div class="day">6</div>
+                        <div class="day today">7 <div class="event-dots"><span class="dot meeting"></span></div></div>
+                        <div class="day">8</div>
+                        <div class="day">9</div>
+                        <div class="day">10 <div class="event-dots"><span class="dot deadline"></span></div></div>
+                        <div class="day">11</div>
+                        <div class="day">12</div>
+                        <div class="day">13</div>
+                        <div class="day">14</div>
+                        <div class="day">15 <div class="event-dots"><span class="dot release"></span></div></div>
+                        <div class="day">16</div><div class="day">17</div><div class="day">18</div><div class="day">19</div>
+                        <div class="day">20</div><div class="day">21</div><div class="day">22</div><div class="day">23</div>
+                        <div class="day">24</div><div class="day">25</div><div class="day">26</div><div class="day">27</div>
+                        <div class="day">28</div><div class="day">29</div><div class="day">30</div><div class="day empty">1</div>
+                        <div class="day empty">2</div>
+                    </div>
+                </div>
+
+                <div class="upcoming-panel">
+                    <h3>Próximos Eventos</h3>
+                    
+                    <div class="event-list" id="event-entries">
+                        
+                    </div>
+                </div>
+            </div>
+        </section>
+
+<div id="modalEvento" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Agendar Novo Evento</h2>
+                <button class="close-btn" onclick="closeModal('modalEvento')">&times;</button>
+            </div>
+            <form class="hub-form" id="formEvento" onsubmit="salvarEvento(event)">
+                <div class="form-group">
+                    <label>Título do Evento</label>
+                    <input type="text" id="eventoTitulo" placeholder="Ex: Reunião de Pauta, Entrega de Milestone..." required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Data</label>
+                        <input type="date" id="eventoData" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Horário</label>
+                        <input type="time" id="eventoHora">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Tipo de Evento</label>
+                    <select id="eventoTipo">
+                        <option value="reuniao">Reunião / Call</option>
+                        <option value="deadline">Deadline (Prazo de Entrega)</option>
+                        <option value="release">Lançamento / Build</option>
+                        <option value="geral">Lembrete Geral</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Link ou Local (Opcional)</label>
+                    <input type="url" id="eventoLink" placeholder="Link do Google Meet, Discord, etc...">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalEvento')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar na Agenda</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+        <section id="financeiro" class="page-section">
+            <div class="section-header">
+                <div>
+                    <h1>Gestão Financeira</h1>
+                    <p class="subtitle">Controle de receitas, despesas e fluxo de caixa.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-secondary">Gerar Mensalidades</button>
+                    <button class="btn-primary" onclick="openModal('modalLancamento')">+ Novo Lançamento</button>
+                </div>
+            </div>
+
+            <div class="summary-cards">
+                <div class="card">
+                    <h3>Previsão de Receita</h3>
+                    <p class="valor text-green" id="resumoReceita">R$ 0,00</p>
+                </div>
+                <div class="card">
+                    <h3>Previsão de Custo</h3>
+                    <p class="valor text-red" id="resumoCusto">R$ 0,00</p>
+                </div>
+                <div class="card highlight">
+                    <h3>Saldo / Lucro Previsto</h3>
+                    <p class="valor text-neon" id="resumoSaldo">R$ 0,00</p>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Cliente / Origem</th>
+                            <th>Descrição</th>
+                            <th>Tipo</th>
+                            <th>Valor</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="finance-entries">
+                    </tbody>
+                </table>
+            </div>
+
+            
+        </section>
+
+    <section id="diario" class="page-section">
+            <div class="section-header">
+                <div>
+                    <h1>Diário e Anotações</h1>
+                    <p class="subtitle">Seu espaço pessoal. Anote ideias, faça devlogs ou guarde referências.</p>
+                </div>
+            </div>
+
+            <div class="diary-editor">
+                <input type="text" id="noteTitle" placeholder="Título da anotação (Opcional)" class="diary-title-input">
+                <textarea id="noteContent" placeholder="Sobre o que você quer escrever hoje?" rows="4" class="diary-textarea"></textarea>
+                <div class="diary-editor-footer">
+                    <span class="diary-date-indicator">Hoje</span>
+                    <button class="btn-primary" onclick="salvarNota()">Salvar Anotação</button>
+                </div>
+            </div>
+
+            <div class="diary-grid" id="diary-entries"></div>
+        </section>
+
+    </main> <div id="modalLancamento" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Novo Lançamento</h2>
+                <button class="close-btn" onclick="closeModal('modalLancamento')">&times;</button>
+            </div>
+            <form class="hub-form" id="formFinanceiro" onsubmit="salvarLancamento(event)">
+                <div class="form-group">
+                    <label>Tipo de Lançamento</label>
+                    <select id="financeTipo" required>
+                        <option value="receita">Receita (Entrada)</option>
+                        <option value="custo">Custo (Saída)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Cliente / Origem</label>
+                    <input type="text" id="financeOrigem" placeholder="Ex: Projeto X, Assinatura Y..." required>
+                </div>
+                <div class="form-group">
+                    <label>Descrição</label>
+                    <input type="text" id="financeDescricao" placeholder="Detalhes do lançamento" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Valor (R$)</label>
+                        <input type="number" id="financeValor" step="0.01" placeholder="0,00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Data</label>
+                        <input type="date" id="financeData" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalLancamento')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar Lançamento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+        <section id="reunioes" class="page-section">
+            <div class="section-header">
+                <div>
+                    <h1>Reuniões com a HeartKey</h1>
+                    <p class="subtitle">Gerencie seus convites oficiais e chamadas agendadas pelo ADM.</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-secondary" onclick="criarConviteTeste()">Simular Convite do ADM</button>
+                </div>
+            </div>
+
+            <div class="meetings-group">
+                <h3 class="group-title">Convites Pendentes</h3>
+                <div class="invites-grid" id="invites-entries"></div>
+            </div>
+
+            <div class="meetings-group confirmed-group">
+                <h3 class="group-title">Próximas Reuniões Confirmadas</h3>
+                <div class="confirmed-list" id="confirmed-entries"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <script type="module" src="hub.js"></script>
+</body>
+</html>
