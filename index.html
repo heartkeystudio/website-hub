@@ -70,14 +70,17 @@
                         <p id="dash-tasks">0 Tasks</p>
                     </div>
                 </div>
-                <div class="stat-card pomodoro-panel" style="border-color: #ff5252;">
+                <div class="stat-card pomodoro-panel" style="border-color: #ff5252; position: relative;">
+                    <button class="icon-btn" onclick="abrirFocusMode()" style="position: absolute; top: 10px; right: 10px;" title="Modo Foco (Tela Cheia)">⛶</button>
                     <div class="stat-info" style="text-align: center; width: 100%;">
-                        <div id="pomodoro-display" style="font-size: 1.5rem; font-weight: bold; color: #ff5252;">25:00</div>
+                        <div id="pomodoro-display" style="font-size: 2rem; font-weight: bold; color: #ff5252;">25:00</div>
                         <div style="display: flex; gap: 5px; justify-content: center; margin-top: 5px;">
-                            <button onclick="iniciarPomodoro()" class="btn-primary" style="padding: 4px 8px; font-size: 0.7rem; background:#ff5252;">Start</button>
+                            <button onclick="iniciarPomodoro()" class="btn-primary" style="padding: 4px 8px; font-size: 0.7rem; background:#ff5252; color:#fff;">Play</button>
                             <button onclick="pausarPomodoro()" class="btn-secondary" style="padding: 4px 8px; font-size: 0.7rem;">Pause</button>
+                            <button onclick="resetarPomodoro()" class="btn-secondary" style="padding: 4px 8px; font-size: 0.7rem;">🔄</button>
                         </div>
                     </div>
+                </div>
                 </div>
             </div>
             <div class="dashboard-grid">
@@ -97,7 +100,7 @@
             <div id="projetos-home">
                 <div class="section-header">
                     <h1>Projetos</h1>
-                    <button class="btn-primary" onclick="openModal('modalNovoProjeto')">+ Novo Projeto</button>
+                    <button id="btn-novo-projeto" class="btn-primary" onclick="openModal('modalNovoProjeto')">+ Novo Projeto</button>
                 </div>
                 <div class="client-grid" id="projects-grid"></div>
             </div>
@@ -106,6 +109,7 @@
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <button class="btn-secondary" onclick="voltarParaProjetos()">&larr;</button>
                         <h1 id="projeto-titulo-atual">Projeto</h1>
+                        <button class="icon-btn" onclick="abrirModalEditarProjeto()" title="Configurações do Projeto" style="font-size: 1.5rem; margin-top: -5px;">⚙️</button>
                     </div>
                 </div>
                 <div class="internal-tabs">
@@ -115,10 +119,23 @@
                 </div>
                 <!-- Kanban -->
                 <div id="tab-kanban" class="project-tab-content active">
-                    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                        <button class="btn-primary" onclick="openModal('modalTarefa')">+ Tarefa</button>
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
+                        <button id="btn-nova-tarefa" class="btn-primary" onclick="openModal('modalTarefa')">+ Tarefa</button>
                         <button class="btn-secondary" onclick="configurarGitHub()">🔗 GitHub</button>
+                        <button class="btn-secondary" onclick="sincronizarGitHub()" style="border-color: var(--primary); color: var(--primary);">🔄 Sincronizar Issues</button>
+                        
+                        <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
+                            <label style="color: var(--text-muted); font-size: 0.85rem;">Filtrar:</label>
+                            <select id="kanban-filter" onchange="aplicarFiltroKanban()" style="width: auto; margin-bottom: 0; padding: 8px 12px; font-size: 0.85rem; background: rgba(255,255,255,0.05); cursor: pointer;">
+                                <option value="all">Todas as Áreas</option>
+                                <option value="feature">💻 Dev / Feature</option>
+                                <option value="bug">🐛 Bugs e Erros</option>
+                                <option value="art">🎨 Arte / Áudio</option>
+                                <option value="docs">📖 GDD / Docs</option>
+                            </select>
+                        </div>
                     </div>
+
                     <div class="kanban-board">
                         <div class="kanban-column">
                             <div class="kanban-column-header">A Fazer <span id="count-todo" class="task-count">0</span></div>
@@ -254,6 +271,35 @@
         <section id="cronograma" class="page-section"><div class="section-header"><h1>Agenda</h1><button class="btn-primary" onclick="openModal('modalEvento')">+ Evento</button></div><div id="event-entries" class="event-list"></div></section>
     </main>
 
+    <div id="pomodoro-focus-mode" class="focus-overlay">
+        <button class="close-focus-btn" onclick="fecharFocusMode()">✕</button>
+        
+        <div class="focus-container">
+            <div class="focus-task-selector" onclick="togglePainelTarefasFoco()">
+                <span id="focus-current-task">⭕ Nenhuma tarefa selecionada (Clique para escolher)</span>
+            </div>
+
+            <div class="focus-timer-circle">
+                <h1 id="focus-time-display" onclick="editarTempoPomodoro()" title="Clique para editar o tempo">25:00</h1>
+            </div>
+
+            <div class="focus-controls">
+                <button class="focus-btn play" onclick="iniciarPomodoro()">▶ Começar Foco</button>
+                <button class="focus-btn pause" onclick="pausarPomodoro()">⏸ Pausar</button>
+                <button class="focus-btn reset" onclick="resetarPomodoro()" title="Resetar Timer">🔄</button>
+            </div>
+        </div>
+
+        <div id="focus-tasks-panel" class="focus-side-panel">
+            <button class="close-panel-btn" onclick="togglePainelTarefasFoco()">✕</button>
+            
+            <h3>Suas Tarefas Pendentes</h3>
+            <p style="font-size: 0.8rem; color: #888; margin-bottom: 20px;">Escolha no que você vai focar agora.</p>
+            <ul id="focus-tasks-list" class="focus-tasks-list">
+                </ul>
+        </div>
+    </div>
+
     <!-- MODAIS -->
     <div id="modalNovoProjeto" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2>Novo Projeto</h2><button class="close-btn" onclick="closeModal('modalNovoProjeto')">&times;</button></div><form onsubmit="salvarProjeto(event)" class="hub-form"><input type="text" id="projetoNome" placeholder="Nome" required><input type="text" id="projetoDesc" placeholder="Descrição" required><input type="text" id="projetoColabs" placeholder="Colabs (e-mails)"><input type="text" id="projetoRepo" placeholder="GitHub Repo (user/repo)"><button type="submit" class="btn-primary">Criar</button></form></div></div>
     <div id="modalTarefa" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2>Nova Tarefa</h2><button class="close-btn" onclick="closeModal('modalTarefa')">&times;</button></div><form onsubmit="salvarTarefa(event)" class="hub-form"><input type="text" id="taskTitle" placeholder="Título" required><select id="taskTag"><option value="feature">Feature</option><option value="bug">Bug</option><option value="art">Arte</option><option value="docs">Docs</option></select><button type="submit" class="btn-primary">Criar</button></form></div></div>
@@ -313,6 +359,47 @@
                 <div class="form-group"><label>Tipo de Evento</label><select id="eventoTipo"><option value="reuniao">Reunião / Call</option><option value="deadline">Deadline</option><option value="release">Lançamento</option><option value="geral">Lembrete</option></select></div>
                 <div class="form-group"><label>Link (Opcional)</label><input type="url" id="eventoLink" placeholder="Google Meet, Discord, etc..."></div>
                 <div class="modal-footer"><button type="button" class="btn-secondary" onclick="closeModal('modalEvento')">Cancelar</button><button type="submit" class="btn-primary">Salvar na Agenda</button></div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalEditarProjeto" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚙️ Configurações do Projeto</h2>
+                <button class="close-btn" onclick="closeModal('modalEditarProjeto')">&times;</button>
+            </div>
+            <form class="hub-form" id="formEditarProjeto" onsubmit="salvarEdicaoProjeto(event)">
+                <div class="form-group">
+                    <label>Nome do Projeto</label>
+                    <input type="text" id="editProjNome" required>
+                </div>
+                <div class="form-group">
+                    <label>Descrição</label>
+                    <input type="text" id="editProjDesc" required>
+                </div>
+                <div class="form-group">
+                    <label>Colaboradores (E-mails separados por vírgula)</label>
+                    <input type="text" id="editProjColabs" placeholder="dev@gmail.com, arte@gmail.com">
+                </div>
+                <div class="form-group">
+                    <label>Repositório GitHub</label>
+                    <input type="text" id="editProjRepo" placeholder="usuario/repositorio">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Avatar / Logo (Máx 800kb)</label>
+                        <input type="file" id="editProjAvatar" accept="image/*">
+                    </div>
+                    <div class="form-group">
+                        <label>Capa de Fundo (Máx 800kb)</label>
+                        <input type="file" id="editProjCapa" accept="image/*">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalEditarProjeto')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar Alterações</button>
+                </div>
             </form>
         </div>
     </div>

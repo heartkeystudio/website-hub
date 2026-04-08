@@ -28,33 +28,50 @@ mermaid.initialize({ startOnLoad: false, theme: 'dark' });
 // ==========================================
 // 3. LÓGICA DE LOGIN E SESSÃO
 // ==========================================
+// ==========================================
+// 3. LÓGICA DE LOGIN E SISTEMA DE CARGOS
+// ==========================================
+window.userRole = 'membro'; // Padrão para todo mundo que entra
+
+// Aqui você pode colocar os e-mails dos donos do estúdio que SEMPRE serão Admins absolutos
+const SUPER_ADMINS = ["devao.developer@gmail.com", "seu_socio@gmail.com"]; 
+
 onAuthStateChanged(auth, async (user) => {
     const loginScreen = document.getElementById('login-screen');
     if (user) {
         loginScreen.classList.add('hidden');
         document.querySelector('.user-email').textContent = user.email;
         
-        const ADMIN_EMAIL = "devao.developer@gmail.com";
-        const adminPanel = document.getElementById('admin-panel');
-        if (adminPanel) adminPanel.style.display = (user.email === ADMIN_EMAIL) ? "block" : "none";
+        // 1. Busca os dados do usuário no banco de dados
+        const userDocRef = doc(db, "usuarios", user.uid);
+        const userDoc = await getDoc(userDocRef);
+        
+        let cargoAtual = 'membro';
+        
+        if (userDoc.exists()) {
+            const d = userDoc.data();
+            cargoAtual = d.role || 'membro'; // Puxa o cargo salvo (se não tiver, é membro)
+            window.aplicarTema(d.corTema, d.bgTema, d.modoTema, d.opacidadeTema);
+        }
 
-        // Registro/Atualização do usuário
-        await setDoc(doc(db, "usuarios", user.uid), {
+        // 2. Trava de Segurança: Se for um dos donos, força o cargo de admin
+        if (SUPER_ADMINS.includes(user.email.toLowerCase())) {
+            cargoAtual = 'admin';
+        }
+        
+        window.userRole = cargoAtual; // Salva globalmente para o resto do código usar
+
+        // 3. Atualiza os dados no banco (agora salvando o cargo junto)
+        await setDoc(userDocRef, {
             email: user.email.toLowerCase(),
             uid: user.uid,
             nome: user.displayName || 'Membro',
-            ultimoAcesso: new Date().toISOString()
+            ultimoAcesso: new Date().toISOString(),
+            role: cargoAtual
         }, { merge: true });
 
-        // Carregar Preferências Visuais
-        const userDoc = await getDoc(doc(db, "usuarios", user.uid));
-        if (userDoc.exists()) {
-            const d = userDoc.data();
-            window.aplicarTema(d.corTema, d.bgTema, d.modoTema, d.opacidadeTema);
-            if(document.getElementById('theme-color')) document.getElementById('theme-color').value = d.corTema || '#81fe4e';
-            if(document.getElementById('theme-mode')) document.getElementById('theme-mode').value = d.modoTema || 'dark';
-            if(document.getElementById('theme-opacity')) document.getElementById('theme-opacity').value = d.opacidadeTema || 0.8;
-        }
+        // 4. APLICA AS REGRAS VISUAIS DA TELA
+        window.aplicarPermissoes(cargoAtual);
 
         // Inicia todos os módulos do Workspace
         window.carregarDashboard();
@@ -74,6 +91,21 @@ onAuthStateChanged(auth, async (user) => {
         loginScreen.classList.remove('hidden');
     }
 });
+
+// FUNÇÃO QUE ESCONDE/MOSTRA AS COISAS BASEADO NO CARGO
+window.aplicarPermissoes = (cargo) => {
+    const painelAdm = document.getElementById('admin-panel');
+    const btnNovoProj = document.getElementById('btn-novo-projeto');
+    const btnNovaTask = document.getElementById('btn-nova-tarefa');
+
+    // Só Admin vê o painel de enviar reuniões oficiais
+    if (painelAdm) painelAdm.style.display = (cargo === 'admin') ? "block" : "none";
+
+    // Só Admin e Gerente podem CRIAR projetos e tarefas
+    const podeCriar = (cargo === 'admin' || cargo === 'gerente');
+    if (btnNovoProj) btnNovoProj.style.display = podeCriar ? "block" : "none";
+    if (btnNovaTask) btnNovaTask.style.display = podeCriar ? "block" : "none";
+};
 
 document.getElementById('btn-login-google').onclick = () => signInWithPopup(auth, provider).catch(e => console.error(e));
 document.querySelector('.logout-btn').onclick = () => signOut(auth).catch(e => console.error(e));
@@ -107,28 +139,115 @@ document.addEventListener('click', (e) => { if (e.target.classList.contains('mod
 // ==========================================
 // 5. DASHBOARD E POMODORO
 // ==========================================
-window.pomodoroTempo = 25 * 60;
+window.pomodoroMinutosOriginais = 25;
+window.pomodoroTempo = window.pomodoroMinutosOriginais * 60;
 window.pomodoroIntervalo = null;
+window.tarefaEmFocoAtual = null; // Guarda a tarefa selecionada
 
+// Atualiza o relógio no mini-card e na tela cheia
+window.atualizarDisplayPomodoro = () => {
+    const m = Math.floor(window.pomodoroTempo / 60).toString().padStart(2, '0');
+    const s = (window.pomodoroTempo % 60).toString().padStart(2, '0');
+    const timeStr = `${m}:${s}`;
+    
+    const miniDisplay = document.getElementById('pomodoro-display');
+    const focusDisplay = document.getElementById('focus-time-display');
+    
+    if (miniDisplay) miniDisplay.innerText = timeStr;
+    if (focusDisplay) focusDisplay.innerText = timeStr;
+};
+
+// Lógica de Contagem
 window.iniciarPomodoro = () => {
     if (window.pomodoroIntervalo) return;
     window.pomodoroIntervalo = setInterval(() => {
         if (window.pomodoroTempo > 0) {
             window.pomodoroTempo--;
-            const m = Math.floor(window.pomodoroTempo/60).toString().padStart(2,'0');
-            const s = (window.pomodoroTempo%60).toString().padStart(2,'0');
-            document.getElementById('pomodoro-display').innerText = `${m}:${s}`;
+            window.atualizarDisplayPomodoro();
         } else {
             clearInterval(window.pomodoroIntervalo);
             window.pomodoroIntervalo = null;
             window.pontuarGamificacao('pomodoro');
-            alert("🍅 Tempo de foco concluído!");
-            window.pomodoroTempo = 25 * 60;
-            document.getElementById('pomodoro-display').innerText = "25:00";
+            alert("🍅 Tempo de foco concluído! Faça uma pausa.");
+            
+            // Reseta pro tempo padrão
+            window.pomodoroTempo = window.pomodoroMinutosOriginais * 60;
+            window.atualizarDisplayPomodoro();
         }
     }, 1000);
 };
-window.pausarPomodoro = () => { clearInterval(window.pomodoroIntervalo); window.pomodoroIntervalo = null; };
+
+window.pausarPomodoro = () => { 
+    clearInterval(window.pomodoroIntervalo); 
+    window.pomodoroIntervalo = null; 
+};
+
+window.resetarPomodoro = () => { 
+    window.pausarPomodoro(); 
+    window.pomodoroTempo = window.pomodoroMinutosOriginais * 60; 
+    window.atualizarDisplayPomodoro(); 
+};
+
+// Editar Tempo clicando no relógio gigante
+window.editarTempoPomodoro = () => {
+    window.pausarPomodoro(); // Pausa por segurança
+    const novoTempo = prompt("Quantos minutos você quer focar?", window.pomodoroMinutosOriginais);
+    if (novoTempo && !isNaN(novoTempo) && parseInt(novoTempo) > 0) {
+        window.pomodoroMinutosOriginais = parseInt(novoTempo);
+        window.pomodoroTempo = window.pomodoroMinutosOriginais * 60;
+        window.atualizarDisplayPomodoro();
+    }
+};
+
+// --- MODO FOCO (TELAS E TAREFAS) ---
+window.abrirFocusMode = () => {
+    document.getElementById('pomodoro-focus-mode').classList.add('active');
+    window.carregarTarefasFocus(); // Carrega as tarefas pra escolher
+};
+
+window.fecharFocusMode = () => {
+    document.getElementById('pomodoro-focus-mode').classList.remove('active');
+    document.getElementById('focus-tasks-panel').classList.remove('open');
+};
+
+window.togglePainelTarefasFoco = () => {
+    document.getElementById('focus-tasks-panel').classList.toggle('open');
+};
+
+window.selecionarTarefaFoco = (id, titulo, tag) => {
+    window.tarefaEmFocoAtual = { id, titulo, tag };
+    const label = document.getElementById('focus-current-task');
+    label.innerHTML = `<span style="color:var(--primary)">🎯 Focando em:</span> ${titulo}`;
+    window.togglePainelTarefasFoco(); // Fecha o painel lateral
+};
+
+window.carregarTarefasFocus = async () => {
+    if (!auth.currentUser) return;
+    const lista = document.getElementById('focus-tasks-list');
+    lista.innerHTML = '<p style="color:#666; text-align:center;">Buscando suas tarefas...</p>';
+    
+    try {
+        const qTsk = query(collection(db, "tarefas"), where("userId", "==", auth.currentUser.uid));
+        const snapTsk = await getDocs(qTsk);
+        let pendentes = [];
+        
+        snapTsk.forEach(d => {
+            if (d.data().status !== 'done') pendentes.push({id: d.id, ...d.data()});
+        });
+
+        if(pendentes.length === 0) {
+            lista.innerHTML = '<p style="color:#4caf50; text-align:center;">Tudo limpo! Nenhuma tarefa pendente.</p>';
+            return;
+        }
+
+        lista.innerHTML = pendentes.map(t => `
+            <li onclick="selecionarTarefaFoco('${t.id}', '${t.titulo}', '${t.tag}')">
+                <strong>${t.titulo}</strong>
+                <span>Tag: ${t.tag.toUpperCase()}</span>
+            </li>
+        `).join('');
+    } catch(e) { console.error("Erro ao carregar tarefas pro Foco:", e); }
+};
 
 window.carregarDashboard = async () => {
     if (!auth.currentUser) return;
@@ -221,6 +340,7 @@ window.salvarProjeto = async (e) => {
     } catch (e) { console.error("Erro ao criar projeto:", e); }
 };
 
+// ATUALIZADO: Carregar Projetos (Agora com Suporte a Capa e Avatar)
 window.carregarProjetos = async () => {
     const grid = document.getElementById('projects-grid');
     if (!grid) return;
@@ -230,19 +350,112 @@ window.carregarProjetos = async () => {
         grid.innerHTML = snap.docs.map(d => {
             const p = d.data();
             const iniciais = p.nome.substring(0,2).toUpperCase();
-            let btnApagar = (p.userId === auth.currentUser.uid) ? `<button class="icon-btn" onclick="event.stopPropagation(); deletarProjeto('${d.id}')" style="float:right; color:#ff5252;">🗑️</button>` : '';
+            
+            // Verifica se é o dono para poder apagar
+            let btnApagar = (p.userId === auth.currentUser.uid) ? `<button class="icon-btn" onclick="event.stopPropagation(); deletarProjeto('${d.id}')" style="color:#ff5252; background: rgba(0,0,0,0.5); padding: 6px; border-radius: 6px;">🗑️</button>` : '';
+            
+            // Lógica Visual: Tem Capa? Aplica com gradiente escuro em cima pra ler o texto.
+            const bgStyle = p.capaBase64 ? `background: linear-gradient(rgba(15,15,15,0.7), rgba(15,15,15,0.95)), url('${p.capaBase64}') center/cover; border-color: rgba(255,255,255,0.2);` : '';
+            
+            // Lógica Visual: Tem Avatar? Coloca a imagem, senão usa as Iniciais.
+            const avatarHtml = p.avatarBase64 ? `<img src="${p.avatarBase64}" style="width:100%; height:100%; border-radius:12px; object-fit:cover;">` : iniciais;
+
             return `
-                <div class="client-card" onclick="abrirProjeto('${d.id}', '${p.nome}', '${p.githubRepo}')" style="cursor:pointer;">
-                    <div class="client-header">
-                        <div class="client-avatar">${iniciais}</div>
+                <div class="client-card" onclick="abrirProjeto('${d.id}', '${p.nome}', '${p.githubRepo}')" style="cursor:pointer; ${bgStyle}">
+                    <div class="client-header" style="border-bottom-color: rgba(255,255,255,0.1);">
+                        <div class="client-avatar" style="padding:0; overflow:hidden;">${avatarHtml}</div>
                         <div class="client-title" style="flex:1;">
-                            <h3>${p.nome} ${btnApagar}</h3>
-                            <p class="client-role">${p.descricao}</p>
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                <h3 style="margin:0;">${p.nome}</h3>
+                                ${btnApagar}
+                            </div>
+                            <p class="client-role" style="margin-top:5px;">Equipe: ${p.colaboradores.length} membro(s)</p>
                         </div>
+                    </div>
+                    <div class="client-body">
+                        <p style="color: #e0e0e0;">${p.descricao}</p>
                     </div>
                 </div>`;
         }).join('');
     });
+};
+
+window.abrirModalEditarProjeto = async () => {
+    if (!window.projetoAtualId) return;
+    
+    // Puxa os dados frescos do banco
+    const docSnap = await getDoc(doc(db, "projetos", window.projetoAtualId));
+    if (docSnap.exists()) {
+        const p = docSnap.data();
+        document.getElementById('editProjNome').value = p.nome;
+        document.getElementById('editProjDesc').value = p.descricao;
+        
+        // Remove o próprio e-mail da lista pra não ficar confuso
+        const colabsSemDono = p.colaboradores.filter(em => em !== auth.currentUser.email.toLowerCase());
+        document.getElementById('editProjColabs').value = colabsSemDono.join(', ');
+        
+        document.getElementById('editProjRepo').value = p.githubRepo || '';
+        
+        window.openModal('modalEditarProjeto');
+    }
+};
+
+window.salvarEdicaoProjeto = async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.innerText = "Processando... ⏳";
+
+    const nome = document.getElementById('editProjNome').value.trim();
+    const desc = document.getElementById('editProjDesc').value.trim();
+    const repo = document.getElementById('editProjRepo').value.trim();
+    const colabsInput = document.getElementById('editProjColabs').value;
+    
+    // Monta a lista de e-mails garantindo que o dono está dentro
+    let colaboradores = [auth.currentUser.email.toLowerCase()];
+    if (colabsInput) {
+        const extras = colabsInput.split(',').map(em => em.trim().toLowerCase()).filter(em => em !== '');
+        colaboradores = [...new Set([...colaboradores, ...extras])];
+    }
+
+    const avatarFile = document.getElementById('editProjAvatar').files[0];
+    const capaFile = document.getElementById('editProjCapa').files[0];
+
+    let updateData = {
+        nome: nome,
+        descricao: desc,
+        colaboradores: colaboradores,
+        githubRepo: repo,
+        dataAtualizacao: new Date().toISOString()
+    };
+
+    try {
+        // Converte as imagens para texto (se o usuário enviou alguma)
+        if (avatarFile) {
+            if (avatarFile.size > 800*1024) throw new Error("A imagem do Avatar é muito pesada (Máx 800kb).");
+            updateData.avatarBase64 = await new Promise(r => { const rd = new FileReader(); rd.onloadend = () => r(rd.result); rd.readAsDataURL(avatarFile); });
+        }
+        if (capaFile) {
+            if (capaFile.size > 800*1024) throw new Error("A imagem da Capa é muito pesada (Máx 800kb).");
+            updateData.capaBase64 = await new Promise(r => { const rd = new FileReader(); rd.onloadend = () => r(rd.result); rd.readAsDataURL(capaFile); });
+        }
+
+        // Salva tudo no banco
+        await updateDoc(doc(db, "projetos", window.projetoAtualId), updateData);
+        
+        // Atualiza a tela na mesma hora
+        document.getElementById('projeto-titulo-atual').innerText = nome;
+        window.projetoAtualRepo = repo;
+        
+        closeModal('modalEditarProjeto');
+        document.getElementById('formEditarProjeto').reset();
+
+    } catch (err) {
+        alert(err.message || "Erro inesperado ao salvar o projeto.");
+    }
+    
+    btn.disabled = false;
+    btn.innerText = "Salvar Alterações";
 };
 
 window.deletarProjeto = async (id) => { if(confirm("Apagar projeto?")) { await deleteDoc(doc(db, "projetos", id)); window.carregarProjetos(); } };
@@ -277,76 +490,342 @@ window.switchProjectTab = (id, btn) => {
     btn.classList.add('active');
 };
 
-window.carregarTarefasDoProjeto = (pid) => {
-    onSnapshot(query(collection(db, "tarefas"), where("projetoId", "==", pid)), (snap) => {
-        const dropzones = ['todo', 'doing', 'done'];
-        dropzones.forEach(s => { const el = document.getElementById(s); if(el) el.innerHTML = ''; });
-        let counts = { todo: 0, doing: 0, done: 0 };
-        
-        snap.forEach(d => {
-            const t = d.data();
-            const card = document.createElement('div');
-            card.className = 'kanban-card'; card.id = d.id; card.draggable = true;
-            card.ondragstart = (ev) => ev.dataTransfer.setData("text", d.id);
-            
-            let badgeClass = 'badge-feature';
-            if (t.tag === 'bug') badgeClass = 'badge-bug';
-            if (t.tag === 'art') badgeClass = 'badge-art';
-            if (t.tag === 'docs') badgeClass = 'badge-docs';
+// 2. CARREGAR TAREFAS E FILTROS (Com Cache Inteligente)
+window.tarefasProjetoCache = []; // Guarda as tarefas na memória
+window.kanbanFiltroAtual = 'all'; // Começa mostrando tudo
 
-            card.innerHTML = `
-                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-                    <span class="badge ${badgeClass}">${t.tag.toUpperCase()}</span>
-                    <button class="icon-btn" onclick="deletarTarefa('${d.id}')" style="color:#ff5252;">🗑️</button>
-                </div>
-                <h4>${t.titulo}</h4>
-                <div style="margin-top:15px; font-size:0.75rem; color:var(--text-muted); border-top:1px solid var(--border-color); padding-top:10px;">
-                    Criado por: Você
-                </div>
-            `;
-            const alvo = document.getElementById(t.status);
-            if (alvo) { alvo.appendChild(card); counts[t.status]++; }
+// Função que o botão select do HTML chama quando você escolhe uma área
+window.aplicarFiltroKanban = () => {
+    window.kanbanFiltroAtual = document.getElementById('kanban-filter').value;
+    window.renderizarKanban(); // Re-desenha a tela na hora
+};
+
+// Ouve o Firebase e atualiza o Cache invisível
+window.carregarTarefasDoProjeto = (pid) => {
+    // Se já tivermos um "espião" (listener) antigo rodando, a gente desliga ele primeiro
+    if (window.unsubTarefas) window.unsubTarefas();
+
+    window.unsubTarefas = onSnapshot(query(collection(db, "tarefas"), where("projetoId", "==", pid)), (snap) => {
+        window.tarefasProjetoCache = [];
+        snap.forEach(d => {
+            window.tarefasProjetoCache.push({ id: d.id, ...d.data() });
         });
-        
-        document.getElementById('count-todo').innerText = counts.todo;
-        document.getElementById('count-doing').innerText = counts.doing;
-        document.getElementById('count-done').innerText = counts.done;
+        window.renderizarKanban(); // Manda desenhar a tela
     });
+};
+
+// Desenha a tela aplicando os filtros escolhidos
+window.renderizarKanban = () => {
+    const dropzones = ['todo', 'doing', 'done'];
+    dropzones.forEach(s => { const el = document.getElementById(s); if(el) el.innerHTML = ''; });
+    let counts = { todo: 0, doing: 0, done: 0 };
+    
+    const filtro = window.kanbanFiltroAtual;
+
+    window.tarefasProjetoCache.forEach(t => {
+        if (filtro !== 'all' && t.tag !== filtro) return;
+
+        const card = document.createElement('div');
+        card.className = 'kanban-card'; card.id = t.id; card.draggable = true;
+        card.ondragstart = (ev) => ev.dataTransfer.setData("text", t.id);
+        card.onclick = () => window.abrirDetalhesTarefa(t.id, t);
+        card.dataset.ghIssue = t.githubIssue || '';
+        
+        // Cores das Tags
+        let badgeClass = `badge-${t.tag}`;
+        const ghLink = t.githubIssue ? `<span style="color:var(--primary);" title="GitHub Issue">🔗 #${t.githubIssue}</span>` : '☁️';
+
+        // Lógica de Assiduidade/Dono
+        let assignedHtml = "";
+        if (t.assignedTo) {
+            // Se já tem dono, mostra o nome/iniciais
+            const iniciais = t.assignedName ? t.assignedName.substring(0, 2).toUpperCase() : "??";
+            assignedHtml = `<div class="task-owner" title="Assumido por ${t.assignedName}">${iniciais}</div>`;
+        } else {
+            // Se não tem dono, mostra o botão de Assumir
+            assignedHtml = `<button class="btn-assumir" onclick="event.stopPropagation(); window.assumirTarefa('${t.id}')">Assumir</button>`;
+        }
+
+        const btnApagar = (window.userRole === 'admin') ? 
+            `<button class="icon-btn" onclick="event.stopPropagation(); window.deletarTarefa('${t.id}')" style="color:#ff5252; padding: 5px;">🗑️</button>` : '';
+
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px; align-items:center;">
+                <span class="badge ${badgeClass}">${t.tag.toUpperCase()}</span>
+                ${btnApagar}
+            </div>
+            <h4 style="margin-bottom:15px; min-height:40px;">${t.titulo}</h4>
+            <div class="card-footer">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    ${assignedHtml}
+                    ${ghLink}
+                </div>
+                <span style="font-size:0.7rem; color:var(--text-muted);">v1.0</span>
+            </div>
+        `;
+        
+        const alvo = document.getElementById(t.status);
+        if (alvo) { alvo.appendChild(card); counts[t.status]++; }
+    });
+    
+    document.getElementById('count-todo').innerText = counts.todo;
+    document.getElementById('count-doing').innerText = counts.doing;
+    document.getElementById('count-done').innerText = counts.done;
 };
 
 window.salvarTarefa = async (e) => {
     e.preventDefault();
     if (!auth.currentUser || !window.projetoAtualId) return;
+    
+    // Proteção 1: Pega o botão com segurança
+    const btnSubmit = e.target.querySelector('button[type="submit"]') || e.target.querySelector('button');
+    let textoOriginal = "Criar Tarefa";
+    if (btnSubmit) {
+        textoOriginal = btnSubmit.innerText;
+        btnSubmit.innerText = "Criando... ⏳";
+        btnSubmit.disabled = true;
+    }
+    
     try {
+        // Proteção 2: Pega os valores com "?" (Optional Chaining) para não crashar se o HTML faltar
+        const titulo = document.getElementById('taskTitle')?.value || "Tarefa sem título";
+        const tag = document.getElementById('taskTag')?.value || "feature";
+        const desc = document.getElementById('taskDesc')?.value || ""; 
+        
+        let issueNumber = null;
+        let issueUrl = null;
+        const token = localStorage.getItem('github_token');
+
+        // Tenta enviar pro GitHub
+        if (window.projetoAtualRepo && token) {
+            try {
+                const res = await fetch(`https://api.github.com/repos/${window.projetoAtualRepo}/issues`, {
+                    method: "POST",
+                    headers: {
+                        "Accept": "application/vnd.github+json",
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        title: titulo,
+                        body: desc || `Tarefa gerada via HeartKey Hub.`,
+                        labels: [tag]
+                    })
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    issueNumber = data.number;
+                    issueUrl = data.html_url;
+                }
+            } catch (err) { console.error("Falha Git:", err); } // Se o Git falhar, ele apenas ignora e segue pro Firebase
+        }
+
+        // Salva no nosso banco (Firebase)
         await addDoc(collection(db, "tarefas"), {
-            titulo: document.getElementById('taskTitle').value,
-            tag: document.getElementById('taskTag').value,
+            titulo: titulo, 
+            tag: tag, 
+            descricao: desc, 
             projetoId: window.projetoAtualId,
-            status: 'todo',
-            userId: auth.currentUser.uid,
+            status: 'todo', 
+            githubIssue: issueNumber, 
+            githubUrl: issueUrl,
+            userId: auth.currentUser.uid, 
             dataCriacao: new Date().toISOString()
         });
-        document.getElementById('formTarefa').reset();
-        closeModal('modalTarefa');
-    } catch(e) { console.error(e); }
+        
+        // Limpa o formulário e tenta fechar o modal com segurança
+        document.getElementById('formTarefa')?.reset();
+        
+        if (typeof closeModal === 'function') {
+            closeModal('modalTarefa');
+        } else if (typeof window.closeModal === 'function') {
+            window.closeModal('modalTarefa');
+        }
+        
+    } catch(erroFatal) { 
+        console.error("Erro fatal ao salvar tarefa:", erroFatal); 
+        alert("Ops! Ocorreu um erro ao salvar a tarefa. Aperte F12 e olhe o Console.");
+    } finally {
+        // Proteção 3: O bloco FINALLY roda de qualquer jeito, garantindo que o botão destrave!
+        if (btnSubmit) {
+            btnSubmit.innerText = textoOriginal;
+            btnSubmit.disabled = false;
+        }
+    }
 };
 
-window.deletarTarefa = async (id) => { if(confirm("Apagar tarefa?")) await deleteDoc(doc(db, "tarefas", id)); };
+// 5. APAGAR TAREFA (E cancelar a Issue no GitHub)
+window.deletarTarefa = async (id) => {
+    if(confirm("Apagar esta tarefa permanentemente?")) {
+        try {
+            // 1. Pega os dados da tarefa para saber qual é o número da Issue no Git
+            const docRef = doc(db, "tarefas", id);
+            const docSnap = await getDoc(docRef);
+            
+            if (docSnap.exists()) {
+                const tarefa = docSnap.data();
+                const token = localStorage.getItem('github_token');
+                
+                // 2. Se ela estiver atrelada a uma Issue, avisa o GitHub para cancelar!
+                if (window.projetoAtualRepo && token && tarefa.githubIssue) {
+                    await fetch(`https://api.github.com/repos/${window.projetoAtualRepo}/issues/${tarefa.githubIssue}`, {
+                        method: "PATCH",
+                        headers: {
+                            "Accept": "application/vnd.github+json",
+                            "Authorization": `Bearer ${token}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({ 
+                            state: "closed", 
+                            state_reason: "not_planned" // O pulo do gato: marca como "Cancelada/Excluída"
+                        }) 
+                    });
+                }
+            }
+            
+            // 3. Finalmente, apaga a tarefa do nosso banco de dados no Firebase
+            await deleteDoc(docRef);
+            
+        } catch(err) {
+            console.error("Erro ao apagar tarefa e sincronizar com Git:", err);
+            alert("Erro ao excluir. Olhe o console (F12).");
+        }
+    }
+};
 
 window.allowDrop = (e) => e.preventDefault();
+
 window.drop = async (e) => {
     e.preventDefault();
     const id = e.dataTransfer.getData("text");
     const zone = e.target.closest('.kanban-dropzone');
+    
     if (zone) {
-        await updateDoc(doc(db, "tarefas", id), { status: zone.id });
-        if (zone.id === 'done') window.pontuarGamificacao('tarefa');
+        const novoStatus = zone.id;
+        const taskRef = doc(db, "tarefas", id);
+        const docSnap = await getDoc(taskRef);
+        
+        if (docSnap.exists()) {
+            const t = docSnap.data();
+
+            // Atualiza status no Firebase
+            await updateDoc(taskRef, { status: novoStatus });
+
+            // GAMIFICAÇÃO: Se foi concluída, pontua para quem estava assumido!
+            if (novoStatus === 'done' && t.assignedTo) {
+                // Passamos o ID de quem estava na tarefa para o ranking
+                window.pontuarGamificacao('tarefa', t.assignedTo, t.tag);
+            }
+
+            // Sync GitHub (mesma lógica de antes...)
+            const token = localStorage.getItem('github_token');
+            if (window.projetoAtualRepo && token && t.githubIssue) {
+                const state = novoStatus === 'done' ? 'closed' : 'open';
+                fetch(`https://api.github.com/repos/${window.projetoAtualRepo}/issues/${t.githubIssue}`, {
+                    method: "PATCH",
+                    headers: {
+                        "Accept": "application/vnd.github+json",
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ state: state })
+                });
+            }
+        }
     }
 };
 
 window.configurarGitHub = function() {
     const token = prompt("Cole seu Personal Access Token do GitHub:");
     if(token) { localStorage.setItem('github_token', token.trim()); alert("Token salvo no navegador!"); }
+};
+
+// ==========================================
+// IMPORTAR ISSUES DO GITHUB PARA O HUB
+// ==========================================
+window.sincronizarGitHub = async () => {
+    if (!auth.currentUser || !window.projetoAtualId) return;
+    
+    const token = localStorage.getItem('github_token');
+    if (!token || !window.projetoAtualRepo) {
+        alert("⚠️ Conecte seu Token do GitHub e garanta que o repositório do projeto está configurado (ex: heartkeystudio/freakhunter).");
+        return;
+    }
+
+    const btn = document.querySelector('button[onclick="sincronizarGitHub()"]');
+    const textoOriginal = btn.innerText;
+    btn.innerText = "Sincronizando... ⏳";
+    btn.disabled = true;
+
+    try {
+        // 1. Vai no GitHub buscar TODAS as issues
+        const res = await fetch(`https://api.github.com/repos/${window.projetoAtualRepo}/issues?state=all&per_page=100`, {
+            method: "GET",
+            headers: {
+                "Accept": "application/vnd.github+json",
+                "Authorization": `Bearer ${token}`
+            }
+        });
+
+        if (!res.ok) throw new Error("Não foi possível ler o repositório.");
+        const issuesGit = await res.json();
+
+        // 2. Busca as tarefas que JÁ EXISTEM no Firebase
+        const q = query(collection(db, "tarefas"), where("projetoId", "==", window.projetoAtualId));
+        const snap = await getDocs(q);
+        const issuesNativas = new Set();
+        
+        snap.forEach(doc => {
+            if (doc.data().githubIssue) issuesNativas.add(doc.data().githubIssue);
+        });
+
+        // 3. Compara e salva as que estão faltando
+        let importadas = 0;
+        
+        for (const issue of issuesGit) {
+            // IGNORA Pull Requests
+            if (issue.pull_request) continue;
+
+            // O PULO DO GATO: Ignora as issues que foram "apagadas/canceladas"
+            if (issue.state_reason === 'not_planned') continue; 
+
+            // Se essa Issue ainda não existe no nosso Kanban e NÃO foi cancelada...
+            if (!issuesNativas.has(issue.number)) {
+                
+                let statusColuna = issue.state === 'closed' ? 'done' : 'todo';
+                
+                let tag = 'feature'; 
+                if (issue.labels && issue.labels.length > 0) {
+                    const labelStr = issue.labels[0].name.toLowerCase();
+                    if (labelStr.includes('bug')) tag = 'bug';
+                    else if (labelStr.includes('art')) tag = 'art';
+                    else if (labelStr.includes('doc')) tag = 'docs';
+                }
+
+                await addDoc(collection(db, "tarefas"), {
+                    titulo: issue.title,
+                    descricao: issue.body || "", // Já puxa a descrição original também!
+                    tag: tag,
+                    projetoId: window.projetoAtualId,
+                    status: statusColuna,
+                    githubIssue: issue.number,
+                    githubUrl: issue.html_url,
+                    userId: auth.currentUser.uid, 
+                    dataCriacao: issue.created_at
+                });
+                importadas++;
+            }
+        }
+
+        alert(`✅ Sincronização concluída! ${importadas} novas Issues importadas para o Kanban.`);
+    } catch (err) {
+        console.error("Erro na Sincronização:", err);
+        alert(err.message || "Erro ao sincronizar. Olhe o console (F12).");
+    }
+
+    btn.innerText = textoOriginal;
+    btn.disabled = false;
 };
 
 // ==========================================
@@ -413,27 +892,168 @@ window.deletarPaginaWiki = async () => {
     }
 };
 
-// Áudios
-window.adicionarNovaMusica = async () => {
-    if (!window.projetoAtualId) return;
-    const tit = prompt("Nome da música/SFX:"); if (!tit) return;
-    const url = prompt("Link do áudio (mp3/wav):"); if (!url) return;
-    await addDoc(collection(db, "audios"), { projetoId: window.projetoAtualId, titulo: tit, url: url, dataCriacao: new Date().toISOString() });
+window.assumirTarefa = async (taskId) => {
+    if (!auth.currentUser) return;
+    
+    // Pega o nome do usuário atual (do perfil ou e-mail)
+    const nomeUser = auth.currentUser.displayName || auth.currentUser.email.split('@')[0];
+
+    try {
+        await updateDoc(doc(db, "tarefas", taskId), {
+            assignedTo: auth.currentUser.uid,
+            assignedName: nomeUser,
+            status: 'doing' // Opcional: Já move pra "Fazendo" ao assumir
+        });
+        // A renderização acontece automaticamente via onSnapshot
+    } catch (e) { console.error("Erro ao assumir tarefa:", e); }
 };
 
+// ==========================================
+// ÁUDIOS E FEEDBACK COM TIMESTAMPS
+// ==========================================
+
+window.adicionarNovaMusica = async function() {
+    if (!window.projetoAtualId) return alert("Abra um projeto primeiro.");
+    
+    const titulo = prompt("Digite o nome da música ou SFX:");
+    if (!titulo) return;
+    
+    let url = prompt("Cole o link do áudio (Google Drive, Discord, etc):");
+    if (!url) return;
+
+    // MÁGICA: Se for link do Google Drive, converte para link de reprodução direta
+    if (url.includes("drive.google.com")) {
+        // Extrai o ID do arquivo do link
+        const fileId = url.match(/[-\w]{25,}/); 
+        if (fileId) {
+            url = `https://drive.google.com/uc?export=download&id=${fileId[0]}`;
+        }
+    }
+
+    try {
+        await addDoc(collection(db, "audios"), {
+            projetoId: window.projetoAtualId,
+            titulo: titulo,
+            url: url,
+            adicionadoPor: auth.currentUser.email.split('@')[0], 
+            autorEmail: auth.currentUser.email,
+            dataCriacao: new Date().toISOString()
+        });
+        window.carregarAudiosDoProjeto(window.projetoAtualId);
+    } catch (e) { console.error("Erro ao adicionar áudio:", e); }
+};
+
+window.audioAtualId = null; // Guarda qual música está selecionada no momento
+
+// 1. Carregar Playlist (Atualizado para passar o ID da música)
 window.carregarAudiosDoProjeto = (pid) => {
     onSnapshot(query(collection(db, "audios"), where("projetoId", "==", pid)), (snap) => {
         const list = document.getElementById('audio-playlist');
-        if(list) list.innerHTML = snap.docs.map(d => `<li onclick="abrirAudio('${d.data().url}', '${d.data().titulo}')" style="cursor:pointer; padding:8px 0; border-bottom:1px solid var(--border-color);">🎵 ${d.data().titulo}</li>`).join('');
+        if(list) list.innerHTML = snap.docs.map(d => `
+            <li onclick="abrirAudio('${d.data().url}', '${d.data().titulo}', '${d.id}')" style="cursor:pointer; padding:8px 0; border-bottom:1px solid var(--border-color); color:var(--text-main); display:flex; justify-content:space-between;">
+                <span>🎵 ${d.data().titulo}</span>
+                <button class="icon-btn" onclick="event.stopPropagation(); deletarAudio('${d.id}')" style="color:#ff5252; font-size:0.8rem;">🗑️</button>
+            </li>
+        `).join('');
     });
 };
-window.abrirAudio = (url, tit) => {
+
+// 2. Apagar Áudio
+window.deletarAudio = async (id) => {
+    if(confirm("Apagar esta música da playlist?")) {
+        await deleteDoc(doc(db, "audios", id));
+        if (window.audioAtualId === id) {
+            document.getElementById('review-audio').src = '';
+            document.getElementById('audio-tocando-nome').innerText = 'Selecione';
+            document.getElementById('audio-comments-list').innerHTML = '';
+        }
+    }
+};
+
+// 3. Abrir Música no Player e carregar os comentários dela
+window.abrirAudio = (url, tit, id) => {
+    window.audioAtualId = id; 
     document.getElementById('review-audio').src = url;
     document.getElementById('audio-tocando-nome').innerText = tit;
+    window.carregarComentariosDoAudio(id);
 };
-window.adicionarComentarioAudioReal = () => {
-    alert("Sistema de timestamp será ativado quando vinculado ao áudio selecionado!");
-    document.getElementById('new-audio-comment').value = '';
+
+// 4. Salvar o Feedback com o Tempo da Música
+window.adicionarComentarioAudioReal = async () => {
+    if (!window.audioAtualId) return alert("Selecione uma música na playlist primeiro!");
+    
+    const inputTexto = document.getElementById('new-audio-comment');
+    const texto = inputTexto.value.trim();
+    if (!texto) return;
+
+    // Pega onde a "agulha" do player está neste exato milissegundo
+    const player = document.getElementById('review-audio');
+    const tempoAtual = player.currentTime; 
+
+    try {
+        await addDoc(collection(db, "comentarios_audio"), {
+            audioId: window.audioAtualId,
+            texto: texto,
+            tempo: tempoAtual,
+            autor: auth.currentUser.email.split('@')[0],
+            dataCriacao: new Date().toISOString()
+        });
+        inputTexto.value = ''; // Limpa o campo
+    } catch (e) { console.error("Erro ao comentar:", e); }
+};
+
+// 5. Renderizar a lista de comentários
+window.carregarComentariosDoAudio = (audioId) => {
+    const lista = document.getElementById('audio-comments-list');
+    if (!lista) return;
+
+    onSnapshot(query(collection(db, "comentarios_audio"), where("audioId", "==", audioId)), (snap) => {
+        let comentarios = [];
+        snap.forEach(d => comentarios.push({ id: d.id, ...d.data() }));
+        
+        // Ordena os comentários pelo tempo da música (do início pro fim)
+        comentarios.sort((a, b) => a.tempo - b.tempo);
+
+        if (comentarios.length === 0) {
+            lista.innerHTML = '<li style="color: #666; padding: 10px;">Nenhum feedback ainda. Seja o primeiro!</li>';
+            return;
+        }
+
+        lista.innerHTML = comentarios.map(c => {
+            // Transforma os segundos (ex: 65.4) no formato de relógio (01:05)
+            const min = Math.floor(c.tempo / 60).toString().padStart(2, '0');
+            const seg = Math.floor(c.tempo % 60).toString().padStart(2, '0');
+            const tempoFormatado = `${min}:${seg}`;
+
+            // Mostra lixeirinha só se o comentário for da pessoa logada
+            const meuComentario = c.autor === auth.currentUser.email.split('@')[0];
+            const btnApagar = meuComentario ? `<button class="icon-btn" onclick="deletarComentarioAudio('${c.id}')" style="color: #ff5252; font-size: 0.8rem;">🗑️</button>` : '';
+
+            return `
+                <li style="padding: 10px; border-bottom: 1px solid var(--border-color); display: flex; align-items: flex-start; gap: 12px; transition: 0.2s;">
+                    <button class="timestamp-btn" onclick="pularParaTempo(${c.tempo})" style="background: var(--primary); color: #000; border: none; padding: 4px 8px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size:0.8rem;">${tempoFormatado}</button>
+                    <div style="flex: 1;">
+                        <strong style="color: var(--primary); font-size: 0.85rem;">${c.autor}</strong>
+                        <p style="font-size: 0.9rem; color: #e0e0e0; margin-top: 4px;">${c.texto}</p>
+                    </div>
+                    ${btnApagar}
+                </li>
+            `;
+        }).join('');
+    });
+};
+
+// 6. Fazer o player pular pra parte exata do comentário
+window.pularParaTempo = (segundos) => {
+    const player = document.getElementById('review-audio');
+    if (player) {
+        player.currentTime = parseFloat(segundos);
+        player.play(); // Opcional: já dá o play direto na parte
+    }
+};
+
+window.deletarComentarioAudio = async (id) => {
+    if(confirm("Apagar este feedback?")) await deleteDoc(doc(db, "comentarios_audio", id));
 };
 
 
@@ -812,11 +1432,20 @@ window.responderConvite = async function(id, novoStatus) {
 // ==========================================
 // 10. PERFIL E CUSTOMIZAÇÃO
 // ==========================================
-window.pontuarGamificacao = async (tipo) => {
-    if(!auth.currentUser) return;
-    const ref = doc(db, "usuarios", auth.currentUser.uid);
-    if (tipo === 'pomodoro') await updateDoc(ref, { pomodoros: increment(1) });
-    if (tipo === 'tarefa') await updateDoc(ref, { tasksFeitas: increment(1) });
+window.pontuarGamificacao = async (tipo, userIdAlvo, tag) => {
+    const uid = userIdAlvo || auth.currentUser.uid;
+    const userRef = doc(db, "usuarios", uid);
+    
+    // Define pontos por tipo
+    let pontos = 0;
+    if (tipo === 'tarefa') pontos = 10;
+    if (tipo === 'pomodoro') pontos = 5;
+
+    // Incrementa no banco de dados
+    await updateDoc(userRef, {
+        xp: increment(pontos),
+        [`stats.${tag || 'geral'}`]: increment(1) // Salva que ele fez +1 de 'art', 'bug', etc.
+    });
 };
 
 window.carregarRanking = () => {
