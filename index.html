@@ -105,11 +105,26 @@
                 <div class="client-grid" id="projects-grid"></div>
             </div>
             <div id="projeto-view" style="display: none;">
-                <div class="section-header">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <button class="btn-secondary" onclick="voltarParaProjetos()">&larr;</button>
-                        <h1 id="projeto-titulo-atual">Projeto</h1>
-                        <button class="icon-btn" onclick="abrirModalEditarProjeto()" title="Configurações do Projeto" style="font-size: 1.5rem; margin-top: -5px;">⚙️</button>
+                <div id="project-banner" class="project-banner">
+                    <div class="banner-overlay"></div>
+                    
+                    <div style="position: absolute; top: 20px; left: 20px; z-index: 2; display: flex; gap: 10px;">
+                        <button class="btn-secondary" onclick="voltarParaProjetos()" style="background: rgba(0,0,0,0.5); border: none; padding: 8px 15px;">&larr; Voltar</button>
+                        <button class="icon-btn" onclick="abrirModalEditarProjeto()" title="Configurações do Projeto" style="background: rgba(0,0,0,0.5); padding: 8px; border-radius: 8px; color: #fff;">⚙️</button>
+                    </div>
+                    
+                    <div style="position: relative; z-index: 2; width: 100%; display: flex; flex-direction: column; gap: 15px;">
+                        <h2 id="titulo-workspace">Nome do Projeto</h2>
+                        
+                        <div class="project-exp-container">
+                            <div class="exp-info">
+                                <span id="project-version-text" style="color: var(--primary);">v0.10 (Concept)</span>
+                                <span id="project-exp-text">0% Concluído</span>
+                            </div>
+                            <div class="exp-bar-bg">
+                                <div id="project-exp-fill" class="exp-bar-fill"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="internal-tabs">
@@ -301,7 +316,35 @@
     </div>
 
     <!-- MODAIS -->
-    <div id="modalNovoProjeto" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2>Novo Projeto</h2><button class="close-btn" onclick="closeModal('modalNovoProjeto')">&times;</button></div><form onsubmit="salvarProjeto(event)" class="hub-form"><input type="text" id="projetoNome" placeholder="Nome" required><input type="text" id="projetoDesc" placeholder="Descrição" required><input type="text" id="projetoColabs" placeholder="Colabs (e-mails)"><input type="text" id="projetoRepo" placeholder="GitHub Repo (user/repo)"><button type="submit" class="btn-primary">Criar</button></form></div></div>
+    <div id="modalNovoProjeto" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Novo Projeto</h2>
+                <button class="close-btn" onclick="closeModal('modalNovoProjeto')">&times;</button>
+            </div>
+            <form id="formNovoProjeto" onsubmit="salvarProjeto(event)" class="hub-form">
+                <div class="form-group">
+                    <label>Nome do Projeto</label>
+                    <input type="text" id="projName" placeholder="Ex: Freak Hunter" required>
+                </div>
+                <div class="form-group">
+                    <label>Descrição</label>
+                    <input type="text" id="projetoDesc" placeholder="Uma breve descrição..." required>
+                </div>
+                <div class="form-group">
+                    <label>Repositório GitHub (Opcional)</label>
+                    <input type="text" id="projRepo" placeholder="Ex: heartkeystudio/freakhunter">
+                </div>
+                <div class="form-group">
+                    <label>Banner do Projeto (Arquivo máx 800kb)</label>
+                    <input type="file" id="projBanner" accept="image/*">
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn-primary">Criar Projeto</button>
+                </div>
+            </form>
+        </div>
+    </div>
     <div id="modalTarefa" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2>Nova Tarefa</h2><button class="close-btn" onclick="closeModal('modalTarefa')">&times;</button></div><form onsubmit="salvarTarefa(event)" class="hub-form"><input type="text" id="taskTitle" placeholder="Título" required><select id="taskTag"><option value="feature">Feature</option><option value="bug">Bug</option><option value="art">Arte</option><option value="docs">Docs</option></select><button type="submit" class="btn-primary">Criar</button></form></div></div>
     
     <div id="modalCliente" class="modal-overlay">
@@ -370,9 +413,15 @@
                 <button class="close-btn" onclick="closeModal('modalEditarProjeto')">&times;</button>
             </div>
             <form class="hub-form" id="formEditarProjeto" onsubmit="salvarEdicaoProjeto(event)">
-                <div class="form-group">
-                    <label>Nome do Projeto</label>
-                    <input type="text" id="editProjNome" required>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nome do Projeto</label>
+                        <input type="text" id="editProjNome" required>
+                    </div>
+                    <div class="form-group" style="max-width: 120px;">
+                        <label>Versão Alvo</label>
+                        <input type="number" id="editProjVersao" min="1" step="1" placeholder="Ex: 2">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Descrição</label>
@@ -403,6 +452,27 @@
             </form>
         </div>
     </div>
+
+    <div id="modalDetalhesTarefa" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="detalheTaskTitulo">Título da Tarefa</h2>
+            <button class="close-btn" onclick="closeModal('modalDetalhesTarefa')">&times;</button>
+        </div>
+        <div style="margin-bottom: 20px;">
+            <span id="detalheTaskTag" class="badge">TAG</span>
+            <span id="detalheTaskGit" style="margin-left: 10px; font-size: 0.8rem; color: var(--text-muted);"></span>
+        </div>
+        <div class="dash-panel" style="background: rgba(0,0,0,0.2); padding: 20px;">
+            <div id="detalheTaskDesc" class="checklist-container">Sem descrição.</div>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+            <a id="btn-abrir-git" href="#" target="_blank" class="btn-primary" style="display: none; text-decoration: none; padding: 10px 20px; font-size: 0.9rem; background: #24292e; border-color: #24292e; color: #fff;">🐙 Abrir no GitHub</a>
+            
+            <button class="btn-secondary" onclick="closeModal('modalDetalhesTarefa')">Fechar</button>
+        </div>
+    </div>
+</div>
 
     <script type="module" src="hub.js"></script>
 </body>
