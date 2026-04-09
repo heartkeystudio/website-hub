@@ -22,27 +22,27 @@
         </div>
     </div>
 
-    <aside class="sidebar">
+    <aside class="sidebar" id="main-sidebar">
         <div class="logo">
-            <h2>HeartKey<span>.</span></h2>
-            <button id="mobile-menu-btn">Menu</button>
+            <h2 class="logo-text">HeartKey<span>.</span></h2>
+            <button id="toggle-sidebar-btn" class="icon-btn" data-tooltip="Menu" style="font-size: 1.2rem;">◀</button>
         </div>
         <div class="user-info-sidebar">
             <p class="user-email">user@gmail.com</p>
         </div>
         <nav class="menu">
-            <button class="nav-btn active" data-target="dashboard">Dashboard</button>
-            <button class="nav-btn" data-target="projetos">Projetos</button>
-            <button class="nav-btn" data-target="gamejam" style="color: var(--primary);">🎮 Game Jam</button>
-            <button class="nav-btn" data-target="clientes">Clientes</button>
-            <button class="nav-btn" data-target="cronograma">Cronograma</button>
-            <button class="nav-btn" data-target="financeiro">Financeiro</button>
-            <button class="nav-btn" data-target="reunioes">Reuniões</button>
-            <button class="nav-btn" data-target="perfil" style="color: #ffc107;">🏆 Perfil & Ranking</button>
-            <button class="nav-btn" data-target="diario">Diário Pessoal</button>
+            <button class="nav-btn active" data-target="dashboard" data-tooltip="Dashboard">📊 <span class="nav-text">Dashboard</span></button>
+            <button class="nav-btn" data-target="projetos" data-tooltip="Projetos">📁 <span class="nav-text">Projetos</span></button>
+            <button class="nav-btn" data-target="gamejam" style="color: var(--primary);" data-tooltip="Game Jam">🎮 <span class="nav-text">Game Jam</span></button>
+            <button class="nav-btn" data-target="clientes" data-tooltip="Clientes">🤝 <span class="nav-text">Clientes</span></button>
+            <button class="nav-btn" data-target="cronograma" data-tooltip="Cronograma">📅 <span class="nav-text">Cronograma</span></button>
+            <button class="nav-btn" data-target="financeiro" data-tooltip="Financeiro">💰 <span class="nav-text">Financeiro</span></button>
+            <button class="nav-btn" data-target="reunioes" data-tooltip="Reuniões">🎥 <span class="nav-text">Reuniões</span></button>
+            <button class="nav-btn" data-target="perfil" style="color: #ffc107;" data-tooltip="Perfil & Ranking">🏆 <span class="nav-text">Perfil & Ranking</span></button>
+            <button class="nav-btn" data-target="diario" data-tooltip="Diário Pessoal">📓 <span class="nav-text">Diário Pessoal</span></button>
         </nav>
         <div class="sidebar-footer">
-            <button class="logout-btn">Sair</button>
+            <button class="logout-btn nav-btn" data-tooltip="Sair" style="color: #ff5252; width: 100%; justify-content: center;">🚪 <span class="nav-text">Sair</span></button>
         </div>
     </aside>
 
@@ -109,8 +109,8 @@
                     <div class="banner-overlay"></div>
                     
                     <div style="position: absolute; top: 20px; left: 20px; z-index: 2; display: flex; gap: 10px;">
-                        <button class="btn-secondary" onclick="voltarParaProjetos()" style="background: rgba(0,0,0,0.5); border: none; padding: 8px 15px;">&larr; Voltar</button>
-                        <button class="icon-btn" onclick="abrirModalEditarProjeto()" title="Configurações do Projeto" style="background: rgba(0,0,0,0.5); padding: 8px; border-radius: 8px; color: #fff;">⚙️</button>
+                        <button class="btn-secondary" data-tooltip="Voltar para Projetos" onclick="voltarParaProjetos()">&larr;</button>
+                        <button class="icon-btn" data-tooltip="Configurações do Projeto" onclick="abrirModalEditarProjeto()">⚙️</button>
                     </div>
                     
                     <div style="position: relative; z-index: 2; width: 100%; display: flex; flex-direction: column; gap: 15px;">
@@ -128,16 +128,16 @@
                     </div>
                 </div>
                 <div class="internal-tabs">
-                    <button class="itab-btn active" onclick="switchProjectTab('tab-kanban', this)">📋 Kanban</button>
-                    <button class="itab-btn" onclick="switchProjectTab('tab-audios', this)">🎵 Áudios</button>
-                    <button class="itab-btn" onclick="switchProjectTab('tab-wiki', this)">📖 Wiki (Obsidian)</button>
+                    <button class="itab-btn active" data-tooltip="Quadro Kanban" onclick="switchProjectTab('tab-kanban', this)">📋</button>
+                    <button class="itab-btn" data-tooltip="Trilha e Efeitos" onclick="switchProjectTab('tab-audios', this)">🎵</button>
+                    <button class="itab-btn" data-tooltip="Documentação" onclick="switchProjectTab('tab-wiki', this)">📖</button>
                 </div>
                 <!-- Kanban -->
                 <div id="tab-kanban" class="project-tab-content active">
                     <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
-                        <button id="btn-nova-tarefa" class="btn-primary" onclick="openModal('modalTarefa')">+ Tarefa</button>
-                        <button class="btn-secondary" onclick="configurarGitHub()">🔗 GitHub</button>
-                        <button class="btn-secondary" onclick="sincronizarGitHub()" style="border-color: var(--primary); color: var(--primary);">🔄 Sincronizar Issues</button>
+                        <button id="btn-nova-tarefa" class="btn-primary" data-tooltip="Adicionar Tarefa" onclick="openModal('modalTarefa')">+</button>
+                        <button class="btn-secondary" data-tooltip="Assinar Token Github" onclick="configurarGitHub()">🔗</button>
+                        <button class="btn-secondary" data-tooltip="Sincronizar Issues" onclick="sincronizarGitHub()" style="border-color: var(--primary); color: var(--primary);">🔄</button>
                         
                         <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
                             <label style="color: var(--text-muted); font-size: 0.85rem;">Filtrar:</label>
@@ -166,47 +166,85 @@
                         </div>
                     </div>
                 </div>
-                <!-- Áudios -->
+
                 <div id="tab-audios" class="project-tab-content" style="display: none;">
-                    <div class="assets-layout">
-                        <div class="dash-panel">
-                            <h3>Playlist</h3>
-                            <ul id="audio-playlist" class="comments-list"></ul>
-                            <button class="btn-primary" onclick="adicionarNovaMusica()" style="width: 100%; margin-top: 10px;">+ Add Áudio</button>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 20px;">
+                        <div>
+                            <h2 style="margin:0;">🎵 Central de Áudio</h2>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 5px;">Músicas, efeitos sonoros e referências do projeto.</p>
                         </div>
-                        <div class="dash-panel">
-                            <h3 id="audio-tocando-nome">Selecione</h3>
-                            <audio id="review-audio" controls style="width: 100%; margin: 15px 0;"></audio>
-                            <div class="add-comment-box">
-                                <input type="text" id="new-audio-comment" placeholder="Feedback no tempo atual...">
-                                <button class="btn-primary" onclick="adicionarComentarioAudioReal()">Ok</button>
-                            </div>
-                            <ul id="audio-comments-list" class="comments-list" style="margin-top: 15px;"></ul>
+                        
+                        <div class="audio-subtabs">
+                            <button class="audio-subtab-btn active" onclick="switchAudioSubTab('view-nossos-audios', this)">Nossos Áudios</button>
+                            <button class="audio-subtab-btn" onclick="switchAudioSubTab('view-moodboard', this)">📌 Moodboard</button>
                         </div>
                     </div>
+
+                    <div id="view-nossos-audios" class="audio-view-content">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px; align-items: center;">
+                            
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <h3 style="color: var(--primary); font-size: 1.1rem; border: none; padding: 0;">Arquivos Originais</h3>
+                                <select id="audio-filter" onchange="aplicarFiltroAudio()" style="width: auto; margin-bottom: 0; padding: 6px 12px; font-size: 0.85rem; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); color: #fff; cursor: pointer; border-radius: 6px;">
+                                    <option value="all">Todas as Tags</option>
+                                    <option value="SFX">💥 SFX</option>
+                                    <option value="BGM">🎵 BGM</option>
+                                    <option value="VO">🎙️ VO</option>
+                                    <option value="UI">🖱️ UI</option>
+                                </select>
+                            </div>
+                            
+                            <button class="btn-primary" onclick="openModal('modalNovoAudio')">+ Enviar Áudio</button>
+                        </div>
+                        <div id="audios-grid" class="audios-grid"></div>
+                    </div>
+
+                    <div id="view-moodboard" class="audio-view-content" style="display: none;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px; align-items: center;">
+                            <h3 style="color: #ffc107; font-size: 1.1rem; border: none; padding: 0;">Referências de Inspiração</h3>
+                            <button class="btn-secondary" onclick="openModal('modalNovaReferencia')">+ Link de Referência</button>
+                        </div>
+                        <div id="moodboard-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;"></div>
+                    </div>
+
                 </div>
+
                 <!-- Wiki (Obsidian) -->
                 <div id="tab-wiki" class="project-tab-content" style="display: none;">
                     <div class="wiki-layout">
                         <div class="dash-panel wiki-sidebar">
-                            <h3>Docs</h3>
-                            <ul id="wiki-pages-list" class="comments-list"></ul>
-                            <button class="btn-secondary" onclick="novaPaginaWiki()" style="width: 100%; margin-top: 10px;">+ Nova</button>
-                        </div>
-                        <div class="dash-panel wiki-editor-container">
-                            <div class="wiki-header-tools">
-                                <input type="text" id="wiki-titulo" placeholder="Título do Documento">
-                                <div class="internal-tabs" style="border:none; margin:0;">
-                                    <button class="itab-btn active" id="btn-wiki-edit" onclick="setWikiMode('edit')">✍️</button>
-                                    <button class="itab-btn" id="btn-wiki-preview" onclick="setWikiMode('preview')">👁️</button>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                                <h3 style="margin:0; border:none; padding:0;">Documentos</h3>
+                                <div style="display: flex; gap: 5px;">
+                                    <button class="icon-btn" data-tooltip="Nova Pasta" onclick="novaPastaWiki()" style="background: rgba(255,255,255,0.05); padding: 6px; border-radius: 8px;">📁</button>
+                                    <button class="icon-btn" data-tooltip="Novo Documento" onclick="novaPaginaWiki()" style="background: rgba(129, 254, 78, 0.15); color: var(--primary); padding: 6px; border-radius: 8px;">📄</button>
                                 </div>
                             </div>
-                            <textarea id="wiki-conteudo" placeholder="Escreva em Markdown... (use ```mermaid para gráficos)"></textarea>
-                            <div id="wiki-preview-area" class="markdown-body" style="display: none;"></div>
-                            <div class="wiki-footer">
-                                <button class="btn-secondary" onclick="deletarPaginaWiki()" style="color:#ff5252;">🗑️</button>
-                                <button class="btn-primary" onclick="salvarPaginaWiki()">Salvar</button>
+                            
+                            <input type="text" id="wiki-search-input" placeholder="🔍 Buscar documentos..." onkeyup="filtrarWiki()" style="width:100%; margin-bottom:15px; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.1); background:rgba(0,0,0,0.3); color:white; font-size: 0.85rem;">
+                            
+                            <div id="wiki-tree-container" class="wiki-tree-container">
+                                <div class="wiki-folder-content wiki-dropzone" id="folder-root" ondragover="dragOverWiki(event)" ondragleave="dragLeaveWiki(event)" ondrop="dropWiki(event, 'root')"></div>
                             </div>
+                        </div>
+                        <div class="dash-panel wiki-editor-container">
+                            <div class="wiki-header-tools" style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center;">
+                                <input type="text" id="wiki-titulo" placeholder="Título do Documento" style="margin-bottom: 0; flex: 1;" oninput="triggerAutoSave()">
+                                <span id="wiki-autosave-indicator" style="font-size: 0.75rem; color: var(--primary); font-weight: bold; opacity: 0; transition: 0.3s;">✓ Salvo</span>
+                                
+                                <div class="internal-tabs" style="border:none; margin:0; padding:0; gap: 5px;">
+                                    <button class="itab-btn active" id="btn-wiki-edit" data-tooltip="Escrever" onclick="setWikiMode('edit')">✍️</button>
+                                    <button class="itab-btn" id="btn-wiki-preview" data-tooltip="Leitura" onclick="setWikiMode('preview')">👁️</button>
+                                    <button class="itab-btn" id="btn-wiki-fullscreen" data-tooltip="Tela Cheia" onclick="toggleFullscreenWiki()">⛶</button>
+                                </div>
+                            </div>
+                            <div id="wiki-toc" class="wiki-toc" style="display: none;"></div>
+                            
+                            <div id="wiki-metadata" style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 25px; font-style: italic; border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 10px; display: none;"></div>
+                            
+                            <textarea id="wiki-conteudo" placeholder="Comece a escrever seu documento com Markdown..." oninput="triggerAutoSave()"></textarea>
+                            <div id="wiki-preview-area" class="markdown-body" style="display: none;"></div>
                         </div>
                     </div>
                 </div>
@@ -275,13 +313,20 @@
                     <div class="form-group"><label>Wallpaper (Max 800kb)</label><input type="file" id="theme-bg-file" accept="image/*"></div>
                     <button class="btn-primary" style="width: 100%;" onclick="salvarPreferencias(event)">Salvar Meu Estilo</button>
                 </div>
+                <label>Sua Especialidade (Workflow):</label>
+                <select id="user-specialty">
+                    <option value="geral">Geral (Dashboard)</option>
+                    <option value="dev">Programação (Kanban)</option>
+                    <option value="art">Arte & Som (Áudios)</option>
+                    <option value="design">Game Design (Wiki)</option>
+                </select>
             </div>
         </section>
 
         <!-- OUTRAS SEÇÕES (REDUZIDAS PARA ESPAÇO) -->
         <section id="clientes" class="page-section"><div class="section-header"><h1>Clientes</h1><button class="btn-primary" onclick="openModal('modalCliente')">+ Cliente</button></div><div id="client-entries" class="client-grid"></div></section>
         <section id="financeiro" class="page-section"><div class="section-header"><h1>Financeiro</h1><button class="btn-primary" onclick="openModal('modalLancamento')">+ Lançamento</button></div><div class="summary-cards"><div class="card">Receita<p id="resumoReceita" class="text-green">R$ 0</p></div><div class="card">Custos<p id="resumoCusto" class="text-red">R$ 0</p></div><div class="card highlight">Saldo<p id="resumoSaldo" class="text-neon">R$ 0</p></div></div><div class="table-container"><table class="data-table"><thead><tr><th>Data</th><th>Origem</th><th>Valor</th><th>Ações</th></tr></thead><tbody id="finance-entries"></tbody></table></div></section>
-        <section id="reunioes" class="page-section"><div class="section-header"><h1>Reuniões</h1></div><div id="admin-panel" class="dash-panel" style="display:none; margin-bottom: 20px;"><h3>Novo Convite</h3><form onsubmit="enviarConviteAdmin(event)" class="hub-form"><input type="email" id="admConviteEmail" placeholder="E-mail" required><input type="text" id="admConviteTitulo" placeholder="Assunto" required><button type="submit" class="btn-primary">Enviar</button></form></div><div id="invites-entries"></div><div id="confirmed-entries" style="margin-top: 20px;"></div></section>
+        <section id="reunioes" class="page-section"><div class="section-header"><h1>Reuniões</h1></div><div id="admin-panel" class="dash-panel" style="display:none; margin-bottom: 20px;"><h3>Novo Convite</h3><form onsubmit="enviarConviteAdmin(event)" class="hub-form"><input type="email" id="admConviteEmail" placeholder="E-mail" required><input type="text" id="admConviteTitulo" placeholder="Assunto" required><label>Data da Reunião:</label><input type="date" id="admConviteData" required><label>Hora:</label><input type="time" id="admConviteHora" required><button type="submit" class="btn-primary">Enviar</button></form></div><div id="invites-entries"></div><div id="confirmed-entries" style="margin-top: 20px;"></div></section>
         <section id="diario" class="page-section"><div class="section-header"><h1>Diário</h1></div><div class="diary-editor"><input type="text" id="noteTitle" placeholder="Título"><textarea id="noteContent" placeholder="Escreva aqui..."></textarea><button class="btn-primary" onclick="salvarNota()">Salvar</button></div><div id="diary-entries" class="diary-grid" style="margin-top: 20px;"></div></section>
         <section id="cronograma" class="page-section"><div class="section-header"><h1>Agenda</h1><button class="btn-primary" onclick="openModal('modalEvento')">+ Evento</button></div><div id="event-entries" class="event-list"></div></section>
     </main>
@@ -454,25 +499,100 @@
     </div>
 
     <div id="modalDetalhesTarefa" class="modal-overlay">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2 id="detalheTaskTitulo">Título da Tarefa</h2>
-            <button class="close-btn" onclick="closeModal('modalDetalhesTarefa')">&times;</button>
-        </div>
-        <div style="margin-bottom: 20px;">
-            <span id="detalheTaskTag" class="badge">TAG</span>
-            <span id="detalheTaskGit" style="margin-left: 10px; font-size: 0.8rem; color: var(--text-muted);"></span>
-        </div>
-        <div class="dash-panel" style="background: rgba(0,0,0,0.2); padding: 20px;">
-            <div id="detalheTaskDesc" class="checklist-container">Sem descrição.</div>
-        </div>
-        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
-            <a id="btn-abrir-git" href="#" target="_blank" class="btn-primary" style="display: none; text-decoration: none; padding: 10px 20px; font-size: 0.9rem; background: #24292e; border-color: #24292e; color: #fff;">🐙 Abrir no GitHub</a>
-            
-            <button class="btn-secondary" onclick="closeModal('modalDetalhesTarefa')">Fechar</button>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="detalheTaskTitulo">Título da Tarefa</h2>
+                <button class="close-btn" onclick="closeModal('modalDetalhesTarefa')">&times;</button>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <span id="detalheTaskTag" class="badge">TAG</span>
+                <span id="detalheTaskGit" style="margin-left: 10px; font-size: 0.8rem; color: var(--text-muted);"></span>
+            </div>
+            <div class="dash-panel" style="background: rgba(0,0,0,0.2); padding: 20px;">
+                <div id="detalheTaskDesc" class="checklist-container">Sem descrição.</div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+                <a id="btn-abrir-git" href="#" target="_blank" class="btn-primary" style="display: none; text-decoration: none; padding: 10px 20px; font-size: 0.9rem; background: #24292e; border-color: #24292e; color: #fff;">🐙 Abrir no GitHub</a>
+                
+                <button class="btn-secondary" onclick="closeModal('modalDetalhesTarefa')">Fechar</button>
+            </div>
         </div>
     </div>
-</div>
+    <div id="modalNovoAudio" class="modal-overlay">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>Adicionar Novo Áudio</h2>
+                <button class="close-btn" onclick="closeModal('modalNovoAudio')">×</button>
+            </div>
+            <form class="hub-form" id="formNovoAudio" onsubmit="salvarAudio(event)">
+                <div class="form-group">
+                    <label>Título do Arquivo</label>
+                    <input type="text" id="audioTitulo" placeholder="Ex: Tema_Boss_Final" required>
+                </div>
+                <div class="form-group">
+                    <label>Categoria (Tag)</label>
+                    <select id="audioTag" required>
+                        <option value="SFX">💥 Efeito Sonoro (SFX)</option>
+                        <option value="BGM">🎵 Trilha Sonora (BGM)</option>
+                        <option value="VO">🎙️ Dublagem/Voz (VO)</option>
+                        <option value="UI">🖱️ Interface (UI)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Link Direto do Áudio (URL do Drive, Dropbox, etc)</label>
+                    <input type="url" id="audioUrl" placeholder="https://..." required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalNovoAudio')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Adicionar Áudio</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalNovaReferencia" class="modal-overlay">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>📌 Nova Referência</h2>
+                <button class="close-btn" onclick="closeModal('modalNovaReferencia')">×</button>
+            </div>
+            <form class="hub-form" onsubmit="salvarReferenciaAudio(event)">
+                <div class="form-group">
+                    <label>Título / O que prestar atenção?</label>
+                    <input type="text" id="refTitulo" placeholder="Ex: Vibe do Boss Final (Aos 0:30)" required>
+                </div>
+                <div class="form-group">
+                    <label>Link (YouTube ou Spotify)</label>
+                    <input type="url" id="refUrl" placeholder="https://www.youtube.com/watch?v=..." required>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn-primary">Salvar no Moodboard</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalFeedbackAudio" class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header" style="margin-bottom: 15px;">
+                <h2 id="feedback-titulo">Nome do Áudio</h2>
+                <button class="close-btn" onclick="fecharFeedbackAudio()">×</button>
+            </div>
+            
+            <div class="dash-panel" style="padding: 15px; margin-bottom: 20px; background: rgba(0,0,0,0.4);">
+                <audio id="player-feedback" controls style="width: 100%; height: 40px; outline: none;"></audio>
+            </div>
+
+            <form onsubmit="salvarComentarioAudio(event)" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <input type="text" id="feedback-texto" placeholder="Aperte Pause onde deseja comentar..." required style="flex: 1; margin: 0; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.05); color: #fff;">
+                <button type="submit" class="btn-primary" style="padding: 10px 20px;">💬 Comentar</button>
+            </form>
+
+            <h3 style="font-size: 1rem; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">Feedbacks da Equipe</h3>
+            <ul id="lista-comentarios" style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto;">
+                </ul>
+        </div>
+    </div>
 
     <script type="module" src="hub.js"></script>
 </body>
