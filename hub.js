@@ -1455,13 +1455,15 @@ window.renderizarWikiTree = () => {
         if (arquivosPorPasta[parentId]) {
             arquivosPorPasta[parentId].forEach(p => {
                 const classeLixo = inTrash ? 'item-apagado' : '';
+                const classeAtiva = (p.id === window.wikiAtualId) ? 'active' : '';
                 
                 // MÁGICA: Confere se este arquivo é o que está aberto no momento
                 const temNotificacao = window.cacheNotificacoes.some(n => n.contextId === p.id);
                 const pingoHtml = temNotificacao ? '<span class="item-dot"></span>' : '';
 
+                // AQUI VOLTAMOS COM O ONCLICK, O DRAGGABLE E AS CLASSES CERTAS!
                 html += `
-                    <div class="wiki-file-item ...">
+                    <div class="wiki-file-item ${classeLixo} ${classeAtiva}" draggable="true" ondragstart="dragStartWiki(event, '${p.id}', 'file')" onclick="abrirWiki('${p.id}')">
                         <span>📄</span> ${p.titulo} ${pingoHtml}
                     </div>
                 `;
