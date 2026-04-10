@@ -9,6 +9,7 @@
     <!-- Bibliotecas para Wiki e Diagramas -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div id="login-screen" class="login-overlay">
@@ -55,43 +56,80 @@
                     <p class="subtitle">Bem-vindo à Central de Comando.</p>
                 </div>
             </div>
-            <div class="dashboard-stats">
-                <div class="stat-card">
-                    <div class="stat-icon">💰</div>
-                    <div class="stat-info">
-                        <h3>Saldo</h3>
-                        <p id="dash-saldo">R$ 0,00</p>
+            
+            <div class="bento-grid">
+                <div class="bento-card highlight-card">
+                    <div class="bento-icon">🚀</div>
+                    <div class="bento-content">
+                        <h3>Próximo Marco</h3>
+                        <p id="dash-evento-destaque" class="bento-value" style="font-size: 1.2rem;">Buscando...</p>
+                        <span id="dash-dias-restantes" style="color: var(--primary); font-weight: bold; font-size: 0.85rem;">-- dias restantes</span>
                     </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon">⚡</div>
-                    <div class="stat-info">
-                        <h3>Em Foco</h3>
-                        <p id="dash-tasks">0 Tasks</p>
-                    </div>
-                </div>
-                <div class="stat-card pomodoro-panel" style="border-color: #ff5252; position: relative;">
-                    <button class="icon-btn" onclick="abrirFocusMode()" style="position: absolute; top: 10px; right: 10px;" title="Modo Foco (Tela Cheia)">⛶</button>
-                    <div class="stat-info" style="text-align: center; width: 100%;">
-                        <div id="pomodoro-display" style="font-size: 2rem; font-weight: bold; color: #ff5252;">25:00</div>
-                        <div style="display: flex; gap: 5px; justify-content: center; margin-top: 5px;">
-                            <button onclick="iniciarPomodoro()" class="btn-primary" style="padding: 4px 8px; font-size: 0.7rem; background:#ff5252; color:#fff;">Play</button>
-                            <button onclick="pausarPomodoro()" class="btn-secondary" style="padding: 4px 8px; font-size: 0.7rem;">Pause</button>
-                            <button onclick="resetarPomodoro()" class="btn-secondary" style="padding: 4px 8px; font-size: 0.7rem;">🔄</button>
+                
+                <div class="bento-card">
+                    <div class="bento-icon" style="color: #ffc107;">💰</div>
+                    <div class="bento-content" style="width: 100%;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <h3>Runway (Caixa)</h3>
+                            <button class="icon-btn" onclick="configurarBurnRate()" data-tooltip="Configurar Gasto Mensal" style="font-size: 0.8rem;">⚙️</button>
                         </div>
+                        <p id="dash-saldo-runway" class="bento-value text-neon">R$ 0,00</p>
+                        <div class="runway-bar-bg">
+                            <div id="runway-bar-fill" class="runway-bar-fill"></div>
+                        </div>
+                        <span id="dash-meses-vida" style="font-size: 0.75rem; color: var(--text-muted);">Sobrevivência: Calculando...</span>
                     </div>
                 </div>
+
+                <div class="bento-card col-span-2 row-span-2 focus-area">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; width: 100%;">
+                        <h3>🎯 Foco do Dia</h3>
+                        <button class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="abrirFocusMode()">⛶ Focus Mode</button>
+                    </div>
+                    
+                    <div style="display: flex; gap: 20px; width: 100%; align-items: center;">
+                        <div class="pomodoro-mini">
+                            <div id="pomodoro-display" class="time-display">25:00</div>
+                            <div class="controls">
+                                <button onclick="iniciarPomodoro()" class="btn-play">▶</button>
+                                <button onclick="pausarPomodoro()" class="btn-pause">⏸</button>
+                                <button onclick="resetarPomodoro()" class="btn-reset">🔄</button>
+                            </div>
+                        </div>
+                        <div id="dash-priorities" class="priority-list" style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
+                            </div>
+                    </div>
                 </div>
-            </div>
-            <div class="dashboard-grid">
-                <div class="dash-panel">
-                    <h3>🎯 Prioridades</h3>
-                    <div id="dash-priorities" class="priority-list"></div>
+
+                <div class="bento-card quick-actions-grid">
+                    <button class="quick-action-btn" onclick="document.querySelector('[data-target=projetos]').click()">
+                        <span class="icon" style="color: #00eaff;">📋</span>
+                        <span class="label">Projetos</span>
+                    </button>
+                    
+                    <button class="quick-action-btn" onclick="document.querySelector('[data-target=cronograma]').click(); setTimeout(()=>openModal('modalEvento'), 300)">
+                        <span class="icon" style="color: #ffc107;">📅</span>
+                        <span class="label">Agendar</span>
+                    </button>
+                    
+                    <button class="quick-action-btn" onclick="document.querySelector('[data-target=reunioes]').click()">
+                        <span class="icon" style="color: #ff5252;">🎥</span>
+                        <span class="label">Reuniões</span>
+                    </button>
+                    
+                    <button class="quick-action-btn" onclick="document.querySelector('[data-target=gamejam]').click()" style="border-color: var(--primary);">
+                        <span class="icon" style="color: var(--primary);">⚡</span>
+                        <span class="label">War Room</span>
+                    </button>
                 </div>
-                <div class="dash-panel">
-                    <h3>📅 Próximo Evento</h3>
-                    <p id="dash-event">Agenda Livre</p>
+
+                <div class="bento-card col-span-2 radar-panel">
+                    <h3>📡 Radar do Estúdio (Atividade)</h3>
+                    <ul id="activity-feed" class="activity-feed-list">
+                        </ul>
                 </div>
+
             </div>
         </section>
 
@@ -143,7 +181,7 @@
                             <label style="color: var(--text-muted); font-size: 0.85rem;">Filtrar:</label>
                             <select id="kanban-filter" onchange="aplicarFiltroKanban()" style="width: auto; margin-bottom: 0; padding: 8px 12px; font-size: 0.85rem; background: rgba(255,255,255,0.05); cursor: pointer;">
                                 <option value="all">Todas as Áreas</option>
-                                <option value="feature">💻 Dev / Feature</option>
+                                <option value="unassigned">🧍 Sem Responsável</option> <option value="feature">💻 Dev / Feature</option>
                                 <option value="bug">🐛 Bugs e Erros</option>
                                 <option value="art">🎨 Arte / Áudio</option>
                                 <option value="docs">📖 GDD / Docs</option>
@@ -253,79 +291,174 @@
 
         <!-- GAME JAM -->
         <section id="gamejam" class="page-section">
-            <div class="section-header jam-header">
-                <div>
-                    <h1 style="color: var(--primary);">⚡ Game Jam War Room</h1>
-                    <p class="subtitle">Sincronização total da equipe.</p>
+            
+            <div class="war-room-header">
+                <div class="war-title-area">
+                    <h1 style="display: flex; align-items: center; gap: 10px;">⚡ War Room <span id="war-badge-tipo" class="badge" style="background: rgba(255, 82, 82, 0.2); color: #ff5252; border: 1px solid #ff5252;">MODO SPRINT</span></h1>
+                    <p id="war-sprint-name" class="subtitle" style="font-size: 1.1rem; margin-top: 5px;">Nenhuma Operação Ativa</p>
                 </div>
-                <div class="jam-timer-container" style="text-align: right;">
-                    <h2 id="jam-timer" style="font-size: 2rem;">00:00:00</h2>
-                    <button class="icon-btn" onclick="configurarTimerJam()">⚙️ Prazo</button>
+                <div class="war-timer-area">
+                    <span style="color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; font-weight: bold;">Tempo Restante da Missão</span>
+                    <div id="war-countdown" class="digital-clock">00:00:00:00</div>
+                    <div style="display: flex; gap: 10px; margin-top: 8px;">
+                        <button class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="abrirConfigSprint()">⚙️ Configurar</button>
+                        <button class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; background: transparent; border: 1px solid #ff5252; color: #ff5252;" onclick="resetarWarRoomCompleta()">🛑 Limpar Mesa</button>
+                    </div>
                 </div>
             </div>
-            <div class="jam-grid">
-                <div class="dash-panel chat-panel">
-                    <h3>💬 Chat</h3>
-                    <div id="jam-chat-box" class="chat-container"></div>
-                    <div class="chat-input-area">
-                        <input type="text" id="jam-msg-input" placeholder="Mensagem..." onkeypress="if(event.key === 'Enter') enviarMensagemJam()">
-                        <button class="btn-primary" onclick="enviarMensagemJam()">></button>
+
+            <div class="war-bento-grid">
+                
+                <div class="war-card col-span-2 row-span-2">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3>📋 Quadro Tático (Tarefas da Sprint)</h3>
+                    </div>
+                    <div class="mini-kanban-board">
+                        <div class="mini-column" id="war-todo" ondragover="allowDrop(event)" ondrop="drop(event)">
+                            <div class="mini-col-header">A Fazer</div>
+                            <div class="mini-col-body" id="war-col-todo">
+                                </div>
+                        </div>
+                        <div class="mini-column" id="war-doing" ondragover="allowDrop(event)" ondrop="drop(event)">
+                            <div class="mini-col-header" style="border-color: #ffc107;">Em Combate</div>
+                            <div class="mini-col-body" id="war-col-doing"></div>
+                        </div>
+                        <div class="mini-column" id="war-done" ondragover="allowDrop(event)" ondrop="drop(event)">
+                            <div class="mini-col-header" style="border-color: var(--primary);">Missão Cumprida</div>
+                            <div class="mini-col-body" id="war-col-done"></div>
+                        </div>
                     </div>
                 </div>
-                <div class="dash-panel tasks-panel">
-                    <h3>📋 Tarefas Express</h3>
-                    <div class="jam-task-add">
-                        <input type="text" id="jam-new-task-title" placeholder="O que fazer?" onkeypress="if(event.key === 'Enter') novaTarefaJam()" style="flex:1;">
-                        <select id="jam-new-task-tag" style="width: 80px;">
-                            <option value="dev">Dev</option><option value="arte">Arte</option><option value="audio">Audio</option><option value="gdd">GDD</option>
-                        </select>
-                        <button class="btn-primary" onclick="novaTarefaJam()">+</button>
+
+                <div class="war-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3>🛠️ O Arsenal</h3>
+                        <button class="icon-btn" onclick="adicionarLinkWarRoom()" style="font-size: 0.85rem; background: rgba(255,255,255,0.1); border-radius: 5px; padding: 4px 8px;">➕ Add Link</button>
                     </div>
-                    <ul id="jam-task-list" class="jam-task-list" style="margin-top: 15px;"></ul>
-                </div>
-                <div class="dash-panel links-panel">
-                    <h3>🔗 Essentials</h3>
-                    <div style="background:#111; padding:10px; border-radius:4px; margin-bottom:10px; border-left:3px solid #ff5252;">
-                        <strong>Tema:</strong> <span id="jam-tema">A definir</span>
-                    </div>
-                    <div style="display: flex; flex-direction: column; gap: 10px;">
-                        <a id="jam-link-itch" href="#" target="_blank" class="btn-secondary" style="text-align:center;">Itch.io</a>
-                        <a id="jam-link-repo" href="#" target="_blank" class="btn-secondary" style="text-align:center;">GitHub</a>
-                        <button class="icon-btn" onclick="editarEssentialsJam()">⚙️ Configurar Links</button>
+                    <div id="war-links-container" class="war-links-list">
+                        <a href="#" target="_blank" class="war-link-item">
+                            <span style="font-size: 1.2rem;">🎨</span> 
+                            <div><strong>Figma UI</strong><br><span style="font-size:0.7rem; color:#888;">Design System Oficial</span></div>
+                        </a>
+                        <a href="#" target="_blank" class="war-link-item" style="border-color: #00eaff;">
+                            <span style="font-size: 1.2rem;">🐙</span> 
+                            <div><strong>Repositório</strong><br><span style="font-size:0.7rem; color:#888;">Branch: feature/sprint</span></div>
+                        </a>
                     </div>
                 </div>
+
+                <div class="war-card terminal-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0;">💬 Terminal</h3>
+                        <button class="icon-btn" onclick="limparTerminalWarRoom()" style="font-size: 0.75rem; color: #ff5252; background: rgba(255,82,82,0.1); border-radius: 4px; padding: 4px 8px;">🗑️ Reset Chat</button>
+                    </div>
+                    <div id="war-chat-feed" class="war-chat-box">
+                        <div class="chat-msg bot"><span class="chat-author">SISTEMA</span>O Terminal da War Room está ativo e gravando. Boa caçada, equipe!</div>
+                    </div>
+                    <div class="war-chat-input-area">
+                        <input type="text" id="war-chat-input" placeholder="Transmitir mensagem..." onkeypress="if(event.key==='Enter') enviarMensagemWar()">
+                        <button class="btn-primary" style="padding: 10px;" onclick="enviarMensagemWar()">🚀</button>
+                    </div>
+                </div>
+
             </div>
         </section>
 
         <!-- PERFIL & RANKING -->
         <section id="perfil" class="page-section">
             <div class="section-header"><h1>Perfil & Gamificação</h1></div>
-            <div class="perfil-grid">
-                <div class="dash-panel">
-                    <h3>🏆 Ranking do Estúdio</h3>
-                    <div id="ranking-list" style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;"></div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;" class="perfil-grid-rpg">
+                
+                <div class="dash-panel" id="user-profile-card" style="padding: 0; overflow: hidden; position: relative;"></div>
+
+                <div class="dash-panel" id="daily-quests-panel" style="border-color: #ffc107; position: relative; overflow: hidden;">
+                        <div style="position: absolute; top:0; left:0; width:100%; height:4px; background: #ffc107;"></div>
+                        <h3>📜 Missões Diárias</h3>
+                        <div id="quests-container" style="display: flex; flex-direction: column; gap: 15px; margin-top: 15px;"></div>
                 </div>
-                <div class="dash-panel">
-                    <h3>🎨 Visual Personalizado</h3>
-                    <div class="form-group"><label>Cor Principal</label><input type="color" id="theme-color" value="#81fe4e"></div>
-                    <div class="form-group"><label>Modo</label><select id="theme-mode"><option value="dark">Escuro</option><option value="light">Claro</option></select></div>
-                    <div class="form-group"><label>Transparência (0.0 a 1.0)</label><input type="range" id="theme-opacity" min="0" max="1" step="0.1" value="0.8"></div>
-                    <div class="form-group"><label>Wallpaper (Max 800kb)</label><input type="file" id="theme-bg-file" accept="image/*"></div>
-                    <button class="btn-primary" style="width: 100%;" onclick="salvarPreferencias(event)">Salvar Meu Estilo</button>
+
+                <div style="display: flex; flex-direction: column; gap: 25px;">
+
+                    <div class="dash-panel">
+                        <h3>⚙️ Configurações da Conta</h3>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Nome de Exibição</label>
+                                <input type="text" id="user-nome" placeholder="Seu Nome Completo">
+                            </div>
+                            <div class="form-group">
+                                <label>Apelido / Nickname</label>
+                                <input type="text" id="user-apelido" placeholder="Ex: MagoDasTrevas">
+                            </div>
+                        </div>
+
+                        <div class="form-group"><label>Sua Especialidade (Workflow)</label>
+                            <select id="user-specialty" style="margin-bottom: 20px;">
+                                <option value="geral">Geral (Dashboard)</option>
+                                <option value="dev">Programação (Kanban)</option>
+                                <option value="art">Arte & Som (Áudios)</option>
+                                <option value="design">Game Design (Wiki)</option>
+                            </select>
+                        </div>
+
+                        <div style="border-top: 1px dashed rgba(255,255,255,0.1); margin: 20px 0; padding-top: 20px;">
+                            <h4 style="margin-bottom: 15px; font-size: 0.9rem; color: var(--primary);">🎨 Estilo Visual</h4>
+                            <div class="form-row">
+                                <div class="form-group"><label>Cor Principal</label><input type="color" id="theme-color" value="#81fe4e" style="padding: 0 10px; height: 45px; cursor: pointer;"></div>
+                                <div class="form-group"><label>Modo</label><select id="theme-mode"><option value="dark">Escuro</option><option value="light">Claro</option></select></div>
+                                <div class="form-group"><label>Transparência (0 a 1)</label><input type="range" id="theme-opacity" min="0" max="1" step="0.1" value="0.8" style="padding: 0; margin-top: 15px;"></div>
+                            </div>
+                            <div class="form-group"><label>Wallpaper (Max 800kb)</label><input type="file" id="theme-bg-file" accept="image/*"></div>
+                        </div>
+
+                        <button class="btn-primary" style="width: 100%;" onclick="salvarPreferencias(event)">Salvar Minhas Configurações</button>
+                    </div>
+
                 </div>
-                <label>Sua Especialidade (Workflow):</label>
-                <select id="user-specialty">
-                    <option value="geral">Geral (Dashboard)</option>
-                    <option value="dev">Programação (Kanban)</option>
-                    <option value="art">Arte & Som (Áudios)</option>
-                    <option value="design">Game Design (Wiki)</option>
-                </select>
+                
             </div>
         </section>
 
         <!-- OUTRAS SEÇÕES (REDUZIDAS PARA ESPAÇO) -->
-        <section id="clientes" class="page-section"><div class="section-header"><h1>Clientes</h1><button class="btn-primary" onclick="openModal('modalCliente')">+ Cliente</button></div><div id="client-entries" class="client-grid"></div></section>
-        <section id="financeiro" class="page-section"><div class="section-header"><h1>Financeiro</h1><button class="btn-primary" onclick="openModal('modalLancamento')">+ Lançamento</button></div><div class="summary-cards"><div class="card">Receita<p id="resumoReceita" class="text-green">R$ 0</p></div><div class="card">Custos<p id="resumoCusto" class="text-red">R$ 0</p></div><div class="card highlight">Saldo<p id="resumoSaldo" class="text-neon">R$ 0</p></div></div><div class="table-container"><table class="data-table"><thead><tr><th>Data</th><th>Origem</th><th>Valor</th><th>Ações</th></tr></thead><tbody id="finance-entries"></tbody></table></div></section>
+         <section id="clientes" class="page-section">
+            <div class="section-header">
+                <h1>Clientes & Contatos</h1>
+                <button class="btn-primary" onclick="openModal('modalCliente')">+ Novo Cliente</button>
+            </div>
+            <div id="client-entries" class="client-grid"></div>
+        </section>
+
+        <section id="financeiro" class="page-section">
+            <div class="section-header" style="align-items: center;">
+                <div>
+                    <h1>Financeiro</h1>
+                    <p class="subtitle">Controle de Fluxo de Caixa</p>
+                </div>
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <input type="month" id="filtroMesFinanceiro" onchange="carregarLancamentos()" style="margin-bottom: 0; padding: 8px 12px; width: auto; background: rgba(0,0,0,0.3);">
+                    <button class="btn-primary" onclick="openModal('modalLancamento')">+ Lançamento</button>
+                </div>
+            </div>
+            <div class="summary-cards">
+                <div class="card">Receita (Em Caixa)<p id="resumoReceita" class="text-green">R$ 0</p><span id="previstoReceita" style="font-size:0.75rem; color:#888;">Previsto: R$ 0</span></div>
+                <div class="card">Custos (Pagos)<p id="resumoCusto" class="text-red">R$ 0</p><span id="previstoCusto" style="font-size:0.75rem; color:#888;">Previsto: R$ 0</span></div>
+                <div class="card highlight">Saldo Real<p id="resumoSaldo" class="text-neon">R$ 0</p><span style="font-size:0.75rem; color:var(--text-muted);">Dinheiro em mãos</span></div>
+            </div>
+
+            <div class="dash-panel" style="padding: 15px; margin-bottom: 25px; height: 120px;">
+                <canvas id="graficoFinanceiro"></canvas>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table">
+                    <thead><tr><th>Vencimento</th><th>Descrição/Categoria</th><th>Tipo</th><th>Status</th><th>Valor</th><th>Ações</th></tr></thead>
+                    <tbody id="finance-entries"></tbody>
+                </table>
+            </div>
+        </section>
+
         <section id="reunioes" class="page-section"><div class="section-header"><h1>Reuniões</h1></div><div id="admin-panel" class="dash-panel" style="display:none; margin-bottom: 20px;"><h3>Novo Convite</h3><form onsubmit="enviarConviteAdmin(event)" class="hub-form"><input type="email" id="admConviteEmail" placeholder="E-mail" required><input type="text" id="admConviteTitulo" placeholder="Assunto" required><label>Data da Reunião:</label><input type="date" id="admConviteData" required><label>Hora:</label><input type="time" id="admConviteHora" required><button type="submit" class="btn-primary">Enviar</button></form></div><div id="invites-entries"></div><div id="confirmed-entries" style="margin-top: 20px;"></div></section>
         <section id="diario" class="page-section"><div class="section-header"><h1>Diário</h1></div><div class="diary-editor"><input type="text" id="noteTitle" placeholder="Título"><textarea id="noteContent" placeholder="Escreva aqui..."></textarea><button class="btn-primary" onclick="salvarNota()">Salvar</button></div><div id="diary-entries" class="diary-grid" style="margin-top: 20px;"></div></section>
         <section id="cronograma" class="page-section"><div class="section-header"><h1>Agenda</h1><button class="btn-primary" onclick="openModal('modalEvento')">+ Evento</button></div><div id="event-entries" class="event-list"></div></section>
@@ -395,20 +528,20 @@
     <div id="modalCliente" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Novo Cliente</h2>
-                <button class="close-btn" onclick="closeModal('modalCliente')">&times;</button>
+                <h2>Dados do Cliente</h2>
+                <button class="close-btn" onclick="closeModal('modalCliente'); document.getElementById('formCliente').reset(); window.clienteEditandoId = null;">&times;</button>
             </div>
             <form class="hub-form" id="formCliente" onsubmit="salvarCliente(event)">
                 <div class="form-row">
                     <div class="form-group"><label>Nome ou Empresa</label><input type="text" id="clienteNome" placeholder="Ex: Estúdio XYZ" required></div>
-                    <div class="form-group"><label>Tipo</label><select id="clienteTipo"><option value="estudio">Estúdio</option><option value="indie">Indie</option><option value="freela">Freelance</option></select></div>
+                    <div class="form-group"><label>Status</label><select id="clienteStatus"><option value="lead">🎯 Lead (Prospecto)</option><option value="ativo">✅ Ativo</option><option value="inativo">🧊 Inativo / Concluído</option></select></div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group"><label>Email de Contato</label><input type="email" id="clienteEmail" placeholder="email@empresa.com" required></div>
-                    <div class="form-group"><label>Discord / Telefone</label><input type="text" id="clienteDiscord" placeholder="@usuario"></div>
+                    <div class="form-group"><label>Email de Contato</label><input type="email" id="clienteEmail" placeholder="email@empresa.com"></div>
+                    <div class="form-group"><label>Discord / Fone</label><input type="text" id="clienteDiscord" placeholder="@usuario"></div>
                 </div>
-                <div class="form-group"><label>Anotações</label><textarea id="clienteNotas" rows="3" placeholder="Informações de prazos, etc..." style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); padding: 14px 16px; color: #fff; border-radius: 10px; font-family: inherit; width: 100%; resize: none; margin-bottom: 15px;"></textarea></div>
-                <div class="modal-footer"><button type="button" class="btn-secondary" onclick="closeModal('modalCliente')">Cancelar</button><button type="submit" class="btn-primary">Salvar Cliente</button></div>
+                <div class="form-group"><label>Anotações e Histórico</label><textarea id="clienteNotas" rows="3" placeholder="Prazos, orçamentos, links do drive..." style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); padding: 14px 16px; color: #fff; border-radius: 10px; font-family: inherit; width: 100%; resize: none; margin-bottom: 15px;"></textarea></div>
+                <div class="modal-footer"><button type="submit" class="btn-primary">Salvar Cadastro</button></div>
             </form>
         </div>
     </div>
@@ -420,14 +553,26 @@
                 <button class="close-btn" onclick="closeModal('modalLancamento')">&times;</button>
             </div>
             <form class="hub-form" id="formFinanceiro" onsubmit="salvarLancamento(event)">
-                <div class="form-group"><label>Tipo de Lançamento</label><select id="financeTipo" required><option value="receita">Receita (Entrada)</option><option value="custo">Custo (Saída)</option></select></div>
-                <div class="form-group"><label>Origem / Cliente</label><input type="text" id="financeOrigem" placeholder="Ex: Projeto X, Assinatura Y..." required></div>
-                <div class="form-group"><label>Descrição</label><input type="text" id="financeDescricao" placeholder="Detalhes do lançamento" required></div>
+                <div class="form-row">
+                    <div class="form-group"><label>Tipo</label><select id="financeTipo" required><option value="receita">Receita (+)</option><option value="custo">Custo (-)</option></select></div>
+                    <div class="form-group"><label>Status</label><select id="financeStatus" required><option value="pago">✔️ Pago / Recebido</option><option value="pendente">⏳ Pendente</option></select></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label>Origem / Cliente</label><input type="text" id="financeOrigem" placeholder="Ex: Contrato X, Steam..." required></div>
+                    <div class="form-group"><label>Categoria</label>
+                        <select id="financeCategoria">
+                            <option value="Serviços">Serviços / Freela</option><option value="Royalties">Royalties / Vendas</option>
+                            <option value="Software">Software / Assinaturas</option><option value="Salários">Salários da Equipe</option>
+                            <option value="Marketing">Marketing</option><option value="Outros">Outros</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group"><label>Descrição Breve</label><input type="text" id="financeDescricao" placeholder="Referente ao mês de..." required></div>
                 <div class="form-row">
                     <div class="form-group"><label>Valor (R$)</label><input type="number" id="financeValor" step="0.01" placeholder="0.00" required></div>
-                    <div class="form-group"><label>Data</label><input type="date" id="financeData" required></div>
+                    <div class="form-group"><label>Vencimento</label><input type="date" id="financeData" required></div>
                 </div>
-                <div class="modal-footer"><button type="button" class="btn-secondary" onclick="closeModal('modalLancamento')">Cancelar</button><button type="submit" class="btn-primary">Salvar</button></div>
+                <div class="modal-footer"><button type="submit" class="btn-primary">Registrar no Caixa</button></div>
             </form>
         </div>
     </div>
@@ -518,6 +663,48 @@
             </div>
         </div>
     </div>
+
+    <div id="modalConfigWarRoom" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚙️ Configurar Operação</h2>
+                <button class="close-btn" onclick="closeModal('modalConfigWarRoom')">&times;</button>
+            </div>
+            <form class="hub-form" onsubmit="salvarConfigWarRoom(event)">
+                <div class="form-group">
+                    <label>Nome da Operação / Meta</label>
+                    <input type="text" id="warConfigNome" placeholder="Ex: Ludum Dare 55 ou Sprint 04" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Tipo de Operação</label>
+                        <select id="warConfigTipo">
+                            <option value="sprint">🏃 Sprint (Semanal/Mensal)</option>
+                            <option value="jam">🎮 Game Jam (Intensivo)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Projeto Alvo (Puxar Issues)</label>
+                        <select id="warConfigProjeto" required>
+                            <option value="">Carregando projetos...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Data e Hora de Término</label>
+                    <div class="form-row">
+                        <input type="date" id="warConfigDataFim" required>
+                        <input type="time" id="warConfigHoraFim" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalConfigWarRoom')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Iniciar Operação</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="modalNovoAudio" class="modal-overlay">
         <div class="modal-content" style="max-width: 400px;">
             <div class="modal-header">

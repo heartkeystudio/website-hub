@@ -25,9 +25,14 @@ const db = getFirestore(app);
 // Wiki Init (Markdown/Mermaid)
 mermaid.initialize({ startOnLoad: false, theme: 'dark' });
 
-// ==========================================
-// 3. LÓGICA DE LOGIN E SESSÃO
-// ==========================================
+// Função global para saber como chamar o usuário (Apelido > Nome > Email)
+window.obterNomeExibicao = () => {
+    if (window.meuApelido) return window.meuApelido;
+    if (window.meuNome) return window.meuNome.split(' ')[0]; // Pega só o primeiro nome
+    if (auth.currentUser) return auth.currentUser.email.split('@')[0];
+    return "Desconhecido";
+};
+
 // ==========================================
 // 3. LÓGICA DE LOGIN E SISTEMA DE CARGOS
 // ==========================================
@@ -50,8 +55,17 @@ onAuthStateChanged(auth, async (user) => {
         
         if (userDoc.exists()) {
             const d = userDoc.data();
-            cargoAtual = d.role || 'membro'; // Puxa o cargo salvo (se não tiver, é membro)
+            cargoAtual = d.role || 'membro';
+            
+            // --- CARREGA A IDENTIDADE PRA MEMÓRIA ---
+            window.meuNome = d.nome || user.displayName || user.email.split('@')[0];
+            window.meuApelido = d.apelido || "";
+            window.meuBgTema = d.bgTema || null; // <--- ADICIONE ESTA LINHA AQUI!
+            
             window.aplicarTema(d.corTema, d.bgTema, d.modoTema, d.opacidadeTema);
+            
+            // Atualiza a barra lateral com o seu Apelido!
+            document.querySelector('.user-email').innerHTML = `<strong>${window.obterNomeExibicao()}</strong><br><span style="font-size:0.65rem; opacity:0.7;">${user.email}</span>`;
         }
 
         // 2. Trava de Segurança: Se for um dos donos, força o cargo de admin
@@ -82,13 +96,13 @@ onAuthStateChanged(auth, async (user) => {
         window.carregarLancamentos();
         window.carregarEventos();
         window.carregarReunioes();
-        window.iniciarChatJam();
-        window.iniciarTimerGlobal();
-        window.iniciarEssentialsJam();
-        window.iniciarTarefasJam();
+        window.iniciarWarRoom();
         window.carregarRanking();
+        window.verificarResetDiario();
+        window.carregarMeuPerfil();
         window.iniciarSistemaNotificacoes();
         window.verificarAgendaDoDia();
+        
         
         if (window.intervaloLembrete) clearInterval(window.intervaloLembrete);
             window.intervaloLembrete = setInterval(() => {
@@ -169,6 +183,28 @@ if (toggleSidebarBtn && mainSidebar) {
 window.openModal = (id) => document.getElementById(id).classList.add('active');
 window.closeModal = (id) => document.getElementById(id).classList.remove('active');
 document.addEventListener('click', (e) => { if (e.target.classList.contains('modal-overlay')) e.target.classList.remove('active'); });
+
+
+// ==========================================
+// LOGGER GLOBAL (RADAR DO ESTÚDIO)
+// ==========================================
+window.registrarAtividade = async (mensagem, tipo, icone) => {
+    if (!auth.currentUser) return;
+    
+    // MÁGICA AQUI:
+    const nomeUser = window.obterNomeExibicao();
+    
+    try {
+        await addDoc(collection(db, "registro_atividades"), {
+            autor: nomeUser,
+            mensagem: mensagem,
+            tipo: tipo,
+            icone: icone,
+            dataCriacao: new Date().toISOString()
+        });
+    } catch (e) { console.error("Erro ao registrar atividade:", e); }
+};
+
 
 // ==========================================
 // 5. DASHBOARD E POMODORO
@@ -283,63 +319,150 @@ window.carregarTarefasFocus = async () => {
     } catch(e) { console.error("Erro ao carregar tarefas pro Foco:", e); }
 };
 
+// ==========================================
+// 5. DASHBOARD INTELIGENTE (VISÃO CEO)
+// ==========================================
+window.custoMensalEstimado = 3000; // Padrão R$ 3.000/mês, o usuário pode mudar
+
+window.configurarBurnRate = () => {
+    const novoValor = prompt("Qual o custo fixo mensal estimado do estúdio? (Apenas números, ex: 3500)", window.custoMensalEstimado);
+    if (novoValor && !isNaN(novoValor)) {
+        window.custoMensalEstimado = parseFloat(novoValor);
+        window.carregarDashboard(); // Recalcula na hora!
+    }
+};
+
 window.carregarDashboard = async () => {
     if (!auth.currentUser) return;
     const formatador = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+    
     try {
-        // Financeiro Dashboard
-        const qFin = query(collection(db, "lancamentos"), where("userId", "==", auth.currentUser.uid));
+        // 1. RUNWAY FINANCEIRO
+        const qFin = query(collection(db, "lancamentos")); // Pegamos todos para o CEO ver o caixa geral
         const snapFin = await getDocs(qFin);
         let rec = 0, cus = 0;
+        
         snapFin.forEach(d => { if (d.data().tipo === 'receita') rec += d.data().valor; else cus += d.data().valor; });
-        const dashSaldo = document.getElementById('dash-saldo');
-        if (dashSaldo) {
-            dashSaldo.innerText = formatador.format(rec - cus);
-            dashSaldo.style.color = (rec - cus) >= 0 ? 'var(--primary)' : '#ff5252';
+        const saldoFinal = rec - cus;
+        
+        const dashSaldo = document.getElementById('dash-saldo-runway');
+        const dashMeses = document.getElementById('dash-meses-vida');
+        const barFill = document.getElementById('runway-bar-fill');
+
+        if (dashSaldo && dashMeses) {
+            dashSaldo.innerText = formatador.format(saldoFinal);
+            
+            if (saldoFinal <= 0) {
+                dashSaldo.style.color = '#ff5252';
+                dashMeses.innerText = "Alerta: Caixa Negativo ou Zerado!";
+                dashMeses.style.color = '#ff5252';
+                barFill.style.width = '0%';
+                barFill.style.background = '#ff5252';
+            } else {
+                dashSaldo.style.color = 'var(--primary)';
+                const mesesDeVida = (saldoFinal / window.custoMensalEstimado).toFixed(1);
+                dashMeses.innerText = `Sobrevivência: ~${mesesDeVida} meses (Base: R$ ${window.custoMensalEstimado}/mês)`;
+                
+                // Preenche a barra (limite visual de 12 meses = 100%)
+                const porcentagem = Math.min(100, (mesesDeVida / 12) * 100);
+                barFill.style.width = `${porcentagem}%`;
+                
+                if (mesesDeVida < 3) { barFill.style.background = '#ffc107'; dashMeses.style.color = '#ffc107'; } // Amarelo se tiver menos de 3 meses
+                else { barFill.style.background = 'var(--primary)'; dashMeses.style.color = 'var(--text-muted)'; }
+            }
         }
 
-        // Tarefas Dashboard
+        // 2. PRÓXIMO EVENTO / MILESTONE
+        const qEv = query(collection(db, "eventos"));
+        const snapEv = await getDocs(qEv);
+        let eventos = [];
+        
+        const hojeDate = new Date();
+        hojeDate.setHours(0,0,0,0);
+
+        snapEv.forEach(d => {
+            const dataEv = new Date(d.data().data + "T00:00:00");
+            if (dataEv >= hojeDate) eventos.push(d.data()); // Só pega eventos futuros
+        });
+        
+        eventos.sort((a,b) => new Date(a.data) - new Date(b.data));
+        
+        const dashEvento = document.getElementById('dash-evento-destaque');
+        const dashDias = document.getElementById('dash-dias-restantes');
+        
+        if (dashEvento && dashDias) {
+            if (eventos.length > 0) {
+                const prox = eventos[0]; 
+                const dataEv = new Date(prox.data + "T00:00:00");
+                const diferencaTempo = dataEv.getTime() - hojeDate.getTime();
+                const diasRestantes = Math.ceil(diferencaTempo / (1000 * 3600 * 24));
+                
+                dashEvento.innerText = prox.titulo;
+                if (diasRestantes === 0) dashDias.innerText = "É HOJE!";
+                else dashDias.innerText = `Faltam ${diasRestantes} dias`;
+            } else {
+                dashEvento.innerText = "Sem eventos futuros";
+                dashDias.innerText = "--";
+            }
+        }
+
+        // 3. TAREFAS EM FOCO (Lado a lado com o Pomodoro)
         const qTsk = query(collection(db, "tarefas"), where("userId", "==", auth.currentUser.uid));
         const snapTsk = await getDocs(qTsk);
-        let doing = 0, list = [];
+        let pendentes = [];
         snapTsk.forEach(d => {
-            if (d.data().status === 'doing') doing++;
-            if (d.data().status !== 'done') list.push({id: d.id, ...d.data()});
+            if (d.data().status !== 'done') pendentes.push({id: d.id, ...d.data()});
         });
-        const dashTasks = document.getElementById('dash-tasks');
-        if (dashTasks) dashTasks.innerText = `${doing} Em andamento`;
         
         const priorities = document.getElementById('dash-priorities');
         if (priorities) {
-            priorities.innerHTML = list.slice(0,3).map(t => `
-                <div class="priority-item">
-                    <input type="checkbox" onclick="concluirTarefaDash('${t.id}')" style="accent-color: var(--primary); width:16px; height:16px; cursor:pointer;">
-                    <label><strong>${t.titulo}</strong> <span style="font-size:0.7rem; color:var(--text-muted); margin-left:10px;">${t.tag.toUpperCase()}</span></label>
+            priorities.innerHTML = pendentes.slice(0,3).map(t => `
+                <div class="priority-item" style="padding: 10px 15px; border-radius: 8px;">
+                    <input type="checkbox" onclick="concluirTarefaDash('${t.id}')" style="accent-color: var(--primary); width:18px; height:18px; cursor:pointer;">
+                    <label style="color: #fff; font-size: 0.9rem;"><strong>${t.titulo}</strong> <span class="badge badge-${t.tag}" style="font-size:0.6rem; margin-left:8px;">${t.tag}</span></label>
                 </div>
-            `).join('') || '<p style="color:#666">Sem tarefas pendentes hoje.</p>';
+            `).join('') || '<p style="color:#666; font-style:italic;">Você não tem tarefas pendentes. Bom trabalho!</p>';
         }
 
-        // Eventos Dashboard
-        const qEv = query(collection(db, "eventos"), where("userId", "==", auth.currentUser.uid));
-        const snapEv = await getDocs(qEv);
-        let eventos = [];
-        snapEv.forEach(d => eventos.push(d.data()));
-        eventos.sort((a,b) => new Date(a.data) - new Date(b.data));
-        const dashEvent = document.getElementById('dash-event');
-        if (dashEvent) {
-            if (eventos.length > 0) {
-                const prox = eventos[0]; const partes = prox.data.split('-');
-                dashEvent.innerText = `${partes[2]}/${partes[1]} - ${prox.titulo}`;
-                dashEvent.style.color = "var(--primary)";
-            } else {
-                dashEvent.innerText = "Agenda Livre";
-                dashEvent.style.color = "var(--text-muted)";
-            }
+        // 4. RADAR DO ESTÚDIO (Global e Ao Vivo)
+        const radarFeed = document.getElementById('activity-feed');
+        if (radarFeed) {
+            const qRadar = query(collection(db, "registro_atividades"), orderBy("dataCriacao", "desc"), limit(8));
+            
+            // Usamos onSnapshot para a tela atualizar sozinha quando alguém do outro lado da cidade fizer algo!
+            onSnapshot(qRadar, (snapRadar) => {
+                if (snapRadar.empty) {
+                    radarFeed.innerHTML = '<li style="color:#666; font-size:0.85rem; padding: 10px;">Estúdio silencioso... Vá fazer alguma coisa!</li>';
+                } else {
+                    radarFeed.innerHTML = snapRadar.docs.map(d => {
+                        const a = d.data();
+                        // Formata a hora bonitinha (Ex: 14:30)
+                        const hora = new Date(a.dataCriacao).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+                        return `
+                            <li class="activity-item" style="animation: sectionFadeIn 0.3s ease;">
+                                <span class="activity-time">${hora}</span>
+                                <span style="font-size: 1rem;">${a.icone}</span>
+                                <span style="color: #ddd; font-size: 0.85rem;">
+                                    <strong style="color: var(--primary);">${a.autor}</strong> ${a.mensagem}
+                                </span>
+                            </li>
+                        `;
+                    }).join('');
+                }
+            });
         }
+
     } catch(e) { console.error(e); }
 };
 
 window.concluirTarefaDash = async (id) => {
+    // Busca o nome da tarefa rapidinho para avisar no Radar
+    const tSnap = await getDoc(doc(db, "tarefas", id));
+    if(tSnap.exists()) {
+        window.registrarAtividade(`concluiu a tarefa rápida "${tSnap.data().titulo}"`, 'tarefa', '⚡');
+    }
+    
     await updateDoc(doc(db, "tarefas", id), { status: 'done' });
     window.pontuarGamificacao('tarefa');
     setTimeout(() => {
@@ -570,16 +693,19 @@ window.renderizarKanban = () => {
     const filtro = window.kanbanFiltroAtual;
 
     window.tarefasProjetoCache.forEach(t => {
-        if (filtro !== 'all' && t.tag !== filtro) return;
+        // Lógica do Novo Filtro: "Sem Responsável"
+        if (filtro === 'unassigned' && t.assignedTo) return;
+        if (filtro !== 'all' && filtro !== 'unassigned' && t.tag !== filtro) return;
 
         const card = document.createElement('div');
         card.className = 'kanban-card'; card.id = t.id; card.draggable = true;
         card.ondragstart = (ev) => ev.dataTransfer.setData("text", t.id);
-        card.onclick = () => window.abrirDetalhesTarefa(t.id, t);
-        card.dataset.ghIssue = t.githubIssue || '';
+        
+        // Agora só abre detalhes se clicar na área livre (evita conflito com botões internos)
+        card.onclick = (e) => { if(!e.target.closest('button')) window.abrirDetalhesTarefa(t.id, t); };
         
         let badgeClass = `badge-${t.tag}`;
-        const ghLink = t.githubIssue ? `<span style="color:var(--primary);" title="GitHub Issue">🔗 #${t.githubIssue}</span>` : '☁️';
+        const ghLink = t.githubIssue ? `<span style="color:var(--primary);" title="GitHub Issue">🔗 #${t.githubIssue}</span>` : '';
 
         let assignedHtml = "";
         if (t.assignedTo) {
@@ -589,18 +715,35 @@ window.renderizarKanban = () => {
             assignedHtml = `<button class="btn-assumir" onclick="event.stopPropagation(); window.assumirTarefa('${t.id}')">Assumir</button>`;
         }
 
-        const btnApagar = (window.userRole === 'admin') ? `<button class="icon-btn" onclick="event.stopPropagation(); window.deletarTarefa('${t.id}')" style="color:#ff5252; padding: 5px;">🗑️</button>` : '';
+        // --- MENU DE 3 PONTINHOS (Edição e Exclusão) ---
+        let btnApagar = '';
+        // Quem assumiu a tarefa ou o Admin podem editar
+        let btnEditar = `<button class="icon-btn" onclick="event.stopPropagation(); window.abrirEdicaoTarefaRapida('${t.id}', '${t.titulo}', '${t.tag}')" style="font-size:0.8rem; text-align:left; width:100%; padding:8px 10px; color:#e0e0e0;">✏️ Editar Nome/Tag</button>`;
+
+        if (window.userRole === 'admin') {
+            btnApagar = `<button class="icon-btn" onclick="event.stopPropagation(); window.deletarTarefa('${t.id}')" style="color:#ff5252; font-size:0.8rem; text-align:left; width:100%; padding:8px 10px; margin-top:5px; border-top:1px solid rgba(255,255,255,0.1);">🗑️ Excluir</button>`;
+        }
+
+        const menu3Pontos = `
+            <div style="position:relative; display:inline-block;">
+                <button class="icon-btn" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')" style="padding:0; font-size:1.2rem; line-height:0.5; color:var(--text-muted);">⋮</button>
+                <div class="dropdown-content">
+                    ${btnEditar}
+                    ${btnApagar}
+                </div>
+            </div>
+        `;
 
         card.innerHTML = `
             <div style="display:flex; justify-content:space-between; margin-bottom:10px; align-items:center;">
                 <span class="badge ${badgeClass}">${t.tag.toUpperCase()}</span>
-                ${btnApagar}
+                ${menu3Pontos}
             </div>
-            <h4 style="margin-bottom:15px; min-height:40px;">${t.titulo}</h4>
-            <div class="card-footer">
+            <h4>${t.titulo}</h4>
+            <div class="card-footer" style="margin-top: 5px; padding-top: 8px;">
                 <div style="display:flex; align-items:center; gap:8px;">${assignedHtml} ${ghLink}</div>
-                <span style="font-size:0.7rem; color:var(--text-muted);">v1.0</span>
             </div>`;
+            
         const alvo = document.getElementById(t.status);
         if (alvo) { alvo.appendChild(card); counts[t.status]++; }
     });
@@ -608,37 +751,32 @@ window.renderizarKanban = () => {
     document.getElementById('count-todo').innerText = counts.todo;
     document.getElementById('count-doing').innerText = counts.doing;
     document.getElementById('count-done').innerText = counts.done;
-
-    // --- MATEMÁTICA AVANÇADA DA VERSÃO ALVO ---
-    const totalTarefasReais = window.tarefasProjetoCache.length;
+    
+    // Calcula a EXP da versão (Manteve igual)
     const concluidasReais = window.tarefasProjetoCache.filter(t => t.status === 'done').length;
+    let porcentagem = window.tarefasProjetoCache.length > 0 ? Math.round((concluidasReais / window.tarefasProjetoCache.length) * 100) : 0;
     
-    let porcentagem = 0;
-    if (totalTarefasReais > 0) porcentagem = Math.round((concluidasReais / totalTarefasReais) * 100);
-    
-    const expFill = document.getElementById('project-exp-fill');
-    const expText = document.getElementById('project-exp-text');
-    const versionText = document.getElementById('project-version-text');
-    
-    if (expFill && expText && versionText) {
-        expFill.style.width = `${porcentagem}%`;
-        expText.innerText = `${porcentagem}% Concluído`;
-        
-        // A mágica acontece aqui: A base é a (Versão Alvo - 1). Ex: Alvo 2, Base = 1.
-        let alvoAtual = window.projetoAtualVersaoAlvo || 1;
-        let versaoBase = alvoAtual - 1;
-        
-        let versaoNumero = (versaoBase + 0.10 + (porcentagem / 100) * 0.90).toFixed(2);
-        let sufixo = "Alpha";
-        
-        if (porcentagem === 0) { versaoNumero = (versaoBase + 0.10).toFixed(2); sufixo = "Concept"; }
-        else if (porcentagem === 100) { versaoNumero = alvoAtual.toFixed(2); sufixo = "Gold Master 🏆"; }
-        else if (porcentagem > 85) sufixo = "Release Candidate";
-        else if (porcentagem > 60) sufixo = "Beta";
-        else if (porcentagem > 30) sufixo = "Alpha";
-        
-        versionText.innerText = `v${versaoNumero} (${sufixo})`;
+    if (document.getElementById('project-exp-fill')) {
+        document.getElementById('project-exp-fill').style.width = `${porcentagem}%`;
+        document.getElementById('project-exp-text').innerText = `${porcentagem}% Concluído`;
     }
+};
+
+// Fechar os dropdowns ao clicar fora
+document.addEventListener('click', () => {
+    document.querySelectorAll('.dropdown-content.show').forEach(el => el.classList.remove('show'));
+});
+
+window.abrirEdicaoTarefaRapida = async (id, tituloAtual, tagAtual) => {
+    // Fecha o menu de pontinhos
+    document.querySelectorAll('.dropdown-content.show').forEach(el => el.classList.remove('show'));
+    
+    const novoTitulo = prompt("Novo título da tarefa:", tituloAtual);
+    if (!novoTitulo || novoTitulo.trim() === "" || novoTitulo === tituloAtual) return;
+
+    try {
+        await updateDoc(doc(db, "tarefas", id), { titulo: novoTitulo.trim() });
+    } catch(e) { console.error(e); alert("Erro ao editar."); }
 };
 
 // ==========================================
@@ -648,47 +786,60 @@ window.taskAtualEditando = { id: null, rawBody: "", githubIssue: null };
 
 // A) Converte texto do GitHub para HTML interativo (Agora super inteligente)
 window.renderizarDescricaoTask = (texto) => {
+    const container = document.getElementById('detalheTaskDesc');
+    
     if (!texto) {
-        document.getElementById('detalheTaskDesc').innerHTML = "Sem detalhes adicionais.";
+        container.innerHTML = "Sem detalhes adicionais.";
         return;
     }
 
+    // 1. Pré-processa os checkboxes para manter a nossa interatividade ANTES do Markdown
     const linhas = texto.split('\n');
-    const html = linhas.map((linha, index) => {
-        // Agora ele aceita coisas como "- [ ]", "- - [ ]", "   - - [ ]" etc.
+    const linhasProcessadas = linhas.map((linha, index) => {
         const uncheckMatch = linha.match(/^([\s\-*+]+)\[ \]\s+(.*)/);
         const checkMatch = linha.match(/^([\s\-*+]+)\[x\]\s+(.*)/i);
         
-        // Reconhece a linha gigante de hífens (ex: ------------)
-        const hrMatch = linha.match(/^[-_*]{3,}\s*$/);
-
-        if (hrMatch) {
-            return `<hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">`;
-            
-        } else if (uncheckMatch) {
+        if (uncheckMatch) {
             const espacos = uncheckMatch[1].replace(/[-*+]/g, '').length; 
             const recuo = espacos * 15; 
-
-            return `<label class="task-check-label" style="margin-left: ${recuo}px">
-                        <input type="checkbox" onchange="window.toggleTaskCheck(${index}, false)"> 
-                        <span>${uncheckMatch[2]}</span>
-                    </label>`;
-                    
+            return `<div class="task-check-label" style="margin-left: ${recuo}px; margin-top: 5px;"><input type="checkbox" onchange="window.toggleTaskCheck(${index}, false)"> <span>${uncheckMatch[2]}</span></div>`;
         } else if (checkMatch) {
             const espacos = checkMatch[1].replace(/[-*+]/g, '').length;
             const recuo = espacos * 15;
-
-            return `<label class="task-check-label" style="margin-left: ${recuo}px">
-                        <input type="checkbox" checked onchange="window.toggleTaskCheck(${index}, true)"> 
-                        <span class="text-checked">${checkMatch[2]}</span>
-                    </label>`;
-                    
-        } else {
-            return `<div style="margin-bottom: 5px; min-height: 1.2em; white-space: pre-wrap;">${linha}</div>`;
+            return `<div class="task-check-label" style="margin-left: ${recuo}px; margin-top: 5px;"><input type="checkbox" checked onchange="window.toggleTaskCheck(${index}, true)"> <span class="text-checked">${checkMatch[2]}</span></div>`;
         }
-    }).join('');
+        return linha;
+    });
 
-    document.getElementById('detalheTaskDesc').innerHTML = html;
+    // 2. Passa o texto pelo interpretador do Markdown
+    let htmlGerado = marked.parse(linhasProcessadas.join('\n'));
+
+    // 3. Aplica as MESMAS tags customizadas da Wiki (Ex: {cor:red} ou {center})
+    if (typeof window.processarTagsCustomizadas === 'function') {
+        htmlGerado = window.processarTagsCustomizadas(htmlGerado);
+    }
+
+    // 4. Injeta na tela usando as classes do Obsidian/Wiki
+    container.className = 'markdown-body checklist-container';
+    
+    // Ajustes finos de CSS via JS para não quebrar o visual do Modal
+    container.style.background = 'transparent'; 
+    container.style.padding = '0'; 
+    container.style.boxShadow = 'none';
+    container.style.border = 'none';
+    container.style.minHeight = 'auto';
+    
+    container.innerHTML = htmlGerado;
+
+    // 5. Acorda o Mermaid para desenhar os gráficos (Fluxogramas, Diagramas, etc)
+    try {
+        const graficos = container.querySelectorAll('.language-mermaid');
+        if (graficos.length > 0) {
+            mermaid.run({ nodes: graficos });
+        }
+    } catch(e) {
+        console.log("Erro ao desenhar diagrama do Mermaid na tarefa:", e);
+    }
 };
 
 // C) Abre o Modal e puxa dados ao vivo do GitHub
@@ -913,27 +1064,32 @@ window.drop = async (e) => {
         
         if (docSnap.exists()) {
             const t = docSnap.data();
+            const statusAntigo = t.status;
 
-            // Atualiza status no Firebase
-            await updateDoc(taskRef, { status: novoStatus });
+            if (statusAntigo === novoStatus) return;
 
-            // GAMIFICAÇÃO: Se foi concluída, pontua para quem estava assumido!
-            if (novoStatus === 'done' && t.assignedTo) {
-                // Passamos o ID de quem estava na tarefa para o ranking
-                window.pontuarGamificacao('tarefa', t.assignedTo, t.tag);
+            // 🛑 TRAVA DE SEGURANÇA: Só quem assumiu ou um Admin pode arrastar o card!
+            if (t.assignedTo && t.assignedTo !== auth.currentUser.uid && window.userRole !== 'admin') {
+                window.mostrarToastNotificacao('Acesso Negado', '🔒 Apenas o responsável pela tarefa ou um Administrador pode movê-la!', 'geral');
+                return;
             }
 
-            // Sync GitHub (mesma lógica de antes...)
+            await updateDoc(taskRef, { status: novoStatus });
+
+            if (statusAntigo !== 'done' && novoStatus === 'done' && t.assignedTo) {
+                window.pontuarGamificacao('tarefa', t.assignedTo, t.tag, false);
+                window.registrarAtividade(`concluiu a tarefa "${t.titulo}"`, 'tarefa', '✅');
+            } 
+            else if (statusAntigo === 'done' && novoStatus !== 'done' && t.assignedTo) {
+                window.pontuarGamificacao('tarefa', t.assignedTo, t.tag, true);
+            }
+
             const token = localStorage.getItem('github_token');
             if (window.projetoAtualRepo && token && t.githubIssue) {
                 const state = novoStatus === 'done' ? 'closed' : 'open';
                 fetch(`https://api.github.com/repos/${window.projetoAtualRepo}/issues/${t.githubIssue}`, {
                     method: "PATCH",
-                    headers: {
-                        "Accept": "application/vnd.github+json",
-                        "Authorization": `Bearer ${token}`,
-                        "Content-Type": "application/json"
-                    },
+                    headers: { "Accept": "application/vnd.github+json", "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
                     body: JSON.stringify({ state: state })
                 });
             }
@@ -1731,7 +1887,7 @@ window.assumirTarefa = async (taskId) => {
     if (!auth.currentUser) return;
     
     // Pega o nome do usuário atual (do perfil ou e-mail)
-    const nomeUser = auth.currentUser.displayName || auth.currentUser.email.split('@')[0];
+    const nomeUser = window.obterNomeExibicao();
 
     try {
         await updateDoc(doc(db, "tarefas", taskId), {
@@ -1746,228 +1902,671 @@ window.assumirTarefa = async (taskId) => {
 window.desassumirTarefa = async (taskId) => {
     if (!auth.currentUser) return;
     
-    if(confirm("Deseja largar esta tarefa e devolvê-la para a equipe?")) {
-        try {
-            await updateDoc(doc(db, "tarefas", taskId), {
-                assignedTo: null,
-                assignedName: null
+    try {
+        const taskRef = doc(db, "tarefas", taskId);
+        const docSnap = await getDoc(taskRef);
+        
+        if (docSnap.exists()) {
+            const t = docSnap.data();
+
+            // 🛑 TRAVA DE SEGURANÇA: Gerente não pode tirar a tarefa do amiguinho!
+            if (t.assignedTo !== auth.currentUser.uid && window.userRole !== 'admin') {
+                return window.mostrarToastNotificacao('Acesso Negado', '🔒 Apenas quem assumiu ou um Admin pode desassumir esta tarefa.', 'geral');
+            }
+
+            if(confirm("Deseja largar esta tarefa e devolvê-la para a equipe?")) {
+                if (t.status === 'done' && t.assignedTo) {
+                    window.pontuarGamificacao('tarefa', t.assignedTo, t.tag, true);
+                }
+
+                const novoStatus = t.status === 'done' ? 'todo' : t.status;
+                await updateDoc(taskRef, { assignedTo: null, assignedName: null, status: novoStatus });
+            }
+        }
+    } catch (e) { console.error("Erro ao desassumir tarefa:", e); }
+};
+
+// --- MISSÕES DIÁRIAS ---
+window.verificarResetDiario = async () => {
+    if (!auth.currentUser) return;
+    const userRef = doc(db, "usuarios", auth.currentUser.uid);
+    const docSnap = await getDoc(userRef);
+    const hoje = new Date().toISOString().split('T')[0]; // Ex: 2024-05-20
+    
+    if (docSnap.exists()) {
+        const u = docSnap.data();
+        // Se o último dia salvo for diferente de hoje, ZERA as missões!
+        if (u.ultimoResetDiario !== hoje) {
+            await updateDoc(userRef, {
+                ultimoResetDiario: hoje,
+                'daily.tarefa': 0,
+                'daily.pomodoro': 0,
+                'daily.resgatado': false
             });
-            // Não precisa atualizar a tela manualmente, o onSnapshot faz isso na mesma hora!
-        } catch (e) { 
-            console.error("Erro ao desassumir tarefa:", e); 
         }
     }
 };
 
-// ==========================================
-// 8. GAME JAM WAR ROOM
-// ==========================================
-window.enviarMensagemJam = async () => {
-    const inp = document.getElementById('jam-msg-input');
-    if (!inp.value.trim() || !auth.currentUser) return;
-    await addDoc(collection(db, "gamejam_chat"), {
-        texto: inp.value, autor: auth.currentUser.email.split('@')[0],
-        uid: auth.currentUser.uid, dataCriacao: new Date().toISOString()
-    });
-    inp.value = '';
+window.resgatarBonusDiario = async () => {
+    const userRef = doc(db, "usuarios", auth.currentUser.uid);
+    try {
+        await updateDoc(userRef, {
+            'daily.resgatado': true,
+            xp: increment(50) // Dá 50 de XP de brinde!
+        });
+        window.mostrarToastNotificacao('Combo Diário!', '+50 XP! Volte amanhã para mais missões.', 'geral');
+    } catch(e) { console.error(e); }
 };
 
-window.iniciarChatJam = () => {
-    const box = document.getElementById('jam-chat-box');
-    if(!box) return;
-    onSnapshot(query(collection(db, "gamejam_chat"), orderBy("dataCriacao", "asc"), limit(50)), (snap) => {
-        box.innerHTML = snap.docs.map(d => {
-            const m = d.data(); const me = m.uid === auth.currentUser.uid;
-            return `<div class="chat-msg ${me?'me':''}"><strong>${m.autor}:</strong> ${m.texto}</div>`;
-        }).join('');
-        box.scrollTop = box.scrollHeight;
-    });
+// ==========================================
+// 8. WAR ROOM & GESTÃO DE SPRINTS
+// ==========================================
+window.timerSprintInterval = null;
+
+// --- 1. CONFIGURAR OPERAÇÃO (MODAL INTELIGENTE) ---
+window.abrirConfigSprint = async () => {
+    // Trava de segurança: Só chefes iniciam operações globais
+    if (window.userRole !== 'admin' && window.userRole !== 'gerente') {
+        return window.mostrarToastNotificacao('Acesso Negado', 'Apenas Administradores ou Gerentes podem configurar a War Room.', 'geral');
+    }
+    
+    // Busca os projetos para preencher o Dropdown
+    const selectProj = document.getElementById('warConfigProjeto');
+    selectProj.innerHTML = '<option value="">Buscando projetos...</option>';
+    
+    const q = query(collection(db, "projetos"), where("colaboradores", "array-contains", auth.currentUser.email.toLowerCase()));
+    const snap = await getDocs(q);
+    
+    if (snap.empty) {
+        selectProj.innerHTML = '<option value="">Nenhum projeto encontrado</option>';
+    } else {
+        selectProj.innerHTML = '';
+        snap.forEach(d => {
+            selectProj.innerHTML += `<option value="${d.id}">${d.data().nome}</option>`;
+        });
+    }
+
+    openModal('modalConfigWarRoom');
 };
 
-window.iniciarTimerGlobal = () => {
-    onSnapshot(doc(db, "gamejam_config", "timer"), (d) => {
-        if (d.exists()) {
-            const fim = new Date(d.data().dataFim);
-            if(window.jamInterval) clearInterval(window.jamInterval);
-            window.jamInterval = setInterval(() => {
-                const diff = fim - new Date();
-                if (diff <= 0) { document.getElementById('jam-timer').innerText = "00:00:00"; document.getElementById('jam-timer').style.color="#ff5252"; return; }
-                const h = Math.floor(diff/3600000).toString().padStart(2,'0');
-                const m = Math.floor((diff%3600000)/60000).toString().padStart(2,'0');
-                const s = Math.floor((diff%60000)/1000).toString().padStart(2,'0');
-                document.getElementById('jam-timer').innerText = `${h}:${m}:${s}`;
-                document.getElementById('jam-timer').style.color="#fff";
-            }, 1000);
+window.salvarConfigWarRoom = async (e) => {
+    e.preventDefault();
+    const nome = document.getElementById('warConfigNome').value;
+    const tipo = document.getElementById('warConfigTipo').value;
+    const projetoId = document.getElementById('warConfigProjeto').value;
+    const dataFim = document.getElementById('warConfigDataFim').value;
+    const horaFim = document.getElementById('warConfigHoraFim').value;
+
+    if (!projetoId) return alert("Selecione um projeto alvo válido!");
+
+    // Monta a data no formato ISO perfeito para não dar erro de fuso horário
+    const fimIso = new Date(`${dataFim}T${horaFim}:00`).toISOString();
+
+    try {
+        await setDoc(doc(db, "configuracoes", "sprint_atual"), {
+            nome: nome, 
+            tipo: tipo, 
+            projetoId: projetoId, 
+            fim: fimIso, 
+            ativa: true
+        });
+        
+        window.registrarAtividade(`iniciou a operação: ${nome}`, 'war-room', tipo === 'jam' ? '🎮' : '🏃');
+        closeModal('modalConfigWarRoom');
+        document.getElementById('formConfigWarRoom')?.reset();
+    } catch(err) { 
+        console.error(err); 
+        alert("Erro ao salvar configuração da War Room."); 
+    }
+};
+
+// --- 2. O RELÓGIO DO APOCALIPSE ---
+window.atualizarTimerWarRoom = (dataFinal) => {
+    if (window.timerSprintInterval) clearInterval(window.timerSprintInterval);
+
+    const elTimer = document.getElementById('war-countdown');
+    const fim = new Date(dataFinal).getTime();
+
+    window.timerSprintInterval = setInterval(() => {
+        const agora = new Date().getTime();
+        const dist = fim - agora;
+
+        if (dist < 0) {
+            clearInterval(window.timerSprintInterval);
+            elTimer.innerText = "MISSÃO ENCERRADA";
+            elTimer.style.color = "#666";
+            return;
         }
+
+        const dias = Math.floor(dist / (1000 * 60 * 60 * 24));
+        const horas = Math.floor((dist % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutos = Math.floor((dist % (1000 * 60 * 60)) / (1000 * 60));
+        const segundos = Math.floor((dist % (1000 * 60)) / 1000);
+
+        elTimer.innerText = `${String(dias).padStart(2,'0')}:${String(horas).padStart(2,'0')}:${String(minutos).padStart(2,'0')}:${String(segundos).padStart(2,'0')}`;
+        if (dist < 3600000) elTimer.style.animation = "pulseRed 1s infinite";
+    }, 1000);
+};
+
+// --- 3. MINI-KANBAN TÁTICO ---
+window.renderizarMiniKanbanWar = (tarefas) => {
+    const cols = { todo: 'war-col-todo', doing: 'war-col-doing', done: 'war-col-done' };
+    Object.values(cols).forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = ''; });
+
+    const tarefasSprint = tarefas.filter(t => t.tag === 'bug' || t.tag === 'feature' || t.tag === 'sprint');
+
+    tarefasSprint.forEach(t => {
+        const card = document.createElement('div');
+        card.className = `war-task-card ${t.tag}`;
+        card.draggable = true;
+        card.ondragstart = (ev) => ev.dataTransfer.setData("text", t.id);
+        
+        const iniciais = t.assignedName ? t.assignedName.substring(0, 2).toUpperCase() : "??";
+        const ownerHtml = t.assignedTo ? `<span style="float:right; font-size:0.65rem; background:var(--primary); color:#000; padding:2px 5px; border-radius:4px;">${iniciais}</span>` : "";
+
+        card.innerHTML = `${ownerHtml}<strong>${t.titulo}</strong>`;
+        
+        const colId = cols[t.status] || 'war-col-todo';
+        const colunaAlvo = document.getElementById(colId);
+        if (colunaAlvo) colunaAlvo.appendChild(card);
     });
 };
 
-window.configurarTimerJam = async () => {
-    const h = prompt("Quantas horas durará a Jam?"); if (!h) return;
-    const f = new Date(); f.setHours(f.getHours() + parseInt(h));
-    await setDoc(doc(db, "gamejam_config", "timer"), { dataFim: f.toISOString() });
-};
+// --- 4. TERMINAL DE COMUNICAÇÃO (AVANÇADO) ---
+window.enviarMensagemWar = async () => {
+    const input = document.getElementById('war-chat-input');
+    const texto = input.value.trim();
+    if (!texto || !auth.currentUser) return;
 
-window.novaTarefaJam = async () => {
-    const tit = document.getElementById('jam-new-task-title');
-    const tag = document.getElementById('jam-new-task-tag');
-    if (!tit.value.trim() || !auth.currentUser) return;
-    await addDoc(collection(db, "gamejam_tarefas"), {
-        titulo: tit.value, tag: tag.value, concluida: false, 
-        responsavel: "", criadoPor: auth.currentUser.email.split('@')[0], 
-        dataCriacao: new Date().toISOString()
+    const nome = auth.currentUser.displayName || auth.currentUser.email.split('@')[0];
+    
+    await addDoc(collection(db, "war_room_chat"), {
+        autor: nome,
+        autorId: auth.currentUser.uid, 
+        texto: texto,
+        data: new Date().toISOString(),
+        editada: false
     });
-    tit.value = '';
+    input.value = "";
 };
 
-window.iniciarTarefasJam = () => {
-    onSnapshot(query(collection(db, "gamejam_tarefas"), orderBy("dataCriacao", "asc")), (snap) => {
-        const list = document.getElementById('jam-task-list');
-        if(!list) return;
-        list.innerHTML = snap.docs.map(d => {
-            const t = d.data();
-            let corTag = '#666'; let icon = '📝';
-            if(t.tag === 'dev') { corTag = '#00eaff'; icon = '💻'; }
-            if(t.tag === 'arte') { corTag = '#ffc107'; icon = '🎨'; }
-            if(t.tag === 'audio') { corTag = '#81fe4e'; icon = '🎵'; }
-            if(t.tag === 'gdd') { corTag = '#ff5252'; icon = '📖'; }
+window.iniciarChatWarRoom = () => {
+    const chatBox = document.getElementById('war-chat-feed');
+    const q = query(collection(db, "war_room_chat"), orderBy("data", "asc"), limit(100));
 
-            return `
-                <li style="display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.03); border:1px solid var(--border-color); padding:12px; margin-bottom:10px; border-radius:8px;">
-                    <input type="checkbox" ${t.concluida?'checked':''} onchange="toggleTarefaJam('${d.id}', ${t.concluida})" style="accent-color:var(--primary); width:18px; height:18px; cursor:pointer; margin-bottom:0;">
-                    <div style="flex:1; display:flex; flex-direction:column;">
-                        <span style="font-size:0.95rem; ${t.concluida?'text-decoration:line-through;color:#666':''}"><span style="color:${corTag};">${icon}</span> ${t.titulo}</span>
+    onSnapshot(q, (snap) => {
+        if(!chatBox) return;
+        chatBox.innerHTML = "";
+        
+        if (snap.empty) {
+            chatBox.innerHTML = `<div class="chat-msg bot"><span class="chat-author">SISTEMA</span>O Terminal foi limpo. Aguardando transmissões...</div>`;
+            return;
+        }
+
+        snap.forEach(docSnap => {
+            const m = docSnap.data();
+            const id = docSnap.id;
+            const msgEl = document.createElement('div');
+            msgEl.className = "chat-msg user";
+            
+            let textoFormatado = m.texto.replace(/@([a-zA-Z0-9_À-ÿ]+)/g, '<span class="chat-mention">@$1</span>');
+            const marcaEdicao = m.editada ? '<span style="font-size: 0.65rem; color: #666; margin-left: 5px;">(editado)</span>' : '';
+
+            const minhaMensagem = m.autorId === auth.currentUser.uid;
+            const isAdmin = window.userRole === 'admin';
+            
+            let acoesHtml = '';
+            if (minhaMensagem || isAdmin) {
+                const btnEdit = minhaMensagem ? `<button class="chat-action-btn" onclick="editarMensagemWar('${id}')" title="Editar">✏️</button>` : '';
+                acoesHtml = `
+                    <div class="chat-actions">
+                        ${btnEdit}
+                        <button class="chat-action-btn del" onclick="apagarMensagemWar('${id}')" title="Apagar">🗑️</button>
                     </div>
-                    <button class="icon-btn" onclick="deletarTarefaJam('${d.id}')" style="color:#ff5252;">🗑️</button>
-                </li>`;
-        }).join('');
+                `;
+            }
+
+            msgEl.innerHTML = `
+                <span class="chat-author">${m.autor.toUpperCase()}</span>
+                <span style="word-break: break-word;">${textoFormatado}</span> ${marcaEdicao}
+                ${acoesHtml}
+            `;
+            chatBox.appendChild(msgEl);
+        });
+        chatBox.scrollTop = chatBox.scrollHeight;
     });
 };
 
-window.toggleTarefaJam = async (id, status) => await updateDoc(doc(db, "gamejam_tarefas", id), { concluida: !status });
-window.deletarTarefaJam = async (id) => { if(confirm("Apagar?")) await deleteDoc(doc(db, "gamejam_tarefas", id)); };
+window.editarMensagemWar = async (id) => {
+    const docRef = doc(db, "war_room_chat", id);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+        const textoAntigo = snap.data().texto;
+        const novoTexto = prompt("Editar transmissão:", textoAntigo);
+        if (novoTexto && novoTexto.trim() !== "" && novoTexto !== textoAntigo) {
+            await updateDoc(docRef, { texto: novoTexto.trim(), editada: true });
+        }
+    }
+};
 
-window.iniciarEssentialsJam = () => {
-    onSnapshot(doc(db, "gamejam_config", "essentials"), (d) => {
-        if(d.exists()) {
-            const v = d.data();
-            document.getElementById('jam-tema').innerText = v.tema;
-            document.getElementById('jam-link-itch').href = v.itch;
-            document.getElementById('jam-link-repo').href = v.repo;
+window.apagarMensagemWar = async (id) => {
+    if(confirm("Apagar esta mensagem do terminal?")) await deleteDoc(doc(db, "war_room_chat", id));
+};
+
+// --- 5. O ARSENAL (LINKS) ---
+window.adicionarLinkWarRoom = async () => {
+    const titulo = prompt("Título do Link:");
+    const url = prompt("URL (http://...):");
+    if (titulo && url) {
+        await addDoc(collection(db, "war_room_links"), { titulo, url });
+    }
+};
+
+window.iniciarArsenalWarRoom = () => {
+    const container = document.getElementById('war-links-container');
+    onSnapshot(collection(db, "war_room_links"), (snap) => {
+        if(!container) return;
+        container.innerHTML = "";
+        snap.forEach(doc => {
+            const l = doc.data();
+            container.innerHTML += `
+                <a href="${l.url}" target="_blank" class="war-link-item">
+                    <span style="font-size: 1.2rem;">🔗</span> 
+                    <div><strong>${l.titulo}</strong><br><span style="font-size:0.7rem; color:#888;">Recurso Externo</span></div>
+                </a>
+            `;
+        });
+    });
+};
+
+// --- 6. PROTOCOLO DO ADMINISTRADOR (RESET) ---
+window.limparTerminalWarRoom = async () => {
+    if (window.userRole !== 'admin') return alert("Acesso Negado: Apenas Administradores podem resetar o terminal.");
+    if (confirm("ATENÇÃO ADMIN: Deseja apagar TODAS as mensagens do terminal? Esta ação não tem volta.")) {
+        const snap = await getDocs(query(collection(db, "war_room_chat")));
+        snap.forEach(async (docSnap) => await deleteDoc(docSnap.ref));
+        window.registrarAtividade("executou a limpeza total do Terminal", "war-room", "🧹");
+    }
+};
+
+window.resetarWarRoomCompleta = async () => {
+    if (window.userRole !== 'admin') return alert("Acesso Negado: Apenas Administradores podem limpar a mesa.");
+    if (confirm("ATENÇÃO: Deseja encerrar a Sprint atual, zerar o relógio e limpar os links da War Room?")) {
+        try {
+            await setDoc(doc(db, "configuracoes", "sprint_atual"), { nome: "Nenhuma Operação Ativa", fim: new Date().toISOString(), ativa: false });
+            const snapLinks = await getDocs(query(collection(db, "war_room_links")));
+            snapLinks.forEach(async (docSnap) => await deleteDoc(docSnap.ref));
+            window.registrarAtividade("encerrou a Sprint e limpou a War Room", "war-room", "🛑");
+            alert("Mesa Limpa! A War Room está pronta para a próxima Jam/Sprint.");
+        } catch (e) { console.error("Erro ao resetar War Room:", e); }
+    }
+};
+
+// --- INICIALIZADOR DA WAR ROOM (AGORA COM FOCO EM PROJETO) ---
+window.unsubWarTasks = null; // Guarda a antena do radar de tarefas
+
+window.iniciarWarRoom = async () => {
+    if (!auth.currentUser) return;
+
+    onSnapshot(doc(db, "configuracoes", "sprint_atual"), (docSnap) => {
+        if (docSnap.exists()) {
+            const config = docSnap.data();
+            
+            // 1. Se a mesa foi limpa (operação inativa)
+            if (!config.ativa) {
+                const sprintName = document.getElementById('war-sprint-name');
+                if(sprintName) sprintName.innerText = "Nenhuma Operação Ativa";
+                document.getElementById('war-countdown').innerText = "00:00:00:00";
+                
+                // Desliga o radar de tarefas e limpa o quadro
+                if(window.unsubWarTasks) window.unsubWarTasks();
+                window.renderizarMiniKanbanWar([]); 
+                return;
+            }
+
+            // 2. Atualiza Nomes e Cores (Jam vs Sprint)
+            const sprintName = document.getElementById('war-sprint-name');
+            if(sprintName) sprintName.innerText = `Operação: ${config.nome}`;
+            
+            const badge = document.getElementById('war-badge-tipo');
+            if (badge) {
+                if (config.tipo === 'jam') {
+                    badge.innerText = "GAME JAM";
+                    badge.style.background = "rgba(156, 39, 176, 0.2)"; // Roxo Neon
+                    badge.style.color = "#e040fb";
+                    badge.style.borderColor = "#e040fb";
+                } else {
+                    badge.innerText = "SPRINT";
+                    badge.style.background = "rgba(255, 82, 82, 0.2)"; // Vermelho Alerta
+                    badge.style.color = "#ff5252";
+                    badge.style.borderColor = "#ff5252";
+                }
+            }
+
+            window.atualizarTimerWarRoom(config.fim);
+
+            // 3. A MÁGICA: Liga o Radar SÓ NO PROJETO ESCOLHIDO
+            if (config.projetoId) {
+                // Desliga o radar anterior, se houver
+                if (window.unsubWarTasks) window.unsubWarTasks();
+                
+                // Liga a escuta direta no Firebase buscando só as tarefas daquele projeto
+                window.unsubWarTasks = onSnapshot(
+                    query(collection(db, "tarefas"), where("projetoId", "==", config.projetoId)),
+                    (snapTasks) => {
+                        const tarefasDaOperacao = snapTasks.docs.map(d => ({id: d.id, ...d.data()}));
+                        window.renderizarMiniKanbanWar(tarefasDaOperacao);
+                    }
+                );
+            }
         }
     });
-};
-window.editarEssentialsJam = async () => {
-    const t = prompt("Tema Oficial:"); const i = prompt("Link Itch.io:"); const r = prompt("Link GitHub:");
-    await setDoc(doc(db, "gamejam_config", "essentials"), { tema: t||'-', itch: i||'#', repo: r||'#' });
+
+    window.iniciarChatWarRoom();
+    window.iniciarArsenalWarRoom();
 };
 
 // ==========================================
 // 9. CLIENTES, FINANCEIRO, AGENDA, DIÁRIO
 // ==========================================
 
-/* --- CLIENTES --- */
+/* ==========================================
+   --- CRM (CLIENTES) ---
+   ========================================== */
+window.clienteEditandoId = null;
+
 window.salvarCliente = async function(event) {
     event.preventDefault();
     if (!auth.currentUser) return;
+    
+    const dados = {
+        nome: document.getElementById('clienteNome').value,
+        status: document.getElementById('clienteStatus').value,
+        email: document.getElementById('clienteEmail').value || '',
+        discord: document.getElementById('clienteDiscord').value || '',
+        notas: document.getElementById('clienteNotas').value || '',
+        userId: auth.currentUser.uid,
+        dataAtualizacao: new Date().toISOString()
+    };
+
     try {
-        await addDoc(collection(db, "clientes"), {
-            nome: document.getElementById('clienteNome').value,
-            tipo: document.getElementById('clienteTipo').value,
-            email: document.getElementById('clienteEmail').value,
-            discord: document.getElementById('clienteDiscord').value,
-            notas: document.getElementById('clienteNotas').value,
-            userId: auth.currentUser.uid,
-            dataCriacao: new Date().toISOString()
-        });
+        if (window.clienteEditandoId) {
+            await updateDoc(doc(db, "clientes", window.clienteEditandoId), dados);
+        } else {
+            dados.dataCriacao = new Date().toISOString();
+            await addDoc(collection(db, "clientes"), dados);
+        }
         document.getElementById('formCliente').reset();
+        window.clienteEditandoId = null;
         closeModal('modalCliente');
         window.carregarClientes();
     } catch(e) { console.error(e); }
 };
 
+window.abrirEdicaoCliente = async (id) => {
+    const snap = await getDoc(doc(db, "clientes", id));
+    if (snap.exists()) {
+        const c = snap.data();
+        document.getElementById('clienteNome').value = c.nome;
+        document.getElementById('clienteStatus').value = c.status || 'ativo';
+        document.getElementById('clienteEmail').value = c.email;
+        document.getElementById('clienteDiscord').value = c.discord;
+        document.getElementById('clienteNotas').value = c.notas;
+        window.clienteEditandoId = id;
+        openModal('modalCliente');
+    }
+};
+
 window.carregarClientes = async function() {
     const grid = document.getElementById('client-entries');
     if (!grid || !auth.currentUser) return;
+    
+    // Traz os dados ordenados por nome para ficar elegante
     const q = query(collection(db, "clientes"), where("userId", "==", auth.currentUser.uid));
     const snap = await getDocs(q);
     
-    grid.innerHTML = snap.docs.map(d => {
-        const c = d.data();
+    let clientes = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    clientes.sort((a,b) => a.nome.localeCompare(b.nome));
+
+    grid.innerHTML = clientes.map(c => {
         const iniciais = c.nome.substring(0,2).toUpperCase();
+        
+        let corStatus = '#4caf50'; let txtStatus = 'Ativo';
+        if(c.status === 'lead') { corStatus = '#ffc107'; txtStatus = 'Lead'; }
+        if(c.status === 'inativo') { corStatus = '#666'; txtStatus = 'Inativo'; }
+
         return `
-        <div class="client-card">
-            <div class="client-header">
+        <div class="client-card" style="border-top: 3px solid ${corStatus};">
+            <div class="client-header" style="border-bottom:none; margin-bottom:0; padding-bottom:10px;">
                 <div class="client-avatar">${iniciais}</div>
-                <div class="client-title"><h3>${c.nome}</h3><p class="client-role">${c.tipo.toUpperCase()}</p></div>
+                <div class="client-title" style="flex:1;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <h3 style="margin:0;">${c.nome}</h3>
+                        <span class="badge" style="background:transparent; border:1px solid ${corStatus}; color:${corStatus}; font-size:0.65rem;">${txtStatus}</span>
+                    </div>
+                </div>
             </div>
-            <div class="client-body">
-                <p><strong>Email:</strong> ${c.email}</p>
-                <p><strong>Contato:</strong> ${c.discord || '-'}</p>
+            <div class="client-body" style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin-bottom:15px;">
+                <p style="margin-bottom:5px;">📧 ${c.email || 'Sem email'}</p>
+                <p>💬 ${c.discord || 'Sem contato'}</p>
             </div>
-            <div style="margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 15px; text-align:right;">
-                <button class="icon-btn" style="color: #ff5252;" onclick="deletarCliente('${d.id}')">🗑️ Excluir</button>
+            <div style="font-size:0.8rem; color:#aaa; max-height: 60px; overflow-y:auto; line-height:1.4; margin-bottom:15px;">
+                ${c.notas ? c.notas.replace(/\n/g, '<br>') : 'Sem anotações.'}
+            </div>
+            <div style="border-top: 1px solid var(--border-color); padding-top: 15px; display:flex; justify-content:flex-end; gap:10px;">
+                <button class="icon-btn" onclick="abrirEdicaoCliente('${c.id}')" data-tooltip="Editar">✏️</button>
+                <button class="icon-btn" style="color: #ff5252;" onclick="deletarCliente('${c.id}')" data-tooltip="Excluir">🗑️</button>
             </div>
         </div>`;
     }).join('') || '<p style="color:#666">Nenhum cliente cadastrado.</p>';
 };
-window.deletarCliente = async function(id) { if(confirm("Apagar cliente?")) { await deleteDoc(doc(db, "clientes", id)); window.carregarClientes(); } };
+window.deletarCliente = async function(id) { if(confirm("Apagar cliente? O histórico será perdido.")) { await deleteDoc(doc(db, "clientes", id)); window.carregarClientes(); } };
 
 
-/* --- FINANCEIRO --- */
+/* ==========================================
+   --- FINANCEIRO (FLUXO DE CAIXA) ---
+   ========================================== */
 window.salvarLancamento = async function(event) {
     event.preventDefault();
     if (!auth.currentUser) return;
+
+    const dados = {
+        tipo: document.getElementById('financeTipo').value,
+        status: document.getElementById('financeStatus').value,
+        origem: document.getElementById('financeOrigem').value,
+        categoria: document.getElementById('financeCategoria').value,
+        descricao: document.getElementById('financeDescricao').value,
+        valor: parseFloat(document.getElementById('financeValor').value),
+        dataVencimento: document.getElementById('financeData').value,
+        userId: auth.currentUser.uid,
+        dataAtualizacao: new Date().toISOString()
+    };
+
     try {
-        await addDoc(collection(db, "lancamentos"), {
-            tipo: document.getElementById('financeTipo').value,
-            origem: document.getElementById('financeOrigem').value,
-            descricao: document.getElementById('financeDescricao').value,
-            valor: parseFloat(document.getElementById('financeValor').value),
-            dataVencimento: document.getElementById('financeData').value,
-            userId: auth.currentUser.uid,
-            dataCriacao: new Date().toISOString()
-        });
+        if (window.lancamentoEditandoId) {
+            // EDITAR
+            await updateDoc(doc(db, "lancamentos", window.lancamentoEditandoId), dados);
+            window.registrarAtividade(`editou o lançamento "${dados.origem}"`, 'financeiro', '💰');
+        } else {
+            // NOVO
+            dados.dataCriacao = new Date().toISOString();
+            await addDoc(collection(db, "lancamentos"), dados);
+            window.registrarAtividade(`registrou novo lançamento: "${dados.origem}"`, 'financeiro', '💰');
+        }
+        
         document.getElementById('formFinanceiro').reset();
+        window.lancamentoEditandoId = null;
         closeModal('modalLancamento');
         window.carregarLancamentos();
         window.carregarDashboard();
     } catch(e) { console.error(e); }
 };
 
+window.abrirEdicaoLancamento = async (id) => {
+    const snap = await getDoc(doc(db, "lancamentos", id));
+    if (snap.exists()) {
+        const d = snap.data();
+        document.getElementById('financeTipo').value = d.tipo;
+        document.getElementById('financeStatus').value = d.status;
+        document.getElementById('financeOrigem').value = d.origem;
+        document.getElementById('financeCategoria').value = d.categoria;
+        document.getElementById('financeDescricao').value = d.descricao;
+        document.getElementById('financeValor').value = d.valor;
+        document.getElementById('financeData').value = d.dataVencimento;
+        
+        window.lancamentoEditandoId = id;
+        openModal('modalLancamento');
+    }
+};
+
+window.alternarStatusLancamento = async (id, novoStatus) => {
+    await updateDoc(doc(db, "lancamentos", id), { status: novoStatus });
+    window.carregarLancamentos();
+    window.carregarDashboard();
+};
+
 window.carregarLancamentos = async function() {
     const tbody = document.getElementById('finance-entries');
     if (!tbody || !auth.currentUser) return;
+
+    // A CORREÇÃO: O formatador de moeda precisa nascer aqui em cima!
+    const formatadorMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+
+    const elFiltro = document.getElementById('filtroMesFinanceiro');
+    let filtroMes = elFiltro ? elFiltro.value : "";
+    if (!filtroMes) {
+        const hoje = new Date();
+        filtroMes = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+        if(elFiltro) elFiltro.value = filtroMes;
+    }
+
     const q = query(collection(db, "lancamentos"), where("userId", "==", auth.currentUser.uid));
     const snap = await getDocs(q);
-    let rec = 0, cus = 0;
-    const formatador = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
     
-    let html = '';
+    let recPrev = 0, cusPrev = 0;
+    let recReal = 0, cusReal = 0;
+    let lancamentosMes = [];
+
     snap.forEach(docSnap => {
         const d = docSnap.data();
-        if (d.tipo === 'receita') rec += d.valor; else cus += d.valor;
-        const badge = d.tipo === 'receita' ? 'badge-receita' : 'badge-custo';
-        const partes = d.dataVencimento ? d.dataVencimento.split('-') : ['00','00','0000'];
-        const dataF = `${partes[2]}/${partes[1]}/${partes[0]}`;
-        
-        html += `<tr>
+        if ((d.dataVencimento || "").startsWith(filtroMes)) {
+            lancamentosMes.push({id: docSnap.id, ...d});
+        }
+    });
+
+    lancamentosMes.sort((a,b) => new Date(a.dataVencimento) - new Date(b.dataVencimento));
+
+    let html = '';
+    lancamentosMes.forEach(d => {
+        if (d.tipo === 'receita') {
+            recPrev += d.valor;
+            if (d.status === 'pago') recReal += d.valor;
+        } else {
+            cusPrev += d.valor;
+            if (d.status === 'pago') cusReal += d.valor;
+        }
+
+        const isPago = d.status === 'pago';
+        const badgeTipo = d.tipo === 'receita' ? 'badge-receita' : 'badge-custo';
+        const badgeStatus = isPago 
+            ? '<span class="badge" style="background:rgba(76,175,80,0.1); color:#4caf50;">PAGO</span>' 
+            : '<span class="badge" style="background:rgba(255,193,7,0.1); color:#ffc107;">PENDENTE</span>';
+
+        // MENU 3 PONTINHOS
+        const menuAcoes = `
+            <div style="position:relative; display:inline-block;">
+                <button class="icon-btn" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')" style="font-size:1.2rem;">⋮</button>
+                <div class="dropdown-content">
+                    <button class="icon-btn" onclick="abrirEdicaoLancamento('${d.id}')" style="font-size:0.8rem; text-align:left; width:100%; padding:8px 10px; color:#fff;">✏️ Editar</button>
+                    <button class="icon-btn" onclick="alternarStatusLancamento('${d.id}', '${isPago ? 'pendente' : 'pago'}')" style="font-size:0.8rem; text-align:left; width:100%; padding:8px 10px; color:var(--primary);">${isPago ? '↩️ Pendente' : '✔️ Dar Baixa'}</button>
+                    <button class="icon-btn" onclick="deletarLancamento('${d.id}')" style="color:#ff5252; font-size:0.8rem; text-align:left; width:100%; padding:8px 10px; border-top:1px solid rgba(255,255,255,0.1);">🗑️ Excluir</button>
+                </div>
+            </div>
+        `;
+
+        const dataF = d.dataVencimento.split('-').reverse().slice(0,2).join('/');
+        html += `<tr style="${isPago ? 'opacity: 0.6;' : ''}">
             <td>${dataF}</td>
-            <td><strong>${d.origem}</strong></td>
-            <td><span class="badge ${badge}">${d.tipo.toUpperCase()}</span></td>
-            <td style="color: ${d.tipo === 'receita' ? '#4caf50' : '#ff5252'}; font-weight:bold;">${d.tipo === 'receita' ? '+' : '-'} ${formatador.format(d.valor)}</td>
-            <td><button class="icon-btn" style="color:#ff5252" onclick="deletarLancamento('${docSnap.id}')">🗑️</button></td>
+            <td><strong>${d.origem}</strong><br><small style="color:#888;">${d.categoria}</small></td>
+            <td><span class="badge ${badgeTipo}">${d.tipo.toUpperCase()}</span></td>
+            <td>${badgeStatus}</td>
+            <td style="color: ${d.tipo === 'receita' ? '#4caf50' : '#ff5252'}; font-weight:bold;">${formatadorMoeda.format(d.valor)}</td>
+            <td>${menuAcoes}</td>
         </tr>`;
     });
-    tbody.innerHTML = html || '<tr><td colspan="5" style="text-align:center; color:#666;">Nenhum lançamento.</td></tr>';
-    
-    document.getElementById('resumoReceita').innerText = formatador.format(rec);
-    document.getElementById('resumoCusto').innerText = formatador.format(cus);
-    document.getElementById('resumoSaldo').innerText = formatador.format(rec - cus);
-    document.getElementById('resumoSaldo').className = (rec - cus) >= 0 ? 'valor text-neon' : 'valor text-red';
-};
-window.deletarLancamento = async function(id) { if(confirm("Apagar lançamento?")) { await deleteDoc(doc(db, "lancamentos", id)); window.carregarLancamentos(); window.carregarDashboard();} };
 
+    tbody.innerHTML = html || '<tr><td colspan="6" style="text-align:center; padding:20px;">Sem dados.</td></tr>';
+    
+    // Atualiza Cards
+    document.getElementById('resumoReceita').innerText = formatadorMoeda.format(recReal);
+    document.getElementById('previstoReceita').innerText = `A receber: ${formatadorMoeda.format(recPrev - recReal)}`;
+    document.getElementById('resumoCusto').innerText = formatadorMoeda.format(cusReal);
+    document.getElementById('previstoCusto').innerText = `A pagar: ${formatadorMoeda.format(cusPrev - cusReal)}`;
+    
+    const saldoReal = recReal - cusReal;
+    document.getElementById('resumoSaldo').innerText = formatadorMoeda.format(saldoReal);
+    document.getElementById('resumoSaldo').className = saldoReal >= 0 ? 'valor text-neon' : 'valor text-red';
+
+    // Renderiza o Gráfico
+    window.renderizarGraficoFinanceiro(lancamentosMes);
+};
+
+window.renderizarGraficoFinanceiro = (dados) => {
+    const ctx = document.getElementById('graficoFinanceiro');
+    if (!ctx) return;
+
+    // Prepara dados para o gráfico (Saldo acumulado dia a dia)
+    const diasNoMes = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+    const labels = Array.from({length: diasNoMes}, (_, i) => i + 1);
+    const valoresPorDia = new Array(diasNoMes).fill(0);
+
+    let saldoAcumulado = 0;
+    dados.forEach(d => {
+        if (d.status === 'pago') {
+            const dia = parseInt(d.dataVencimento.split('-')[2]);
+            if (d.tipo === 'receita') saldoAcumulado += d.valor;
+            else saldoAcumulado -= d.valor;
+            // Preenche do dia do lançamento até o fim do mês com esse novo saldo
+            for(let i = dia - 1; i < diasNoMes; i++) valoresPorDia[i] = saldoAcumulado;
+        }
+    });
+
+    if (window.meuGraficoFinanceiro) window.meuGraficoFinanceiro.destroy();
+
+    window.meuGraficoFinanceiro = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Saldo em Caixa (R$)',
+                data: valoresPorDia,
+                borderColor: '#81fe4e',
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: true,
+                backgroundColor: 'rgba(129, 254, 78, 0.05)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { display: false },
+                y: { display: false }
+            }
+        }
+    });
+};
+
+window.deletarLancamento = async function(id) { 
+    if(confirm("Apagar este lançamento do livro caixa?")) { 
+        await deleteDoc(doc(db, "lancamentos", id)); 
+        window.carregarLancamentos(); 
+        window.carregarDashboard(); 
+    } 
+};
 
 /* --- CRONOGRAMA / EVENTOS --- */
 window.salvarEvento = async function(event) {
@@ -2302,21 +2901,205 @@ window.deletarReuniao = async (id) => {
 };
 
 // ==========================================
-// 10. PERFIL E CUSTOMIZAÇÃO
+// 10. PERFIL E CUSTOMIZAÇÃO (RPG MODE)
 // ==========================================
-window.pontuarGamificacao = async (tipo, userIdAlvo, tag) => {
+window.pontuarGamificacao = async (tipo, userIdAlvo, tag, reverter = false) => {
     const uid = userIdAlvo || auth.currentUser.uid;
     const userRef = doc(db, "usuarios", uid);
     
-    // Define pontos por tipo
     let pontos = 0;
     if (tipo === 'tarefa') pontos = 10;
     if (tipo === 'pomodoro') pontos = 5;
 
-    // Incrementa no banco de dados
+    const multiplicador = reverter ? -1 : 1;
+
+    // Atualiza tudo: XP Geral, Status de Classe, Total, e a Missão DIÁRIA!
     await updateDoc(userRef, {
-        xp: increment(pontos),
-        [`stats.${tag || 'geral'}`]: increment(1) // Salva que ele fez +1 de 'art', 'bug', etc.
+        xp: increment(pontos * multiplicador),
+        [`stats.${tag || 'geral'}`]: increment(1 * multiplicador),
+        [tipo === 'tarefa' ? 'tasksFeitas' : 'pomodoros']: increment(1 * multiplicador),
+        [`daily.${tipo}`]: increment(1 * multiplicador) // <--- ESSA É A LINHA NOVA!
+    });
+};
+
+// --- O CHAPÉU SELETOR DE CLASSES ---
+window.calcularClasseRPG = (stats) => {
+    if (!stats) return { nome: "Aventureiro Iniciante", cor: "#aaa", icone: "🛡️" };
+    
+    // Agrupa as tags caso você crie tags parecidas
+    const s = {
+        dev: (stats.feature || 0) + (stats.dev || 0),
+        bug: stats.bug || 0,
+        art: (stats.art || 0) + (stats.ui || 0),
+        audio: (stats.audio || 0) + (stats.bgm || 0) + (stats.sfx || 0),
+        docs: (stats.docs || 0) + (stats.gdd || 0)
+    };
+    
+    let maxVal = 0;
+    let classeAlvo = "geral";
+    
+    for (let [key, val] of Object.entries(s)) {
+        if (val > maxVal) { maxVal = val; classeAlvo = key; }
+    }
+    
+    if (maxVal === 0) return { nome: "Aventureiro Iniciante", cor: "#aaa", icone: "🛡️" };
+    
+    switch(classeAlvo) {
+        case 'dev': return { nome: "Mago do Código", cor: "#00eaff", icone: "💻" };
+        case 'bug': return { nome: "Paladino Implacável", cor: "#ff5252", icone: "🗡️" };
+        case 'art': return { nome: "Ilusionista Visual", cor: "#ffc107", icone: "🎨" };
+        case 'audio': return { nome: "Bardo Sonoro", cor: "#e040fb", icone: "🎵" };
+        case 'docs': return { nome: "Lore Master", cor: "#9e9e9e", icone: "📜" };
+        default: return { nome: "Aventureiro Polivalente", cor: "var(--primary)", icone: "⚔️" };
+    }
+};
+
+// --- DESENHAR A FICHA DE PERSONAGEM ---
+window.carregarMeuPerfil = () => {
+    const card = document.getElementById('user-profile-card');
+    if (!card || !auth.currentUser) return;
+
+    onSnapshot(doc(db, "usuarios", auth.currentUser.uid), (docSnap) => {
+        if (docSnap.exists()) {
+            const u = docSnap.data();
+            
+            // Preenche os campos do formulário para não virem em branco
+            document.getElementById('user-nome').value = u.nome || "";
+            document.getElementById('user-apelido').value = u.apelido || "";
+            if(u.especialidade) document.getElementById('user-specialty').value = u.especialidade;
+
+            const xp = u.xp || 0;
+            const tasksFeitas = u.tasksFeitas || 0;
+            const pomodoros = u.pomodoros || 0;
+            const stats = u.stats || {};
+            
+            const level = Math.floor(Math.sqrt(xp / 10)) + 1; 
+            const xpNivelAtual = 10 * Math.pow(level - 1, 2);
+            const xpProximoNivel = 10 * Math.pow(level, 2);
+            const progressoXP = xp - xpNivelAtual;
+            const metaXP = xpProximoNivel - xpNivelAtual;
+            const porcentagem = Math.min(100, Math.max(0, (progressoXP / metaXP) * 100));
+
+            const classeInfo = window.calcularClasseRPG(stats);
+            const avatarTexto = window.obterNomeExibicao().substring(0, 2).toUpperCase();
+            const bannerEstilo = u.bgTema ? `background-image: url('${u.bgTema}')` : 'background: #2a2a2d';
+            
+            // Texto formatado: Ex: João "MagoDasTrevas"
+            const textoNomeFicha = u.apelido ? `${u.nome.split(' ')[0]} <span style="color:var(--primary);">"${u.apelido}"</span>` : u.nome.split(' ')[0];
+
+
+            // ==========================================
+            // 🏆 MATRIZ DE CONQUISTAS (BADGES)
+            // ==========================================
+            const badges = [
+                { nome: 'Primeiro Sangue', desc: 'Ganhou seu primeiro XP no Hub.', icone: '🩸', unlocked: xp > 0 },
+                { nome: 'Senhor do Tempo', desc: 'Completou 10 ciclos de Pomodoro.', icone: '⏳', unlocked: pomodoros >= 10 },
+                { nome: 'O Ferreiro', desc: 'Moveu 20 tarefas para Feito.', icone: '🔨', unlocked: tasksFeitas >= 20 },
+                { nome: 'Exterminador', desc: 'Esmagou 5 Bugs no Kanban.', icone: '🐛', unlocked: (stats.bug || 0) >= 5 },
+                { nome: 'Alma Criativa', desc: 'Entregou 5 tarefas de Arte ou Áudio.', icone: '🎨', unlocked: ((stats.art || 0) + (stats.audio || 0)) >= 5 },
+                { nome: 'Veterano', desc: 'Alcançou o Nível 10.', icone: '👑', unlocked: level >= 10 }
+            ];
+
+            let badgesHtml = badges.map(b => {
+                const classe = b.unlocked ? 'unlocked' : 'locked';
+                const tooltip = b.unlocked ? `${b.nome} (Desbloqueado)` : `Bloqueado: ${b.desc}`;
+                return `<div class="badge-medal ${classe}" data-tooltip="${tooltip}">${b.icone}</div>`;
+            }).join('');
+
+            // Desenha a Ficha inteira!
+            card.innerHTML = `
+                <div class="profile-card-container">
+                    <div class="profile-banner" style="${bannerEstilo}">
+                        <div class="profile-avatar-wrapper">
+                            <div class="profile-avatar">${avatarTexto}</div>
+                        </div>
+                    </div>
+                    <div class="profile-info">
+                        <div class="profile-name">
+                            ${u.nome.split(' ')[0]} 
+                            <span class="profile-level">Lv. ${level}</span>
+                        </div>
+                        <div class="profile-class" style="color: ${classeInfo.cor};">
+                            ${classeInfo.icone} ${classeInfo.nome}
+                        </div>
+                        
+                        <div class="xp-bar-container">
+                            <div class="xp-bar-fill" style="width: ${porcentagem}%;"></div>
+                        </div>
+                        <div class="xp-text">${progressoXP} / ${metaXP} XP pro Nível ${level + 1}</div>
+
+                        <div class="profile-stats-grid">
+                            <div class="stat-box">
+                                <div class="value">${tasksFeitas}</div>
+                                <div class="label">Tarefas Feitas</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="value">${pomodoros}</div>
+                                <div class="label">Pomodoros</div>
+                            </div>
+                            <div class="stat-box" style="border-color: ${classeInfo.cor}; background: rgba(0,0,0,0.2);">
+                                <div class="value" style="color: ${classeInfo.cor};">${xp}</div>
+                                <div class="label">XP Total</div>
+                            </div>
+                        </div>
+
+                        <div class="badges-container">
+                            <div class="badges-title">Estante de Conquistas</div>
+                            <div class="badges-grid">
+                                ${badgesHtml}
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            `;
+
+            // (Mantemos o código que desenha as missões diárias logo aqui embaixo)
+            const questsContainer = document.getElementById('quests-container');
+            if (questsContainer) {
+                const dailyTasks = u.daily?.tarefa || 0;
+                const dailyPoms = u.daily?.pomodoro || 0;
+                const resgatado = u.daily?.resgatado || false;
+
+                const metaTasks = 1;
+                const metaPoms = 2;
+
+                const percTasks = Math.min(100, (dailyTasks / metaTasks) * 100);
+                const percPoms = Math.min(100, (dailyPoms / metaPoms) * 100);
+                const tudoPronto = (dailyTasks >= metaTasks && dailyPoms >= metaPoms);
+
+                let btnHtml = '';
+                if (resgatado) {
+                    btnHtml = `<button class="btn-claim-bonus" disabled>✓ Bônus Resgatado</button>`;
+                } else if (tudoPronto) {
+                    btnHtml = `<button class="btn-claim-bonus" onclick="resgatarBonusDiario()">🎁 Resgatar +50 XP</button>`;
+                } else {
+                    btnHtml = `<button class="btn-claim-bonus" disabled style="opacity:0.5;">Complete as missões</button>`;
+                }
+
+                questsContainer.innerHTML = `
+                    <div class="quest-item">
+                        <div class="quest-header">
+                            <span style="color: ${percPoms===100 ? 'var(--primary)' : '#fff'}">🍅 Foco (Pomodoros)</span>
+                            <span style="color: var(--text-muted);">${dailyPoms}/${metaPoms}</span>
+                        </div>
+                        <div class="quest-bar-bg">
+                            <div class="quest-bar-fill ${percPoms===100 ? 'done' : ''}" style="width: ${percPoms}%;"></div>
+                        </div>
+                    </div>
+                    <div class="quest-item">
+                        <div class="quest-header">
+                            <span style="color: ${percTasks===100 ? 'var(--primary)' : '#fff'}">⚔️ Mão na Massa (Tarefas)</span>
+                            <span style="color: var(--text-muted);">${dailyTasks}/${metaTasks}</span>
+                        </div>
+                        <div class="quest-bar-bg">
+                            <div class="quest-bar-fill ${percTasks===100 ? 'done' : ''}" style="width: ${percTasks}%;"></div>
+                        </div>
+                    </div>
+                    ${btnHtml}
+                `;
+            }
+        }
     });
 };
 
@@ -2337,29 +3120,55 @@ window.carregarRanking = () => {
 
 window.salvarPreferencias = async (e) => {
     const btn = e.target; btn.disabled = true; btn.innerText = "Salvando...";
+    
+    // Puxa os dados novos
+    const nome = document.getElementById('user-nome').value.trim();
+    const apelido = document.getElementById('user-apelido').value.trim();
     const cor = document.getElementById('theme-color').value;
     const modo = document.getElementById('theme-mode').value;
     const op = document.getElementById('theme-opacity').value;
     const file = document.getElementById('theme-bg-file').files[0];
     const especialidade = document.getElementById('user-specialty').value;
+    
     let bg64 = null;
 
+    // Se a pessoa escolheu um arquivo novo, converte ele
     if (file && file.size <= 800*1024) {
-        bg64 = await new Promise(r => {
-            const rd = new FileReader(); rd.onloadend = () => r(rd.result); rd.readAsDataURL(file);
-        });
+        bg64 = await new Promise(r => { const rd = new FileReader(); rd.onloadend = () => r(rd.result); rd.readAsDataURL(file); });
     } else if (file) {
-        alert("Imagem pesada! Máximo de 800kb."); btn.disabled = false; btn.innerText = "Salvar Meu Estilo"; return;
+        alert("Imagem pesada! Máximo de 800kb."); btn.disabled = false; btn.innerText = "Salvar Minhas Configurações"; return;
     }
 
-    const upd = { corTema: cor, modoTema: modo, opacidadeTema: op, especialidade: especialidade };
-    if (bg64) upd.bgTema = bg64;
-    await updateDoc(doc(db, "usuarios", auth.currentUser.uid), upd);
-    window.aplicarTema(cor, bg64, modo, op);
+    const upd = { 
+        nome: nome, 
+        apelido: apelido, 
+        corTema: cor, 
+        modoTema: modo, 
+        opacidadeTema: op, 
+        especialidade: especialidade 
+    };
     
-    btn.disabled = false; btn.innerText = "✓ Estilo Guardado";
-    setTimeout(() => btn.innerText = "Salvar Meu Estilo", 2000);
+    // A MÁGICA: Só atualiza a imagem no banco se realmente escolheu um arquivo novo
+    if (bg64) {
+        upd.bgTema = bg64;
+        window.meuBgTema = bg64; // Atualiza a memória também!
+    }
+    
+    await updateDoc(doc(db, "usuarios", auth.currentUser.uid), upd);
+    
+    // Atualiza a memória do nome
+    window.meuNome = nome;
+    window.meuApelido = apelido;
+    document.querySelector('.user-email').innerHTML = `<strong>${window.obterNomeExibicao()}</strong><br><span style="font-size:0.65rem; opacity:0.7;">${auth.currentUser.email}</span>`;
+    
+    // Pinta a tela passando a cor nova, e a imagem que está na memória (pode ser a nova ou a velha!)
+    window.aplicarTema(cor, window.meuBgTema, modo, op);
+    
+    btn.disabled = false; btn.innerText = "✓ Salvo com sucesso!";
+    setTimeout(() => btn.innerText = "Salvar Minhas Configurações", 2000);
 };
+
+
 
 window.aplicarTema = (cor, bg, modo, op) => {
     document.documentElement.style.setProperty('--primary', cor || '#81fe4e');
@@ -2424,6 +3233,8 @@ window.salvarAudio = async (e) => {
             enviadoPor: auth.currentUser.email,
             dataCriacao: new Date().toISOString()
         });
+
+        window.registrarAtividade(`fez o upload do arquivo "${titulo}"`, 'audio', '🎵');
 
         document.getElementById('formNovoAudio').reset();
         closeModal('modalNovoAudio');

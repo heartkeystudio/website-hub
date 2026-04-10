@@ -281,6 +281,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 .data-table tbody tr { transition: var(--transition); }
 .data-table tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
 .data-table tbody tr:last-child td { border-bottom: none; }
+.data-table td { position: relative; }
+#graficoFinanceiro {
+    max-height: 90px;
+    width: 100% !important;
+}
+
 
 /* ==========================================================================
    7. CLIENTES (CRM)
@@ -1481,30 +1487,630 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
     position: relative;
 }
 
+/* ==========================================================================
+   14. PERFIL GAMER (CRACHÁ RPG)
+   ========================================================================== */
+.perfil-grid-rpg {
+    /* Responsividade para mobile */
+}
+@media (max-width: 900px) { .perfil-grid-rpg { grid-template-columns: 1fr !important; } }
+
+.profile-card-container { display: flex; flex-direction: column; height: 100%; }
+
+.profile-banner { 
+    width: 100%; height: 140px; 
+    background: #111; 
+    background-size: cover; background-position: center; 
+    position: relative; border-bottom: 1px solid var(--border-color);
+}
+
+.profile-avatar-wrapper { 
+    position: absolute; bottom: -45px; left: 30px; 
+}
+
+.profile-avatar { 
+    width: 90px; height: 90px; 
+    border-radius: 50%; 
+    border: 4px solid var(--bg-panel); 
+    background: var(--bg-card); 
+    display: flex; align-items: center; justify-content: center; 
+    font-size: 2.2rem; font-weight: bold; color: var(--primary); 
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5); overflow: hidden; 
+}
+
+.profile-info { padding: 60px 30px 30px 30px; }
+
+.profile-name { 
+    font-size: 1.6rem; font-weight: 800; color: #fff; 
+    margin-bottom: 2px; display: flex; align-items: center; gap: 10px; 
+}
+
+.profile-level { 
+    font-size: 0.9rem; color: var(--primary); font-weight: 900; 
+    background: rgba(129, 254, 78, 0.1); padding: 4px 10px; border-radius: 8px; 
+    border: 1px solid rgba(129, 254, 78, 0.3);
+}
+
+.profile-class { 
+    font-size: 1rem; color: #ffc107; font-weight: 700; margin-bottom: 25px; 
+}
+
+.xp-bar-container { 
+    width: 100%; background: rgba(255,255,255,0.05); border-radius: 10px; 
+    height: 12px; overflow: hidden; margin-bottom: 5px; 
+}
+
+.xp-bar-fill { 
+    height: 100%; background: var(--primary); 
+    box-shadow: 0 0 15px var(--primary-glow); transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); 
+}
+
+.xp-text { font-size: 0.75rem; color: var(--text-muted); text-align: right; font-weight: bold;}
+
+.profile-stats-grid { 
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; 
+    margin-top: 25px; padding-top: 25px; border-top: 1px solid var(--border-color); 
+}
+
+.stat-box { 
+    background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); 
+    padding: 15px; border-radius: 10px; text-align: center; transition: 0.2s;
+}
+.stat-box:hover { background: rgba(255,255,255,0.05); transform: translateY(-3px);}
+.stat-box .value { font-size: 1.4rem; font-weight: 900; color: #fff; }
+.stat-box .label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-top: 5px; font-weight: bold;}
 
 /* ==========================================================================
-   13. RESPONSIVIDADE MOBILE
+   15. MISSÕES DIÁRIAS
    ========================================================================== */
+.quest-item {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border-color);
+    padding: 12px 15px;
+    border-radius: 10px;
+}
+.quest-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px; font-size: 0.9rem; font-weight: bold;
+}
+.quest-bar-bg {
+    width: 100%; height: 8px; background: rgba(0,0,0,0.5);
+    border-radius: 4px; overflow: hidden;
+}
+.quest-bar-fill {
+    height: 100%; background: #ffc107; transition: width 0.4s ease;
+    box-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+}
+.quest-bar-fill.done { background: var(--primary); box-shadow: 0 0 10px var(--primary-glow); }
+.btn-claim-bonus {
+    width: 100%; padding: 12px; margin-top: 10px; border-radius: 8px;
+    background: linear-gradient(45deg, #ffc107, #ff9800);
+    color: #000; font-weight: 900; border: none; cursor: pointer;
+    text-transform: uppercase; letter-spacing: 1px;
+    box-shadow: 0 5px 15px rgba(255, 193, 7, 0.4); transition: 0.3s;
+}
+.btn-claim-bonus:hover { transform: scale(1.02); filter: brightness(1.1); }
+.btn-claim-bonus:disabled {
+    background: #333; color: #666; box-shadow: none; cursor: not-allowed; transform: none;
+}
+
+/* ==========================================================================
+   16. ESTANTE DE CONQUISTAS (BADGES)
+   ========================================================================== */
+.badges-container {
+    margin-top: 25px;
+    padding-top: 25px;
+    border-top: 1px dashed rgba(255,255,255,0.1);
+}
+
+.badges-title {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: bold;
+    margin-bottom: 15px;
+    text-align: center;
+    letter-spacing: 1px;
+}
+
+.badges-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    gap: 15px;
+    justify-items: center;
+}
+
+.badge-medal {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    border: 2px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+/* Estado: Bloqueado */
+.badge-medal.locked {
+    filter: grayscale(100%);
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* Estado: Desbloqueado */
+.badge-medal.unlocked {
+    border-color: var(--primary);
+    background: rgba(129, 254, 78, 0.1);
+    box-shadow: 0 0 15px var(--primary-glow);
+    cursor: help;
+    animation: badgeUnlock 0.5s ease backwards;
+}
+
+.badge-medal.unlocked:hover {
+    transform: scale(1.15) translateY(-5px);
+    box-shadow: 0 5px 25px var(--primary-glow);
+}
+
+@keyframes badgeUnlock {
+    0% { transform: scale(0.5); opacity: 0; }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* ==========================================================================
+   17. DASHBOARD BENTO BOX UI
+   ========================================================================== */
+.bento-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-auto-rows: minmax(140px, auto);
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+.bento-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 25px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    backdrop-filter: blur(15px);
+    transition: transform 0.3s ease, border-color 0.3s ease;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.bento-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.col-span-2 { grid-column: span 2; }
+.row-span-2 { grid-row: span 2; }
+
+.bento-icon {
+    font-size: 2.5rem;
+    background: rgba(255,255,255,0.03);
+    width: 70px; height: 70px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 16px;
+    flex-shrink: 0;
+}
+
+.bento-content h3 { font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; border: none; padding: 0;}
+.bento-value { font-size: 1.8rem; font-weight: 900; color: #fff; margin-bottom: 5px;}
+
+/* Barra de Runway (Sobrevivência) */
+.runway-bar-bg { width: 100%; height: 6px; background: rgba(255,82,82,0.2); border-radius: 3px; margin: 8px 0; overflow: hidden; }
+.runway-bar-fill { height: 100%; background: var(--primary); width: 0%; transition: 1s ease; }
+
+/* Relógio Pomodoro Mini no Dashboard */
+.pomodoro-mini {
+    background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 16px; padding: 20px; text-align: center; min-width: 160px;
+}
+.time-display { font-size: 2.5rem; font-weight: bold; color: var(--primary); margin-bottom: 15px; letter-spacing: -1px; text-shadow: 0 0 15px var(--primary-glow);}
+.pomodoro-mini .controls { display: flex; gap: 8px; justify-content: center; }
+.pomodoro-mini .controls button { border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;}
+.btn-play { background: var(--primary); color: #000; }
+.btn-pause, .btn-reset { background: rgba(255,255,255,0.1); color: #fff; }
+
+/* Ações Rápidas */
+.quick-actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 15px; }
+.quick-action-btn {
+    background: rgba(255,255,255,0.02); border: 1px solid var(--border-color);
+    border-radius: 12px; padding: 15px 10px; display: flex; flex-direction: column;
+    align-items: center; gap: 8px; cursor: pointer; transition: 0.2s;
+}
+.quick-action-btn:hover { background: rgba(255,255,255,0.06); transform: scale(1.05); }
+.quick-action-btn .icon { font-size: 1.5rem; }
+.quick-action-btn .label { font-size: 0.75rem; font-weight: bold; color: var(--text-muted); }
+
+/* Radar Feed */
+.radar-panel { flex-direction: column; align-items: flex-start; justify-content: flex-start; }
+.activity-feed-list { list-style: none; width: 100%; display: flex; flex-direction: column; gap: 10px; max-height: 150px; overflow-y: auto; padding-right: 10px;}
+.activity-item { display: flex; align-items: center; gap: 12px; padding: 10px; background: rgba(255,255,255,0.02); border-radius: 8px; font-size: 0.85rem; border-left: 3px solid var(--primary); }
+.activity-time { color: var(--text-muted); font-size: 0.7rem; min-width: 45px; }
+
+/* ==========================================================================
+   18. KANBAN 2.0 (CORES, COMPACTAÇÃO E MODAL AMPLO)
+   ========================================================================== */
+
+/* Cores das Colunas para Identificação Rápida */
+.kanban-column:nth-child(1) { border-top: 4px solid #8e8e93; } /* A Fazer (Cinza) */
+.kanban-column:nth-child(2) { border-top: 4px solid #ffc107; } /* Fazendo (Amarelo) */
+.kanban-column:nth-child(3) { border-top: 4px solid var(--primary); } /* Feito (Neon) */
+
+/* Deixando os Cards mais compactos e limpos */
+.kanban-card {
+    padding: 12px 15px; /* Menos espaço sobrando */
+}
+.kanban-card h4 {
+    font-size: 0.95rem; /* Fonte levemente menor */
+    margin-bottom: 10px;
+    min-height: auto; /* Tira o espaço vazio obrigatório */
+    line-height: 1.3;
+}
+
+/* O Menu de 3 Pontinhos (Dropdown) */
+.dropdown-content {
+    position: absolute;
+    right: 0;
+    top: 25px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 5px;
+    z-index: 100;
+    display: none;
+    flex-direction: column;
+    min-width: 120px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.8);
+}
+.dropdown-content.show {
+    display: flex;
+    animation: fadeInDrop 0.2s ease;
+}
+@keyframes fadeInDrop { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Ampliando a Tela de Detalhes da Tarefa */
+#modalDetalhesTarefa .modal-content {
+    max-width: 900px; /* Bem mais larga */
+    width: 95%;
+    height: 85vh; /* Ocupa quase a tela toda em altura */
+    display: flex;
+    flex-direction: column;
+}
+#modalDetalhesTarefa .dash-panel {
+    flex: 1; /* Faz a área do texto esticar para preencher o vazio */
+    overflow-y: auto;
+}
+#detalheTaskDesc {
+    max-height: none; /* Tira o limite de altura antigo */
+}
+
+@media (max-width: 1000px) {
+    .bento-grid { grid-template-columns: 1fr; }
+    .col-span-2 { grid-column: span 1; }
+}
+
+/* ==========================================================================
+   19. WAR ROOM / SPRINT (BENTO BOX TÁTICO)
+   ========================================================================== */
+
+/* Cabeçalho da Missão */
+.war-room-header {
+    display: flex; justify-content: space-between; align-items: center;
+    background: linear-gradient(90deg, rgba(20,20,22,1) 0%, rgba(30,30,35,1) 100%);
+    border: 1px solid var(--border-color); border-left: 5px solid #ff5252;
+    padding: 20px 30px; border-radius: 15px; margin-bottom: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.digital-clock {
+    font-family: 'Courier New', Courier, monospace; font-size: 2.2rem;
+    font-weight: 900; color: #ff5252; 
+    text-shadow: 0 0 15px rgba(255, 82, 82, 0.6);
+    letter-spacing: 2px; line-height: 1; margin-top: 5px;
+}
+.war-timer-area { text-align: right; display: flex; flex-direction: column; align-items: flex-end;}
+
+/* O Grid Bento */
+.war-bento-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    grid-auto-rows: minmax(200px, auto); gap: 20px; height: 65vh; min-height: 600px;
+}
+.war-card {
+    background: rgba(15, 15, 18, 0.9); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 15px; padding: 20px; display: flex; flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4); backdrop-filter: blur(15px);
+}
+
+/* Mini-Kanban Tático */
+.mini-kanban-board { display: flex; gap: 15px; flex: 1; overflow: hidden; }
+.mini-column {
+    flex: 1; display: flex; flex-direction: column; background: rgba(0,0,0,0.4);
+    border-radius: 12px; border: 1px solid rgba(255,255,255,0.03); overflow: hidden;
+}
+.mini-col-header {
+    padding: 12px; font-size: 0.85rem; font-weight: 900; text-align: center;
+    border-top: 3px solid #8e8e93; background: rgba(255,255,255,0.02);
+    text-transform: uppercase; letter-spacing: 2px;
+}
+.mini-col-body { 
+    flex: 1; padding: 12px; overflow-y: auto; 
+    display: flex; flex-direction: column; gap: 10px; 
+}
+
+/* Cards do Mini-Kanban (Mais compactos que os normais) */
+.war-task-card {
+    background: var(--bg-card); border: 1px solid var(--border-color);
+    padding: 12px; border-radius: 8px; font-size: 0.85rem; cursor: grab;
+    transition: 0.2s; border-left: 3px solid #666;
+}
+.war-task-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.2); }
+.war-task-card.feature { border-left-color: #00eaff; }
+.war-task-card.bug { border-left-color: #ff5252; }
+
+/* O Arsenal (Links) */
+.war-links-list { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; flex: 1; padding-right: 5px; }
+.war-link-item {
+    display: flex; align-items: center; gap: 12px; padding: 12px;
+    background: rgba(255,255,255,0.02); border-radius: 8px; text-decoration: none; color: #fff;
+    transition: 0.2s ease; border-left: 3px solid #ffc107; border-right: 1px solid transparent; border-top: 1px solid transparent; border-bottom: 1px solid transparent;
+}
+.war-link-item:hover { 
+    background: rgba(255,255,255,0.05); transform: translateX(5px); 
+    border-color: rgba(255,255,255,0.1); border-left-color: #ffc107;
+}
+
+/* Terminal de Comunicação */
+.terminal-card { border-color: rgba(129, 254, 78, 0.2); background: rgba(10, 15, 10, 0.9); }
+.terminal-card h3 { color: var(--primary); font-family: 'Courier New', Courier, monospace; margin-bottom: 15px;}
+.war-chat-box {
+    flex: 1; background: #050505; border-radius: 8px; padding: 15px;
+    overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+    font-family: 'Courier New', Courier, monospace; font-size: 0.85rem;
+    border: 1px solid rgba(129, 254, 78, 0.1); margin-bottom: 15px;
+}
+.war-chat-input-area { display: flex; gap: 10px; }
+.war-chat-input-area input { 
+    flex: 1; border-radius: 8px; font-family: 'Courier New', Courier, monospace; 
+    background: #111; color: var(--primary); border: 1px solid rgba(129, 254, 78, 0.3);
+}
+.war-chat-input-area input:focus { border-color: var(--primary); outline: none; }
+
+.chat-msg { display: flex; flex-direction: column; line-height: 1.4; animation: fadeInDrop 0.2s ease;}
+.chat-msg.bot { color: var(--primary); }
+.chat-msg.user { color: #ddd; }
+.chat-author { font-weight: bold; font-size: 0.75rem; color: #666; margin-bottom: 2px;}
+
+@media (max-width: 1000px) {
+    .war-bento-grid { grid-template-columns: 1fr; height: auto;}
+    .war-room-header { flex-direction: column; text-align: center; gap: 15px; }
+    .war-timer-area { align-items: center; }
+}
+
+/* ==========================================================================
+   20. TERMINAL DE COMUNICAÇÃO (Avançado)
+   ========================================================================== */
+.chat-mention {
+    color: #00eaff;
+    font-weight: bold;
+    background: rgba(0, 234, 255, 0.15);
+    padding: 0 4px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 234, 255, 0.3);
+}
+
+.chat-msg {
+    position: relative; /* Necessário para os botões flutuantes */
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.chat-msg:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+.chat-actions {
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    display: none; /* Escondido por padrão */
+    gap: 8px;
+    background: #050505;
+    padding: 2px 5px;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.8);
+}
+
+.chat-msg:hover .chat-actions {
+    display: flex; /* Aparece no hover */
+}
+
+.chat-action-btn {
+    background: none; border: none; color: #888; 
+    cursor: pointer; font-size: 0.8rem; padding: 0;
+}
+.chat-action-btn:hover { color: #fff; transform: scale(1.1); }
+.chat-action-btn.del:hover { color: #ff5252; }
+
+/* Botões do Admin na War Room */
+.admin-war-controls {
+    display: flex; gap: 10px; margin-top: 10px;
+}
+
+/* ==========================================================================
+   13. REDES DE SEGURANÇA (ZOOM 150% E TELAS PEQUENAS)
+   ========================================================================== */
+
+/* 1. Blindagem dos Modais (Para não perder os botões de Salvar no fundo da tela) */
+.modal-content {
+    max-height: 90vh; 
+    overflow-y: auto;
+}
+
+/* 2. Blindagem de Formulários (Se a tela encolher, eles quebram a linha ao invés de amassar) */
+.hub-form .form-row {
+    flex-wrap: wrap;
+}
+.hub-form .form-row .form-group {
+    min-width: 200px;
+}
+
+/* 3. Blindagem de Cabeçalhos (Botões e Títulos não se atropelam com zoom) */
+.section-header {
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+/* ==========================================================================
+   14. RESPONSIVIDADE MASTER (Múltiplos Breakpoints)
+   ========================================================================== */
+
+/* Breakpoint para Laptops Menores ou Zoom de 125% a 150% */
+@media (max-width: 1400px) {
+    /* Bento Box: Evita que as 3 caixas fiquem muito finas, reduzindo para 2 colunas */
+    .bento-grid { grid-template-columns: repeat(2, 1fr); }
+    .bento-card.col-span-2 { grid-column: span 1; }
+    
+    .war-bento-grid { grid-template-columns: repeat(2, 1fr); height: auto; }
+    .war-card.col-span-2 { grid-column: span 2; } /* O Kanban Tático continua largo */
+}
+
 @media (max-width: 1100px) {
     .dashboard-grid, .agenda-layout { grid-template-columns: 1fr; }
     .jam-grid { grid-template-columns: 1fr 1fr; }
-    #wiki-toc {
-        display: none !important;
-    }
+    #wiki-toc { display: none !important; }
+    
+    /* Pomodoro Gigante: Reduzimos para não vazar a tela com zoom */
+    .focus-timer-circle { width: 280px; height: 280px; }
+    #focus-time-display { font-size: 4.5rem; }
 }
 
-@media (max-width: 768px) {
-    body { flex-direction: column; }
-    .sidebar { width: 100%; min-width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--border-color); }
-    .logo { padding: 20px; }
-    #mobile-menu-btn { display: block !important; }
-    .menu { display: none; }
-    .menu.active { display: flex; padding: 15px; }
-    .content-area { padding: 20px; height: auto; }
-    .section-header { flex-direction: column; align-items: flex-start; gap: 15px; }
-    .btn-primary, .btn-secondary { width: 100%; } 
-    .jam-grid { grid-template-columns: 1fr; height: auto; }
-    .chat-panel { height: 400px; }
+@media (max-width: 1000px) {
+    .war-bento-grid { grid-template-columns: 1fr; }
+    .war-card.col-span-2 { grid-column: span 1; }
+    .war-room-header { flex-direction: column; text-align: center; gap: 15px; align-items: center;}
+    .war-timer-area { align-items: center; }
+    
+    /* Wiki Fullscreen: A barra lateral encolhe pra dar espaço ao texto */
+    .wiki-layout.fullscreen { grid-template-columns: 220px 1fr; }
+}
+
+@media (max-width: 900px) {
+    .perfil-grid-rpg { grid-template-columns: 1fr !important; }
+    .profile-stats-grid { grid-template-columns: 1fr 1fr; } /* Quebra a linha de status do RPG */
+    
+    /* Wiki Normal vira uma coluna só */
     .wiki-layout { grid-template-columns: 1fr; height: auto; }
+    .wiki-sidebar { height: 300px; /* Vira um bloco acima do editor */ }
+    
+    /* Wiki Fullscreen também empilha */
+    .wiki-layout.fullscreen { display: flex; flex-direction: column; }
+    .wiki-layout.fullscreen .wiki-sidebar { height: 35vh; width: 100%; border-right: none; border-bottom: 1px solid var(--border-color); }
+    .wiki-layout.fullscreen .wiki-editor-container { padding: 20px; }
+}
+
+/* REGRA DE OURO PARA ALTURA (Impede a quebra de quem usa Zoom excessivo) */
+@media (max-height: 700px) {
+    .focus-timer-circle { width: 200px; height: 200px; border-width: 2px;}
+    #focus-time-display { font-size: 3rem; }
+    .focus-container { gap: 20px; }
+    .project-banner { height: 150px; }
+    .content-area { padding-top: 20px; padding-bottom: 20px;}
+}
+
+/* ==========================================================================
+   MOBILE REAL (Celulares - Estilo Aplicativo)
+   ========================================================================== */
+@media (max-width: 768px) {
+    body { flex-direction: column; overflow: auto; }
+    
+    /* O Cabeçalho Superior (Apenas Logo) */
+    .sidebar { width: 100%; min-width: 100%; height: auto; border-right: none; }
+    .sidebar.collapsed { width: 100%; min-width: 100%; } 
+    .logo { padding: 15px 20px; border-bottom: 1px solid var(--border-color); }
+    #toggle-sidebar-btn { display: none; } /* Tira o botão de colapsar */
+    .user-info-sidebar { display: none; } /* Esconde o email pra dar espaço */
+    .sidebar-footer { display: none; }
+    
+    /* A MÁGICA: Barra Inferior Fixa (Estilo App) */
+    .menu { 
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100vw;
+        background: rgba(15, 15, 18, 0.95);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border-top: 1px solid var(--border-color);
+        display: flex !important; /* Força a exibição caso tenha bugado */
+        flex-direction: row; 
+        padding: 10px 15px 25px 15px; /* Espaço extra embaixo para a barrinha do iPhone */
+        overflow-x: auto; 
+        white-space: nowrap; 
+        -webkit-overflow-scrolling: touch; 
+        gap: 8px;
+        z-index: 10000;
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.5);
+    }
+    
+    /* Os Botões do Menu Inferior (Ícone em cima, texto pequeno embaixo) */
+    .nav-btn { 
+        flex-direction: column; 
+        padding: 10px 15px; 
+        font-size: 1.3rem; /* Ícone Grande */
+        align-items: center; 
+        justify-content: center;
+        gap: 6px;
+        border-radius: 12px;
+        flex-shrink: 0; /* Impede os botões de amassarem */
+    }
+    
+    /* Força o texto a aparecer bonitinho embaixo do ícone */
+    .sidebar.collapsed .nav-text, .nav-text {
+        display: block !important;
+        font-size: 0.65rem;
+        font-weight: 700;
+    }
+    
+    /* Ajuste da bolinha de notificação pra não vazar do botão */
+    .nav-badge { top: 0px; right: 5px; width: 16px; height: 16px; min-width: 16px; font-size: 0.55rem; }
+
+    /* Área de Conteúdo: Afasta o fundo pra barra inferior não cobrir os botões do site */
+    .content-area { padding: 20px 15px 120px 15px; height: auto; overflow: visible;}
+    
+    /* Ajustes Gerais de Elementos na Tela Pequena */
+    .section-header { flex-direction: column; align-items: stretch; gap: 15px; }
+    .section-header > div:first-child { text-align: center; }
+    .section-header > div:last-child { display: flex; flex-direction: column; width: 100%; gap: 10px; align-items: stretch;}
+    .btn-primary, .btn-secondary { width: 100%; justify-content: center; } 
+    
+    .bento-grid { grid-template-columns: 1fr; }
+    .bento-card { flex-direction: column; text-align: center; gap: 10px;}
+    .bento-content { width: 100%; display: flex; flex-direction: column; align-items: center; }
+    .bento-content div[style*="justify-content: space-between"] { width: 100%; justify-content: center !important; gap: 10px; flex-wrap: wrap;}
+    
     .invite-card { flex-direction: column; align-items: flex-start; gap: 15px; }
+    .invite-actions { width: 100%; display: flex; flex-direction: column; }
+    
+    .calendar-grid { gap: 5px; }
+    .day { font-size: 0.9rem; }
+    .e-day { font-size: 1.4rem; }
+    
+    .kanban-board { justify-content: flex-start; padding-right: 20px;}
+    .kanban-column { min-width: 280px; max-width: 280px; } 
+    
+    .summary-cards { grid-template-columns: 1fr; }
+    .table-container { border-radius: 8px; }
+    
+    .focus-side-panel { width: 100%; right: -100%; } 
 }
