@@ -283,7 +283,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 .data-table tbody tr:last-child td { border-bottom: none; }
 .data-table td { position: relative; }
 #graficoFinanceiro {
-    max-height: 90px;
+    max-height: 120px !important;
     width: 100% !important;
 }
 

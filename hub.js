@@ -1876,13 +1876,6 @@ window.fecharSessaoWiki = () => {
     console.log("🧹 Sessão da Wiki totalmente resetada.");
 };
 
-
-
-
-
-
-
-
 window.assumirTarefa = async (taskId) => {
     if (!auth.currentUser) return;
     
@@ -2657,6 +2650,63 @@ window.deletarLancamento = async function(id) {
         window.carregarLancamentos(); 
         window.carregarDashboard(); 
     } 
+};
+
+// --- MOTOR DO GRÁFICO FINANCEIRO (SOBE E DESCE) ---
+window.renderizarGraficoFinanceiro = (lancamentos) => {
+    const ctx = document.getElementById('graficoFinanceiro');
+    if (!ctx) return;
+
+    // 1. Prepara os dados (Agrupa por dia e calcula o saldo acumulado)
+    const saldosPorDia = {};
+    lancamentos.forEach(l => {
+        if (l.status !== 'pago') return; // Só mostra no gráfico o que é REAL
+        const dia = l.dataVencimento.split('-')[2]; // Pega apenas o dia (DD)
+        const valor = l.tipo === 'receita' ? l.valor : -l.valor;
+        saldosPorDia[dia] = (saldosPorDia[dia] || 0) + valor;
+    });
+
+    const diasLabels = Object.keys(saldosPorDia).sort((a, b) => a - b);
+    let acumulado = 0;
+    const dadosGrafico = diasLabels.map(dia => {
+        acumulado += saldosPorDia[dia];
+        return acumulado;
+    });
+
+    // 2. Destrói gráfico antigo para não dar erro de "Canvas em uso"
+    const chartExistente = Chart.getChart("graficoFinanceiro");
+    if (chartExistente) chartExistente.destroy();
+
+    // 3. Cria o novo gráfico
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: diasLabels.map(d => `Dia ${d}`),
+            datasets: [{
+                label: 'Saldo em Caixa',
+                data: dadosGrafico,
+                borderColor: acumulado >= 0 ? '#81fe4e' : '#ff5252', // Verde se positivo, vermelho se negativo
+                borderWidth: 3,
+                fill: true,
+                backgroundColor: acumulado >= 0 ? 'rgba(129, 254, 78, 0.1)' : 'rgba(255, 82, 82, 0.1)',
+                tension: 0.4, // Curva suave na linha
+                pointRadius: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { display: false }, // Esconde o eixo X pra ficar limpo
+                y: { 
+                    display: true,
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#666', font: { size: 10 } }
+                }
+            }
+        }
+    });
 };
 
 /* --- CRONOGRAMA / EVENTOS --- */
