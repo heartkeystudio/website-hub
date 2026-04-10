@@ -337,53 +337,69 @@ window.carregarDashboard = async () => {
     const formatador = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
     
     try {
-        // 1. RUNWAY FINANCEIRO
-        const qFin = query(collection(db, "lancamentos")); // Pegamos todos para o CEO ver o caixa geral
-        const snapFin = await getDocs(qFin);
+        // 1. BUSCA DE DADOS (Agora com filtros para não travar nas regras de segurança)
+        // Buscamos o que é MEU e o que é da EMPRESA separadamente para garantir o acesso
+        const qPessoal = query(collection(db, "lancamentos"), where("userId", "==", auth.currentUser.uid));
+        const qEmpresa = query(collection(db, "lancamentos"), where("escopo", "==", "empresa"));
+        
+        const [snapPessoal, snapEmpresa] = await Promise.all([getDocs(qPessoal), getDocs(qEmpresa)]);
+        
         let rec = 0, cus = 0;
-        
-        snapFin.forEach(d => { if (d.data().tipo === 'receita') rec += d.data().valor; else cus += d.data().valor; });
+        const processarDoc = (d) => {
+            const ld = d.data();
+            if (ld.tipo === 'receita') rec += ld.valor; else cus += ld.valor;
+        };
+
+        snapPessoal.forEach(processarDoc);
+        snapEmpresa.forEach(d => {
+            // Evita duplicar se o meu lançamento também for marcado como empresa
+            if (d.data().userId !== auth.currentUser.uid) processarDoc(d);
+        });
+
         const saldoFinal = rec - cus;
-        
         const dashSaldo = document.getElementById('dash-saldo-runway');
         const dashMeses = document.getElementById('dash-meses-vida');
         const barFill = document.getElementById('runway-bar-fill');
 
-        if (dashSaldo && dashMeses) {
+        if (dashSaldo) {
             dashSaldo.innerText = formatador.format(saldoFinal);
             
+            // Lógica de Runway (Gasto Mensal)
+            const gastoMensal = window.custoMensalEstimado || 3000;
             if (saldoFinal <= 0) {
                 dashSaldo.style.color = '#ff5252';
-                dashMeses.innerText = "Alerta: Caixa Negativo ou Zerado!";
-                dashMeses.style.color = '#ff5252';
-                barFill.style.width = '0%';
-                barFill.style.background = '#ff5252';
+                if(dashMeses) dashMeses.innerText = "Cofre Zerado";
+                if(barFill) { barFill.style.width = '0%'; barFill.style.background = '#ff5252'; }
             } else {
                 dashSaldo.style.color = 'var(--primary)';
-                const mesesDeVida = (saldoFinal / window.custoMensalEstimado).toFixed(1);
-                dashMeses.innerText = `Sobrevivência: ~${mesesDeVida} meses (Base: R$ ${window.custoMensalEstimado}/mês)`;
+                const mesesDeVida = (saldoFinal / gastoMensal).toFixed(1);
+                if(dashMeses) dashMeses.innerText = `Sobrevivência: ~${mesesDeVida} meses`;
                 
-                // Preenche a barra (limite visual de 12 meses = 100%)
                 const porcentagem = Math.min(100, (mesesDeVida / 12) * 100);
-                barFill.style.width = `${porcentagem}%`;
-                
-                if (mesesDeVida < 3) { barFill.style.background = '#ffc107'; dashMeses.style.color = '#ffc107'; } // Amarelo se tiver menos de 3 meses
-                else { barFill.style.background = 'var(--primary)'; dashMeses.style.color = 'var(--text-muted)'; }
+                if(barFill) {
+                    barFill.style.width = `${porcentagem}%`;
+                    barFill.style.background = mesesDeVida < 3 ? '#ffc107' : 'var(--primary)';
+                }
             }
         }
 
-        // 2. PRÓXIMO EVENTO / MILESTONE
-        const qEv = query(collection(db, "eventos"));
-        const snapEv = await getDocs(qEv);
+        // 2. PRÓXIMO MARCO
+        const qEvP = query(collection(db, "eventos"), where("userId", "==", auth.currentUser.uid));
+        const qEvE = query(collection(db, "eventos"), where("escopo", "==", "empresa"));
+        const [snapEvP, snapEvE] = await Promise.all([getDocs(qEvP), getDocs(qEvE)]);
+
         let eventos = [];
-        
         const hojeDate = new Date();
         hojeDate.setHours(0,0,0,0);
 
-        snapEv.forEach(d => {
-            const dataEv = new Date(d.data().data + "T00:00:00");
-            if (dataEv >= hojeDate) eventos.push(d.data()); // Só pega eventos futuros
-        });
+        const filtrarEventos = (docSnap) => {
+            const e = docSnap.data();
+            const dataEv = new Date(e.data + "T00:00:00");
+            if (dataEv >= hojeDate) eventos.push({id: docSnap.id, ...e});
+        };
+
+        snapEvP.forEach(filtrarEventos);
+        snapEvE.forEach(d => { if(d.data().userId !== auth.currentUser.uid) filtrarEventos(d); });
         
         eventos.sort((a,b) => new Date(a.data) - new Date(b.data));
         
@@ -394,19 +410,20 @@ window.carregarDashboard = async () => {
             if (eventos.length > 0) {
                 const prox = eventos[0]; 
                 const dataEv = new Date(prox.data + "T00:00:00");
-                const diferencaTempo = dataEv.getTime() - hojeDate.getTime();
-                const diasRestantes = Math.ceil(diferencaTempo / (1000 * 3600 * 24));
+                const diasRestantes = Math.ceil((dataEv - hojeDate) / (1000 * 3600 * 24));
                 
-                dashEvento.innerText = prox.titulo;
-                if (diasRestantes === 0) dashDias.innerText = "É HOJE!";
-                else dashDias.innerText = `Faltam ${diasRestantes} dias`;
+                dashEvento.innerHTML = prox.escopo === 'empresa' 
+                    ? `<span style="color:var(--primary)">🏢 ${prox.titulo}</span>` 
+                    : prox.titulo;
+
+                dashDias.innerText = diasRestantes === 0 ? "É HOJE!" : `Faltam ${diasRestantes} dias`;
             } else {
-                dashEvento.innerText = "Sem eventos futuros";
+                dashEvento.innerText = "Sem eventos próximos";
                 dashDias.innerText = "--";
             }
         }
 
-        // 3. TAREFAS EM FOCO (Lado a lado com o Pomodoro)
+        // 3. TAREFAS EM FOCO (Sem alterações, já estava correto)
         const qTsk = query(collection(db, "tarefas"), where("userId", "==", auth.currentUser.uid));
         const snapTsk = await getDocs(qTsk);
         let pendentes = [];
@@ -421,39 +438,33 @@ window.carregarDashboard = async () => {
                     <input type="checkbox" onclick="concluirTarefaDash('${t.id}')" style="accent-color: var(--primary); width:18px; height:18px; cursor:pointer;">
                     <label style="color: #fff; font-size: 0.9rem;"><strong>${t.titulo}</strong> <span class="badge badge-${t.tag}" style="font-size:0.6rem; margin-left:8px;">${t.tag}</span></label>
                 </div>
-            `).join('') || '<p style="color:#666; font-style:italic;">Você não tem tarefas pendentes. Bom trabalho!</p>';
+            `).join('') || '<p style="color:#666; font-style:italic;">Você não tem tarefas pendentes.</p>';
         }
 
-        // 4. RADAR DO ESTÚDIO (Global e Ao Vivo)
+        // 4. RADAR DO ESTÚDIO (Simplificado para evitar loops de snapshot)
         const radarFeed = document.getElementById('activity-feed');
-        if (radarFeed) {
+        if (radarFeed && !window.radarAtivo) {
+            window.radarAtivo = true; // Impede criar múltiplos listeners
             const qRadar = query(collection(db, "registro_atividades"), orderBy("dataCriacao", "desc"), limit(8));
-            
-            // Usamos onSnapshot para a tela atualizar sozinha quando alguém do outro lado da cidade fizer algo!
             onSnapshot(qRadar, (snapRadar) => {
-                if (snapRadar.empty) {
-                    radarFeed.innerHTML = '<li style="color:#666; font-size:0.85rem; padding: 10px;">Estúdio silencioso... Vá fazer alguma coisa!</li>';
-                } else {
-                    radarFeed.innerHTML = snapRadar.docs.map(d => {
-                        const a = d.data();
-                        // Formata a hora bonitinha (Ex: 14:30)
-                        const hora = new Date(a.dataCriacao).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-
-                        return `
-                            <li class="activity-item" style="animation: sectionFadeIn 0.3s ease;">
-                                <span class="activity-time">${hora}</span>
-                                <span style="font-size: 1rem;">${a.icone}</span>
-                                <span style="color: #ddd; font-size: 0.85rem;">
-                                    <strong style="color: var(--primary);">${a.autor}</strong> ${a.mensagem}
-                                </span>
-                            </li>
-                        `;
-                    }).join('');
-                }
+                radarFeed.innerHTML = snapRadar.docs.map(d => {
+                    const a = d.data();
+                    const hora = new Date(a.dataCriacao).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    return `
+                        <li class="activity-item">
+                            <span class="activity-time">${hora}</span>
+                            <span>${a.icone}</span>
+                            <span style="color: #ddd;"><strong>${a.autor}</strong> ${a.mensagem}</span>
+                        </li>`;
+                }).join('') || '<li>Silêncio no estúdio...</li>';
             });
         }
 
-    } catch(e) { console.error(e); }
+    } catch(e) { 
+        console.error("Erro no Dashboard:", e);
+        // Se der erro, desliga os esqueletos de carregamento
+        document.getElementById('dash-saldo-runway').innerText = "Erro ao carregar";
+    }
 };
 
 window.concluirTarefaDash = async (id) => {
@@ -2709,20 +2720,39 @@ window.renderizarGraficoFinanceiro = (lancamentos) => {
     });
 };
 
-/* --- CRONOGRAMA / EVENTOS --- */
+/* ==========================================
+   --- AGENDA EVOLUÍDA (PESSOAL VS EMPRESA) ---
+   ========================================== */
+
 window.salvarEvento = async function(event) {
     event.preventDefault();
     if (!auth.currentUser) return;
+
+    const escopo = document.getElementById('eventoEscopo').value;
+    
+    // Trava de segurança: Só Admin salva como 'empresa'
+    if (escopo === 'empresa' && window.userRole !== 'admin') {
+        return alert("Apenas Administradores podem criar eventos globais da empresa.");
+    }
+
     try {
-        await addDoc(collection(db, "eventos"), {
+        const dados = {
             titulo: document.getElementById('eventoTitulo').value,
             data: document.getElementById('eventoData').value,
             hora: document.getElementById('eventoHora').value || '',
             tipo: document.getElementById('eventoTipo').value,
             link: document.getElementById('eventoLink').value || '',
-            userId: auth.currentUser.uid,
+            escopo: escopo,
+            userId: auth.currentUser.uid, // Dono do registro
             dataCriacao: new Date().toISOString()
-        });
+        };
+
+        await addDoc(collection(db, "eventos"), dados);
+        
+        if (escopo === 'empresa') {
+            window.registrarAtividade(`agendou um evento de empresa: ${dados.titulo}`, 'cronograma', '📅');
+        }
+
         document.getElementById('formEvento').reset();
         closeModal('modalEvento');
         window.carregarEventos();
@@ -2733,11 +2763,20 @@ window.salvarEvento = async function(event) {
 window.carregarEventos = async function() {
     const lista = document.getElementById('event-entries');
     if (!lista || !auth.currentUser) return;
-    const q = query(collection(db, "eventos"), where("userId", "==", auth.currentUser.uid));
+
+    // Busca eventos pessoais OU de empresa
+    const q = query(collection(db, "eventos"));
     const snap = await getDocs(q);
     
     let eventos = [];
-    snap.forEach(d => eventos.push({id: d.id, ...d.data()}));
+    snap.forEach(docSnap => {
+        const e = docSnap.data();
+        // Lógica de Filtro: Pega se for meu OU se for da empresa
+        if (e.userId === auth.currentUser.uid || e.escopo === 'empresa') {
+            eventos.push({id: docSnap.id, ...e});
+        }
+    });
+
     eventos.sort((a,b) => new Date(a.data) - new Date(b.data));
 
     lista.innerHTML = eventos.map(e => {
@@ -2745,28 +2784,39 @@ window.carregarEventos = async function() {
         const dia = String(dataObj.getDate()).padStart(2, '0');
         const meses = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
         
-        let badge = 'badge-meeting'; let label = 'Reunião';
-        if (e.tipo === 'deadline') { badge = 'badge-deadline'; label = 'Deadline'; }
-        if (e.tipo === 'release') { badge = 'badge-release'; label = 'Lançamento'; }
-        if (e.tipo === 'geral') { badge = 'badge-docs'; label = 'Aviso'; }
+        const isEmpresa = e.escopo === 'empresa';
+        const podeDeletar = !isEmpresa || window.userRole === 'admin';
+
+        let badge = 'badge-meeting'; let label = isEmpresa ? '🏢 EMPRESA' : '👤 PESSOAL';
+        if (e.tipo === 'deadline') badge = 'badge-deadline';
+        if (e.tipo === 'release') badge = 'badge-release';
 
         return `
-        <div class="event-item">
+        <div class="event-item" style="${isEmpresa ? 'border-left: 4px solid var(--primary); background: rgba(129, 254, 78, 0.03);' : ''}">
             <div class="event-date">
                 <span class="e-day">${dia}</span>
                 <span class="e-month">${meses[dataObj.getMonth()]}</span>
             </div>
             <div class="event-details">
-                <h4>${e.titulo}</h4>
+                <h4 style="display:flex; align-items:center; gap:8px;">${e.titulo} ${isEmpresa ? '⭐' : ''}</h4>
                 <p>${e.hora} ${e.link ? `<a href="${e.link}" target="_blank" style="color:var(--primary); margin-left:5px;">Link</a>` : ''}</p>
-                <span class="badge ${badge}">${label}</span>
+                <span class="badge ${badge}" style="font-size:0.6rem;">${label}</span>
             </div>
-            <button class="icon-btn" style="color:#ff5252" onclick="deletarEvento('${e.id}')">🗑️</button>
+            ${podeDeletar ? `<button class="icon-btn" style="color:#ff5252" onclick="deletarEvento('${e.id}', '${e.escopo}')">🗑️</button>` : ''}
         </div>`;
     }).join('') || '<p style="color:#666">Nenhum evento agendado.</p>';
 };
-window.deletarEvento = async function(id) { if(confirm("Cancelar evento?")) { await deleteDoc(doc(db, "eventos", id)); window.carregarEventos(); window.carregarDashboard();} };
 
+window.deletarEvento = async function(id, escopo) {
+    if (escopo === 'empresa' && window.userRole !== 'admin') {
+        return alert("Ação Negada: Apenas ADMs podem apagar eventos da empresa.");
+    }
+    if(confirm("Cancelar evento?")) { 
+        await deleteDoc(doc(db, "eventos", id)); 
+        window.carregarEventos(); 
+        window.carregarDashboard();
+    } 
+};
 
 /* ==========================================
    --- DIÁRIO PESSOAL (DEVLOG PRIVADO) ---
@@ -3475,57 +3525,35 @@ window.audiosCache = [];
 window.salvarAudio = async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector('button[type="submit"]');
-    btn.innerText = "Processando Link... ⏳"; btn.disabled = true;
+    btn.innerText = "Sincronizando... ⏳"; btn.disabled = true;
 
     const titulo = document.getElementById('audioTitulo').value;
     const tag = document.getElementById('audioTag').value;
+    const bpm = document.getElementById('audioBpm').value || "--";
+    const key = document.getElementById('audioKey').value || "--";
     let url = document.getElementById('audioUrl').value.trim();
 
-    // ==========================================
-    // 🧠 MÁGICA DO CONVERSOR AUTOMÁTICO
-    // ==========================================
-    
-    // 1. Converte links do DROPBOX
+    // Conversores de link (Mantemos a sua lógica de Dropbox/Drive já existente)
     if (url.includes("dropbox.com")) {
-        // Troca o domínio padrão pelo servidor de conteúdo bruto do Dropbox
-        url = url.replace("www.dropbox.com", "dl.dropboxusercontent.com");
-        url = url.replace("https://www.dropbox.com", "dl.dropboxusercontent.com");
-        url = url.replace("dropbox.com", "dl.dropboxusercontent.com"); // Caso a pessoa copie sem o www
-        url = url.replace("https://dropbox.com", "dl.dropboxusercontent.com");
-
-        // Remove aquele "?dl=0" inútil do final pra deixar o link limpo
-        url = url.replace("?dl=0", ""); 
-        url = url.replace("?dl=1", "");
-    } 
-    // 2. Converte links do GOOGLE DRIVE
-    else if (url.includes("drive.google.com/file/d/")) {
-        // Puxa só o ID do arquivo que fica perdido no meio do link gigante do Drive
+        url = url.replace("www.dropbox.com", "dl.dropboxusercontent.com").replace("?dl=0", "").replace("?dl=1", "");
+    } else if (url.includes("drive.google.com/file/d/")) {
         const fileId = url.match(/[-\w]{25,}/); 
-        if (fileId) {
-            // Reconstrói o link usando o formato de download direto oficial
-            url = `https://drive.google.com/uc?export=download&id=${fileId[0]}`;
-        }
+        if (fileId) url = `https://drive.google.com/uc?export=download&id=${fileId[0]}`;
     }
 
     try {
         await addDoc(collection(db, "audios"), {
-            titulo: titulo,
-            tag: tag,
-            arquivoUrl: url, // Salva no Firebase o link JÁ CONVERTIDO!
+            titulo, tag, bpm, key, arquivoUrl: url,
             projetoId: window.projetoAtualId,
             enviadoPor: auth.currentUser.email,
             dataCriacao: new Date().toISOString()
         });
-
-        window.registrarAtividade(`fez o upload do arquivo "${titulo}"`, 'audio', '🎵');
-
+        window.registrarAtividade(`lançou a trilha "${titulo}" (${bpm} BPM)`, 'audio', '🎶');
         document.getElementById('formNovoAudio').reset();
         closeModal('modalNovoAudio');
-    } catch(err) { 
-        alert(err.message); 
-    }
+    } catch(err) { console.error(err); }
     
-    btn.innerText = "Adicionar Áudio"; btn.disabled = false;
+    btn.innerText = "Lançar na Central de Áudio"; btn.disabled = false;
 };
 
 // --- NAVEGAÇÃO DAS SUB-ABAS DE ÁUDIO ---
@@ -3564,71 +3592,124 @@ window.carregarAudiosDoProjeto = (pid) => {
     });
 };
 
-// --- DESENHAR ÁUDIOS NA TELA ---
+// --- 2. RENDERIZAÇÃO COM CONTROLES TÉCNICOS ---
 window.renderizarAudios = () => {
     const grid = document.getElementById('audios-grid');
     if (!grid) return;
 
-    // Aplica o filtro em cima dos arquivos que já estão salvos na memória
     let filtrados = window.audiosCache;
     if (window.audioFiltroAtual !== 'all') {
         filtrados = window.audiosCache.filter(a => a.tag === window.audioFiltroAtual);
     }
 
-    if (filtrados.length === 0) {
-        grid.innerHTML = `<div style="color:var(--text-muted); grid-column: 1/-1; text-align:center; padding: 40px; border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px;">Nenhum áudio encontrado para este filtro.</div>`;
-        return;
-    }
-
     grid.innerHTML = filtrados.map(a => {
-        
-        // VERIFICA SE TEM NOTIFICAÇÃO PRA ESSA MÚSICA!
         const temNotificacao = window.cacheNotificacoes.some(n => n.contextId === a.id);
-        const pingoHtml = temNotificacao ? '<span class="item-dot" style="box-shadow: 0 0 10px var(--primary);"></span>' : '';
-
+        
         return `
             <div class="audio-card" id="card-${a.id}">
                 <div class="audio-header">
-                    <div>
-                        <h4 class="audio-title" style="display:flex; align-items:center; gap:8px;">
-                            ${a.titulo} ${pingoHtml}
+                    <div style="flex: 1;">
+                        <h4 class="audio-title">
+                            ${temNotificacao ? '🔴 ' : ''}${a.titulo}
                         </h4>
-                        <span class="audio-tag tag-${a.tag}">${a.tag}</span>
-                        <div style="font-size: 0.65rem; color: #666; margin-top: 5px;">Adicionado por ${a.enviadoPor.split('@')[0]}</div>
-                    </div>
-                    <div style="display:flex; gap:5px;">
-                        <a href="${a.arquivoUrl}" target="_blank" class="icon-btn" style="color: var(--primary); text-decoration: none; padding:0;" data-tooltip="Abrir Link Original">🔗</a>
-                        <button class="icon-btn" onclick="abrirFeedbackAudio('${a.id}', '${a.titulo}', '${a.arquivoUrl}')" style="color: #ffc107; padding:0;" data-tooltip="Feedback / Timestamps">💬</button>
-                        <button class="icon-btn" onclick="deletarAudio('${a.id}')" style="color:#ff5252; padding:0;" data-tooltip="Apagar">🗑️</button>
-                    </div>
-                </div>
-                
-                <div style="display: flex; gap: 15px; align-items: center; margin-top: 5px;">
-                    <button class="btn-play-custom" id="btn-play-${a.id}" onclick="togglePlayAudio('${a.id}')">▶</button>
-                    
-                    <div style="flex: 1; display: flex; flex-direction: column; gap: 5px;">
-                        <div class="audio-progress-container" onclick="seekAudio(event, '${a.id}')">
-                            <div class="audio-progress-fill" id="progress-${a.id}"></div>
+                        <div style="display: flex; gap: 5px; align-items: center; margin-top: 5px;">
+                            <span class="audio-tag tag-${a.tag}">${a.tag}</span>
+                            <span class="badge" style="background: rgba(255,255,255,0.03); color: #888; border: 1px solid rgba(255,255,255,0.1); font-size: 0.6rem;">🥁 ${a.bpm} BPM</span>
+                            <span class="badge" style="background: rgba(255,255,255,0.03); color: #888; border: 1px solid rgba(255,255,255,0.1); font-size: 0.6rem;">🎹 ${a.key}</span>
                         </div>
-                        <div class="audio-time" id="time-${a.id}">0:00 / 0:00</div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <a href="${a.arquivoUrl}" download="${a.titulo}" class="icon-btn" style="color: var(--primary);" title="Baixar Arquivo">💾</a>
+                        <button class="icon-btn" onclick="abrirFeedbackAudio('${a.id}', '${a.titulo}', '${a.arquivoUrl}')" style="color: #ffc107;" title="Dar Feedback">💬</button>
+                        <button class="icon-btn" onclick="deletarAudio('${a.id}')" style="color:#ff5252;" title="Apagar">🗑️</button>
                     </div>
                 </div>
                 
+                <div class="audio-player-zone" style="margin-top: 15px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 10px;">
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <button class="btn-play-custom" id="btn-play-${a.id}" onclick="togglePlayAudio('${a.id}')">▶</button>
+                        <div style="flex: 1;">
+                            <div class="audio-progress-container" onclick="seekAudio(event, '${a.id}')" style="height: 8px;">
+                                <div class="audio-progress-fill" id="progress-${a.id}"></div>
+                            </div>
+                            <div style="display:flex; justify-content: space-between; margin-top: 5px;">
+                                <span class="audio-time" id="time-${a.id}" style="font-size: 0.65rem;">0:00 / 0:00</span>
+                                <button id="btn-loop-${a.id}" onclick="toggleLoop('${a.id}')" style="background:none; border:none; color:#555; cursor:pointer; font-size:0.7rem; font-weight:bold;">🔁 LOOP: OFF</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <audio id="audio-elemento-${a.id}" src="${a.arquivoUrl}" ontimeupdate="atualizarProgresso('${a.id}')" onloadedmetadata="atualizarTempoTotal('${a.id}')" onended="audioTerminou('${a.id}')"></audio>
             </div>
         `;
     }).join('');
 };
 
+// --- 3. CONTROLE DE LOOP ---
+window.toggleLoop = (id) => {
+    const audio = document.getElementById(`audio-elemento-${id}`);
+    const btn = document.getElementById(`btn-loop-${id}`);
+    audio.loop = !audio.loop;
+    
+    if (audio.loop) {
+        btn.style.color = "var(--primary)";
+        btn.innerText = "🔁 LOOP: ON";
+    } else {
+        btn.style.color = "#555";
+        btn.innerText = "🔁 LOOP: OFF";
+    }
+};
 
-// 3. A MÁGICA DO PLAY/PAUSE E BARRA DE PROGRESSO
+// --- LÓGICA DO MASTER PLAYER ---
+window.audioIdAtualMestre = null;
+
+// Esta função atualiza o player flutuante com os dados do áudio clicado
+window.sincronizarComMaster = (id, titulo, subtitulo) => {
+    window.audioIdAtualMestre = id;
+    const player = document.getElementById('master-player-float');
+    document.getElementById('master-player-title').innerText = titulo;
+    document.getElementById('master-player-subtitle').innerText = subtitulo;
+    
+    player.classList.add('active'); // Mostra o player flutuante
+};
+
+// Sincroniza o Play/Pause do botão flutuante com o áudio da galeria
+window.togglePlayMaster = () => {
+    if (!window.audioIdAtualMestre) return;
+    window.togglePlayAudio(window.audioIdAtualMestre);
+};
+
+// Controla o volume de TODOS os áudios do sistema
+window.ajustarVolumeMaster = (valor) => {
+    const todosAudios = document.querySelectorAll('audio');
+    todosAudios.forEach(a => a.volume = valor);
+    localStorage.setItem('hub_master_volume', valor); // Salva sua preferência
+};
+
+window.fecharPlayerMestre = () => {
+    if (window.audioIdAtualMestre) {
+        const audio = document.getElementById(`audio-elemento-${window.audioIdAtualMestre}`);
+        if(audio) audio.pause();
+    }
+    document.getElementById('master-player-float').classList.remove('active');
+};
+
+
+// 3. A MÁGICA DO PLAY/PAUSE E BARRA DE PROGRESSO (CORRIGIDO)
 window.togglePlayAudio = async (id) => {
     const audio = document.getElementById(`audio-elemento-${id}`);
-    const btn = document.getElementById(`btn-play-${id}`);
+    const btn = document.getElementById(`btn-play-${id}`); // <--- A LINHA QUE FALTAVA!
+    const masterBtn = document.getElementById('master-play-icon');
+    const card = window.audiosCache.find(a => a.id === id);
+    
+    if (!audio || !card) return;
 
-    // Trava de segurança 1: Vê se o link tem erro antes de tentar tocar
+    // Antes de rodar a lógica normal, avisa o Master Player
+    window.sincronizarComMaster(id, card.titulo, `${card.tag} | ${card.bpm} BPM`);
+
+    // Trava de segurança 1: Vê se o link tem erro crítico
     if (audio.networkState === 3) {
-        alert("Ops! O servidor deste link bloqueou a reprodução (Erro de CORS/Permissão). Tente usar links do Dropbox ou Catbox.moe!");
+        alert("Ops! O servidor deste link bloqueou a reprodução (Erro de CORS/Permissão).");
         return;
     }
 
@@ -3636,21 +3717,25 @@ window.togglePlayAudio = async (id) => {
     if (window.audioAtualExecucao && window.audioAtualExecucao !== id) {
         const audioAntigo = document.getElementById(`audio-elemento-${window.audioAtualExecucao}`);
         const btnAntigo = document.getElementById(`btn-play-${window.audioAtualExecucao}`);
-        if(audioAntigo) { audioAntigo.pause(); btnAntigo.innerText = "▶"; }
+        if(audioAntigo) audioAntigo.pause();
+        if(btnAntigo) btnAntigo.innerText = "▶";
     }
 
     if (audio.paused) {
         try {
-            await audio.play(); // Usamos o await aqui pra pegar bloqueios invisíveis
-            btn.innerText = "⏸";
+            await audio.play();
+            if(btn) btn.innerText = "⏸";
+            if(masterBtn) masterBtn.innerText = "⏸";
             window.audioAtualExecucao = id;
         } catch (erro) {
-            alert("Bloqueio de segurança detectado! O link informado não permite reprodução direta no Hub.");
-            console.error("Erro do player:", erro);
+            // Se cair aqui, é porque o navegador bloqueou de VERDADE (ex: autoplay block)
+            console.error("Erro real do player:", erro);
+            alert("O navegador bloqueou a reprodução. Clique novamente para tentar.");
         }
     } else {
         audio.pause();
-        btn.innerText = "▶";
+        if(btn) btn.innerText = "▶";
+        if(masterBtn) masterBtn.innerText = "▶";
         window.audioAtualExecucao = null;
     }
 };
@@ -3668,22 +3753,49 @@ window.seekAudio = (e, id) => {
     audio.currentTime = novaPorcentagem * audio.duration;
 };
 
+const originalAtualizarProgresso = window.atualizarProgresso;
+// --- ATUALIZADOR DE PROGRESSO (UNIFICADO) ---
 window.atualizarProgresso = (id) => {
     const audio = document.getElementById(`audio-elemento-${id}`);
-    const barra = document.getElementById(`progress-${id}`);
-    const textoTempo = document.getElementById(`time-${id}`);
-    
-    if (audio.duration) {
-        const porcentagem = (audio.currentTime / audio.duration) * 100;
-        barra.style.width = `${porcentagem}%`;
+    if (!audio) return;
+
+    // 1. ATUALIZA O CARD INDIVIDUAL (O player pequeno na aba projeto)
+    const bar = document.getElementById(`progress-${id}`);
+    const timeTxt = document.getElementById(`time-${id}`);
+
+    if (audio.duration && !isNaN(audio.duration)) {
+        const perc = (audio.currentTime / audio.duration) * 100;
+        if (bar) bar.style.width = `${perc}%`;
+
+        const curMin = Math.floor(audio.currentTime / 60);
+        const curSeg = Math.floor(audio.currentTime % 60).toString().padStart(2, '0');
+        const durMin = Math.floor(audio.duration / 60);
+        const durSeg = Math.floor(audio.duration % 60).toString().padStart(2, '0');
         
-        const minAtual = Math.floor(audio.currentTime / 60);
-        const segAtual = Math.floor(audio.currentTime % 60).toString().padStart(2, '0');
-        const minTotal = Math.floor(audio.duration / 60);
-        const segTotal = Math.floor(audio.duration % 60).toString().padStart(2, '0');
-        
-        textoTempo.innerText = `${minAtual}:${segAtual} / ${minTotal}:${segTotal}`;
+        if (timeTxt) timeTxt.innerText = `${curMin}:${curSeg} / ${durMin}:${durSeg}`;
     }
+
+    // 2. SINCRONIZA COM O MASTER PLAYER (Barra flutuante)
+    if (id === window.audioIdAtualMestre) {
+        const masterBar = document.getElementById('master-progress-fill');
+        const masterTime = document.getElementById('master-time');
+        
+        if (audio.duration) {
+            if (masterBar) masterBar.style.width = `${(audio.currentTime / audio.duration) * 100}%`;
+            if (masterTime) {
+                const min = Math.floor(audio.currentTime / 60);
+                const seg = Math.floor(audio.currentTime % 60).toString().padStart(2, '0');
+                masterTime.innerText = `${min}:${seg}`;
+            }
+        }
+    }
+};
+
+
+
+window.seekMaster = (e) => {
+    if (!window.audioIdAtualMestre) return;
+    window.seekAudio(e, window.audioIdAtualMestre);
 };
 
 window.atualizarTempoTotal = (id) => { window.atualizarProgresso(id); }; // Só pra mostrar o tempo antes de dar play
@@ -3773,12 +3885,34 @@ window.audioFeedbackAtualId = null;
 window.abrirFeedbackAudio = (id, titulo, url) => {
     window.audioFeedbackAtualId = id;
     
-    // Pausa a música da tela principal se estiver tocando
-    if (window.audioAtualExecucao) window.togglePlayAudio(window.audioAtualExecucao);
+    const audioOriginal = document.getElementById(`audio-elemento-${id}`);
+    const playerModal = document.getElementById('player-feedback');
+    
+    // MÁGICA: Captura o tempo atual do card antes de pausar
+    const tempoDeOndeParou = audioOriginal ? audioOriginal.currentTime : 0;
+
+    // Pausa a música da tela principal e reseta os ícones
+    if (window.audioAtualExecucao) {
+        const audioAntigo = document.getElementById(`audio-elemento-${window.audioAtualExecucao}`);
+        const btnAntigo = document.getElementById(`btn-play-${window.audioAtualExecucao}`);
+        const masterBtn = document.getElementById('master-play-icon');
+        
+        if(audioAntigo) audioAntigo.pause();
+        if(btnAntigo) btnAntigo.innerText = "▶";
+        if(masterBtn) masterBtn.innerText = "▶";
+        
+        window.audioAtualExecucao = null;
+    }
 
     document.getElementById('feedback-titulo').innerText = `Feedback: ${titulo}`;
-    const player = document.getElementById('player-feedback');
-    player.src = url; // Coloca a música no Modal
+    
+    // Configura o player do modal
+    playerModal.src = url;
+    
+    // Aplica o tempo capturado (espera o metadata carregar para garantir que o player aceite o tempo)
+    playerModal.onloadedmetadata = () => {
+        playerModal.currentTime = tempoDeOndeParou;
+    };
     
     window.carregarComentariosAudio(id);
     window.openModal('modalFeedbackAudio');

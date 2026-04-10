@@ -629,6 +629,14 @@
                 <button class="close-btn" onclick="closeModal('modalEvento')">&times;</button>
             </div>
             <form class="hub-form" id="formEvento" onsubmit="salvarEvento(event)">
+                <div class="form-group">
+                    <label id="labelEventoEscopo">Visibilidade do Evento</label>
+                    <select id="eventoEscopo">
+                        <option value="pessoal">👤 Pessoal (Só eu vejo)</option>
+                        <option value="empresa" id="opt-evento-empresa">🏢 Empresa (Equipe vê / Só ADM edita)</option>
+                    </select>
+                </div>
+
                 <div class="form-group"><label>Título do Evento</label><input type="text" id="eventoTitulo" placeholder="Ex: Reunião de Pauta" required></div>
                 <div class="form-row">
                     <div class="form-group"><label>Data</label><input type="date" id="eventoData" required></div>
@@ -758,25 +766,34 @@
             </div>
             <form class="hub-form" id="formNovoAudio" onsubmit="salvarAudio(event)">
                 <div class="form-group">
-                    <label>Título do Arquivo</label>
-                    <input type="text" id="audioTitulo" placeholder="Ex: Tema_Boss_Final" required>
+                    <label>Título da Obra</label>
+                    <input type="text" id="audioTitulo" placeholder="Ex: Boss_Battle_Final" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Categoria</label>
+                        <select id="audioTag" required>
+                            <option value="SFX">💥 SFX (Efeito)</option>
+                            <option value="BGM" selected>🎵 BGM (Trilha)</option>
+                            <option value="VO">🎙️ VO (Voz)</option>
+                            <option value="UI">🖱️ UI (Interface)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>BPM (Opcional)</label>
+                        <input type="number" id="audioBpm" placeholder="120">
+                    </div>
+                    <div class="form-group">
+                        <label>Tom / Key (Opcional)</label>
+                        <input type="text" id="audioKey" placeholder="Am, C#, F...">
+                    </div>
                 </div>
                 <div class="form-group">
-                    <label>Categoria (Tag)</label>
-                    <select id="audioTag" required>
-                        <option value="SFX">💥 Efeito Sonoro (SFX)</option>
-                        <option value="BGM">🎵 Trilha Sonora (BGM)</option>
-                        <option value="VO">🎙️ Dublagem/Voz (VO)</option>
-                        <option value="UI">🖱️ Interface (UI)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Link Direto do Áudio (URL do Drive, Dropbox, etc)</label>
+                    <label>Link do Arquivo (Drive, Dropbox, Catbox...)</label>
                     <input type="url" id="audioUrl" placeholder="https://..." required>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn-secondary" onclick="closeModal('modalNovoAudio')">Cancelar</button>
-                    <button type="submit" class="btn-primary">Adicionar Áudio</button>
+                    <button type="submit" class="btn-primary" style="width: 100%;">🚀 Lançar na Central de Áudio</button>
                 </div>
             </form>
         </div>
@@ -869,6 +886,37 @@
                     <button type="submit" class="btn-primary">Salvar Alterações</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div id="master-player-float" class="master-player hidden">
+        <div class="master-player-inner">
+            <div class="master-info">
+                <div class="master-visualizer">
+                    <span></span><span></span><span></span>
+                </div>
+                <div class="master-text">
+                    <strong id="master-player-title">Nenhum áudio</strong>
+                    <span id="master-player-subtitle">Selecionado</span>
+                </div>
+            </div>
+
+            <div class="master-controls">
+                <button class="icon-btn master-play-btn" onclick="togglePlayMaster()" id="master-play-icon">▶</button>
+                <div class="master-progress-wrapper">
+                    <div class="master-progress-container" onclick="seekMaster(event)">
+                        <div id="master-progress-fill" class="master-progress-fill"></div>
+                    </div>
+                    <span id="master-time">00:00</span>
+                </div>
+            </div>
+
+            <div class="master-volume">
+                <span>🔊</span>
+                <input type="range" id="master-volume-slider" min="0" max="1" step="0.01" value="0.8" oninput="ajustarVolumeMaster(this.value)">
+            </div>
+
+            <button class="close-master-btn" onclick="fecharPlayerMestre()">×</button>
         </div>
     </div>
 
