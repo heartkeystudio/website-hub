@@ -10,6 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
 <body>
     <div id="login-screen" class="login-overlay">
@@ -379,43 +380,10 @@
                 </div>
 
                 <div style="display: flex; flex-direction: column; gap: 25px;">
-
                     <div class="dash-panel">
-                        <h3>⚙️ Configurações da Conta</h3>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Nome de Exibição</label>
-                                <input type="text" id="user-nome" placeholder="Seu Nome Completo">
-                            </div>
-                            <div class="form-group">
-                                <label>Apelido / Nickname</label>
-                                <input type="text" id="user-apelido" placeholder="Ex: MagoDasTrevas">
-                            </div>
-                        </div>
-
-                        <div class="form-group"><label>Sua Especialidade (Workflow)</label>
-                            <select id="user-specialty" style="margin-bottom: 20px;">
-                                <option value="geral">Geral (Dashboard)</option>
-                                <option value="dev">Programação (Kanban)</option>
-                                <option value="art">Arte & Som (Áudios)</option>
-                                <option value="design">Game Design (Wiki)</option>
-                            </select>
-                        </div>
-
-                        <div style="border-top: 1px dashed rgba(255,255,255,0.1); margin: 20px 0; padding-top: 20px;">
-                            <h4 style="margin-bottom: 15px; font-size: 0.9rem; color: var(--primary);">🎨 Estilo Visual</h4>
-                            <div class="form-row">
-                                <div class="form-group"><label>Cor Principal</label><input type="color" id="theme-color" value="#81fe4e" style="padding: 0 10px; height: 45px; cursor: pointer;"></div>
-                                <div class="form-group"><label>Modo</label><select id="theme-mode"><option value="dark">Escuro</option><option value="light">Claro</option></select></div>
-                                <div class="form-group"><label>Transparência (0 a 1)</label><input type="range" id="theme-opacity" min="0" max="1" step="0.1" value="0.8" style="padding: 0; margin-top: 15px;"></div>
-                            </div>
-                            <div class="form-group"><label>Wallpaper (Max 800kb)</label><input type="file" id="theme-bg-file" accept="image/*"></div>
-                        </div>
-
-                        <button class="btn-primary" style="width: 100%;" onclick="salvarPreferencias(event)">Salvar Minhas Configurações</button>
+                        <h3>🏆 Ranking do Estúdio</h3>
+                        <div id="ranking-list" style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;"></div>
                     </div>
-
                 </div>
                 
             </div>
@@ -431,36 +399,105 @@
         </section>
 
         <section id="financeiro" class="page-section">
-            <div class="section-header" style="align-items: center;">
+            <div class="section-header" style="align-items: center; padding-bottom: 0; border-bottom: none; margin-bottom: 25px;">
                 <div>
                     <h1>Financeiro</h1>
-                    <p class="subtitle">Controle de Fluxo de Caixa</p>
+                    <p class="subtitle">Seu cofre privado e as metas do estúdio</p>
                 </div>
-                <div style="display: flex; gap: 15px; align-items: center;">
-                    <input type="month" id="filtroMesFinanceiro" onchange="carregarLancamentos()" style="margin-bottom: 0; padding: 8px 12px; width: auto; background: rgba(0,0,0,0.3);">
-                    <button class="btn-primary" onclick="openModal('modalLancamento')">+ Lançamento</button>
+                <div class="audio-subtabs">
+                    <button class="audio-subtab-btn fin-tab-btn active" onclick="switchFinanceTab('pessoal', this)">Meu Caixa</button>
+                    <button class="audio-subtab-btn fin-tab-btn" onclick="switchFinanceTab('empresa', this)">Caixa do Estúdio</button>
                 </div>
-            </div>
-            <div class="summary-cards">
-                <div class="card">Receita (Em Caixa)<p id="resumoReceita" class="text-green">R$ 0</p><span id="previstoReceita" style="font-size:0.75rem; color:#888;">Previsto: R$ 0</span></div>
-                <div class="card">Custos (Pagos)<p id="resumoCusto" class="text-red">R$ 0</p><span id="previstoCusto" style="font-size:0.75rem; color:#888;">Previsto: R$ 0</span></div>
-                <div class="card highlight">Saldo Real<p id="resumoSaldo" class="text-neon">R$ 0</p><span style="font-size:0.75rem; color:var(--text-muted);">Dinheiro em mãos</span></div>
             </div>
 
-            <div class="dash-panel" style="padding: 15px; margin-bottom: 25px; height: 120px;">
-                <canvas id="graficoFinanceiro"></canvas>
-            </div>
+            <div id="fin-area-meta" class="dash-panel" style="display: none; text-align: center; padding: 40px 20px; border-color: var(--primary);">
+                </div>
 
-            <div class="table-container">
-                <table class="data-table">
-                    <thead><tr><th>Vencimento</th><th>Descrição/Categoria</th><th>Tipo</th><th>Status</th><th>Valor</th><th>Ações</th></tr></thead>
-                    <tbody id="finance-entries"></tbody>
-                </table>
+            <div id="fin-area-dados">
+                <div style="display: flex; justify-content: flex-end; gap: 15px; margin-bottom: 20px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                    <input type="month" id="filtroMesFinanceiro" onchange="carregarLancamentos()" style="margin: 0; padding: 8px 12px; width: auto; background: rgba(0,0,0,0.3);">
+                    <button class="btn-primary" onclick="abrirModalLancamento()">+ Novo Lançamento</button>
+                </div>
+
+                <div class="summary-cards">
+                    <div class="card">Receita (Em Caixa)<p id="resumoReceita" class="text-green">R$ 0</p><span id="previstoReceita" style="font-size:0.75rem; color:#888;">Previsto: R$ 0</span></div>
+                    <div class="card">Custos (Pagos)<p id="resumoCusto" class="text-red">R$ 0</p><span id="previstoCusto" style="font-size:0.75rem; color:#888;">Previsto: R$ 0</span></div>
+                    <div class="card highlight" id="card-saldo-real">Saldo Real<p id="resumoSaldo" class="text-neon">R$ 0</p><span style="font-size:0.75rem; color:var(--text-muted);">Dinheiro em mãos</span></div>
+                </div>
+
+                <div class="dash-panel" style="padding: 15px; margin-bottom: 25px; height: 120px;">
+                    <canvas id="graficoFinanceiro"></canvas>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead><tr><th>Vencimento</th><th>Descrição/Categoria</th><th>Tipo</th><th>Status</th><th>Valor</th><th>Ações</th></tr></thead>
+                        <tbody id="finance-entries"></tbody>
+                    </table>
+                </div>
             </div>
         </section>
 
         <section id="reunioes" class="page-section"><div class="section-header"><h1>Reuniões</h1></div><div id="admin-panel" class="dash-panel" style="display:none; margin-bottom: 20px;"><h3>Novo Convite</h3><form onsubmit="enviarConviteAdmin(event)" class="hub-form"><input type="email" id="admConviteEmail" placeholder="E-mail" required><input type="text" id="admConviteTitulo" placeholder="Assunto" required><label>Data da Reunião:</label><input type="date" id="admConviteData" required><label>Hora:</label><input type="time" id="admConviteHora" required><button type="submit" class="btn-primary">Enviar</button></form></div><div id="invites-entries"></div><div id="confirmed-entries" style="margin-top: 20px;"></div></section>
-        <section id="diario" class="page-section"><div class="section-header"><h1>Diário</h1></div><div class="diary-editor"><input type="text" id="noteTitle" placeholder="Título"><textarea id="noteContent" placeholder="Escreva aqui..."></textarea><button class="btn-primary" onclick="salvarNota()">Salvar</button></div><div id="diary-entries" class="diary-grid" style="margin-top: 20px;"></div></section>
+        
+        <section id="diario" class="page-section">
+            <div class="section-header" style="margin-bottom: 20px; border-bottom: none; padding-bottom: 0;">
+                <div>
+                    <h1 style="display: flex; align-items: center; gap: 10px;">📓 Meu DevLog <span class="badge" style="background: rgba(0, 234, 255, 0.15); color: #00eaff; border: 1px solid #00eaff;">🔒 E2EE</span></h1>
+                    <p class="subtitle" style="color: #888; font-size: 0.85rem; margin-top: 5px;">Criptografia Ponta a Ponta. Nem o Firebase consegue ler isso.</p>
+                </div>
+                <button id="btn-unlock-diary" class="btn-secondary" onclick="desbloquearCofre()" style="border-color: #00eaff; color: #00eaff;">🔑 Destrancar Cofre</button>
+            </div>
+
+            <div class="diary-editor dash-panel" style="padding: 25px;">
+                <input type="text" id="noteTitle" class="diary-title-input" placeholder="Título do Registro (Ex: Dia 14 - O bug impossível)">
+                
+                <div style="display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap;">
+                    <div class="form-group" style="flex: 1; min-width: 150px;">
+                        <label style="font-size: 0.75rem; color: var(--text-muted);">Como você está hoje?</label>
+                        <select id="noteMood" style="margin-bottom: 0; padding: 10px;">
+                            <option value="produtivo">🔥 Produtivo / Em Chamas</option>
+                            <option value="criativo">🧠 Criativo / Inspirado</option>
+                            <option value="neutro" selected>🧘 Neutro / Focado</option>
+                            <option value="exausto">💀 Exausto / Burnout</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 150px;">
+                        <label style="font-size: 0.75rem; color: var(--text-muted);">Categoria (Tag)</label>
+                        <select id="noteTag" style="margin-bottom: 0; padding: 10px;">
+                            <option value="devlog">💻 DevLog (Código/Tech)</option>
+                            <option value="ideia">💡 Ideia de Jogo</option>
+                            <option value="estudo">📚 Estudo / Aprendizado</option>
+                            <option value="desabafo">🌪️ Desabafo / Pessoal</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; align-items: flex-end;">
+                        <div class="form-group" style="flex: 1; min-width: 200px; margin-bottom: 0;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--text-muted); font-size: 0.75rem; margin-bottom: 10px;">
+                                <input type="checkbox" id="noteEncrypt" style="width: 18px; height: 18px; margin: 0; accent-color: #00eaff;"> 
+                                🔒 Criptografar esta nota (E2EE)
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="internal-tabs" style="border:none; margin-bottom: 10px; justify-content: flex-start; gap: 5px;">
+                    <button class="itab-btn active" id="btn-diary-edit" onclick="setDiaryMode('edit')" style="padding: 8px 15px; font-size: 0.8rem;">✍️ Escrever</button>
+                    <button class="itab-btn" id="btn-diary-preview" onclick="setDiaryMode('preview')" style="padding: 8px 15px; font-size: 0.8rem;">👁️ Pré-visualizar (Markdown)</button>
+                </div>
+
+                <textarea id="noteContent" class="diary-textarea" placeholder="Descreva seu dia, cole blocos de código ou desenhe diagramas usando Markdown..."></textarea>
+                <div id="notePreview" class="markdown-body" style="display: none; min-height: 120px; padding: 20px !important; margin-bottom: 0; background: rgba(0,0,0,0.2) !important;"></div>
+                
+                <div style="display: flex; justify-content: flex-end; margin-top: 15px;">
+                    <button class="btn-primary" onclick="salvarNota()">💾 Salvar no Cofre</button>
+                </div>
+            </div>
+
+            <div id="diary-entries" class="diary-grid" style="margin-top: 20px;"></div>
+        </section>
+
+
         <section id="cronograma" class="page-section"><div class="section-header"><h1>Agenda</h1><button class="btn-primary" onclick="openModal('modalEvento')">+ Evento</button></div><div id="event-entries" class="event-list"></div></section>
     </main>
 
@@ -553,6 +590,14 @@
                 <button class="close-btn" onclick="closeModal('modalLancamento')">&times;</button>
             </div>
             <form class="hub-form" id="formFinanceiro" onsubmit="salvarLancamento(event)">
+                
+                <div class="form-group">
+                    <label id="labelFinanceEscopo">Cofre de Destino</label>
+                    <select id="financeEscopo" style="border-color: var(--primary); color: var(--primary); font-weight: bold;">
+                        <option value="pessoal">👤 Meu Caixa Pessoal (Privado)</option>
+                        <option value="empresa" id="opt-empresa">🏢 Caixa do Estúdio (Público/Meta)</option>
+                    </select>
+                </div>
                 <div class="form-row">
                     <div class="form-group"><label>Tipo</label><select id="financeTipo" required><option value="receita">Receita (+)</option><option value="custo">Custo (-)</option></select></div>
                     <div class="form-group"><label>Status</label><select id="financeStatus" required><option value="pago">✔️ Pago / Recebido</option><option value="pendente">⏳ Pendente</option></select></div>
@@ -778,6 +823,52 @@
             <h3 style="font-size: 1rem; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">Feedbacks da Equipe</h3>
             <ul id="lista-comentarios" style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; max-height: 300px; overflow-y: auto;">
                 </ul>
+        </div>
+    </div>
+
+    <div id="modalConfigPerfil" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⚙️ Configurações da Conta</h2>
+                <button class="close-btn" onclick="closeModal('modalConfigPerfil')">&times;</button>
+            </div>
+            <form class="hub-form" onsubmit="salvarPreferencias(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nome de Exibição</label>
+                        <input type="text" id="user-nome" placeholder="Seu Nome Completo">
+                    </div>
+                    <div class="form-group">
+                        <label>Apelido / Nickname</label>
+                        <input type="text" id="user-apelido" placeholder="Ex: MagoDasTrevas">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Sua Especialidade (Workflow)</label>
+                    <select id="user-specialty">
+                        <option value="geral">Geral (Dashboard)</option>
+                        <option value="dev">Programação (Kanban)</option>
+                        <option value="art">Arte & Som (Áudios)</option>
+                        <option value="design">Game Design (Wiki)</option>
+                    </select>
+                </div>
+
+                <div style="border-top: 1px dashed rgba(255,255,255,0.1); margin: 20px 0; padding-top: 20px;">
+                    <h4 style="margin-bottom: 15px; font-size: 0.9rem; color: var(--primary);">🎨 Estilo Visual</h4>
+                    <div class="form-row">
+                        <div class="form-group"><label>Cor Principal</label><input type="color" id="theme-color" value="#81fe4e" style="padding: 0 10px; height: 45px; cursor: pointer;"></div>
+                        <div class="form-group"><label>Modo</label><select id="theme-mode"><option value="dark">Escuro</option><option value="light">Claro</option></select></div>
+                        <div class="form-group"><label>Transparência (0 a 1)</label><input type="range" id="theme-opacity" min="0" max="1" step="0.1" value="0.8" style="padding: 0; margin-top: 15px;"></div>
+                    </div>
+                    <div class="form-group"><label>Wallpaper (Max 800kb)</label><input type="file" id="theme-bg-file" accept="image/*"></div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalConfigPerfil')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Salvar Alterações</button>
+                </div>
+            </form>
         </div>
     </div>
 

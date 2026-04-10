@@ -2364,13 +2364,49 @@ window.deletarCliente = async function(id) { if(confirm("Apagar cliente? O hist�
 
 
 /* ==========================================
-   --- FINANCEIRO (FLUXO DE CAIXA) ---
+   --- FINANCEIRO 3.0 (PESSOAL VS EMPRESA & METAS) ---
    ========================================== */
+window.lancamentoEditandoId = null;
+window.meuGraficoFinanceiro = null;
+window.escopoFinanceiro = 'pessoal'; // Começa sempre no Pessoal
+
+// 1. NAVEGAÇÃO DAS ABAS
+window.switchFinanceTab = (escopo, btn) => {
+    window.escopoFinanceiro = escopo;
+    document.querySelectorAll('.fin-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    window.carregarLancamentos(); // Recarrega os dados pro cofre certo
+};
+
+// 2. ABRIR MODAL COM SEGURANÇA
+window.abrirModalLancamento = () => {
+    document.getElementById('formFinanceiro').reset();
+    window.lancamentoEditandoId = null;
+    
+    const selEscopo = document.getElementById('financeEscopo');
+    const labelEscopo = document.getElementById('labelFinanceEscopo');
+    
+    // Se não for Admin, ele NÃO PODE lançar no caixa da empresa
+    if (window.userRole !== 'admin') {
+        selEscopo.style.display = 'none';
+        labelEscopo.style.display = 'none';
+        selEscopo.value = 'pessoal';
+    } else {
+        selEscopo.style.display = 'block';
+        labelEscopo.style.display = 'block';
+        selEscopo.value = window.escopoFinanceiro; // Já abre no cofre que ele estava olhando
+    }
+    
+    openModal('modalLancamento');
+};
+
+// 3. SALVAR LANÇAMENTO
 window.salvarLancamento = async function(event) {
     event.preventDefault();
     if (!auth.currentUser) return;
 
     const dados = {
+        escopo: document.getElementById('financeEscopo').value, // 'pessoal' ou 'empresa'
         tipo: document.getElementById('financeTipo').value,
         status: document.getElementById('financeStatus').value,
         origem: document.getElementById('financeOrigem').value,
@@ -2384,21 +2420,19 @@ window.salvarLancamento = async function(event) {
 
     try {
         if (window.lancamentoEditandoId) {
-            // EDITAR
             await updateDoc(doc(db, "lancamentos", window.lancamentoEditandoId), dados);
-            window.registrarAtividade(`editou o lançamento "${dados.origem}"`, 'financeiro', '💰');
+            if (dados.escopo === 'empresa') window.registrarAtividade(`editou um lançamento do Estúdio`, 'financeiro', '🏢');
         } else {
-            // NOVO
             dados.dataCriacao = new Date().toISOString();
             await addDoc(collection(db, "lancamentos"), dados);
-            window.registrarAtividade(`registrou novo lançamento: "${dados.origem}"`, 'financeiro', '💰');
+            if (dados.escopo === 'empresa') window.registrarAtividade(`registrou um valor no cofre do Estúdio`, 'financeiro', '🏢');
         }
         
         document.getElementById('formFinanceiro').reset();
         window.lancamentoEditandoId = null;
         closeModal('modalLancamento');
         window.carregarLancamentos();
-        window.carregarDashboard();
+        if (dados.escopo === 'empresa') window.carregarDashboard();
     } catch(e) { console.error(e); }
 };
 
@@ -2406,6 +2440,7 @@ window.abrirEdicaoLancamento = async (id) => {
     const snap = await getDoc(doc(db, "lancamentos", id));
     if (snap.exists()) {
         const d = snap.data();
+        document.getElementById('financeEscopo').value = d.escopo || 'pessoal';
         document.getElementById('financeTipo').value = d.tipo;
         document.getElementById('financeStatus').value = d.status;
         document.getElementById('financeOrigem').value = d.origem;
@@ -2425,13 +2460,43 @@ window.alternarStatusLancamento = async (id, novoStatus) => {
     window.carregarDashboard();
 };
 
+// 4. CRIAR / EDITAR META DA EMPRESA (SÓ ADMIN)
+window.configurarMetaEstudio = async () => {
+    if (window.userRole !== 'admin') return;
+    
+    const titulo = prompt("Título da Meta (Ex: Comprar Devkits):");
+    if (!titulo) return;
+    
+    const valorStr = prompt("Valor Alvo da Meta em R$ (Ex: 10000):");
+    const valor = parseFloat(valorStr);
+    
+    if (valor && !isNaN(valor)) {
+        await setDoc(doc(db, "configuracoes", "meta_estudio"), {
+            titulo: titulo,
+            valorAlvo: valor,
+            ativa: true
+        });
+        window.carregarLancamentos();
+    }
+};
+
+window.encerrarMetaEstudio = async () => {
+    if (confirm("Encerrar e esconder a meta atual?")) {
+        await updateDoc(doc(db, "configuracoes", "meta_estudio"), { ativa: false });
+        window.carregarLancamentos();
+    }
+};
+
+// 5. CARREGAR TUDO (A MÁGICA DA BLINDAGEM)
 window.carregarLancamentos = async function() {
     const tbody = document.getElementById('finance-entries');
+    const areaDados = document.getElementById('fin-area-dados');
+    const areaMeta = document.getElementById('fin-area-meta');
     if (!tbody || !auth.currentUser) return;
 
-    // A CORREÇÃO: O formatador de moeda precisa nascer aqui em cima!
     const formatadorMoeda = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
+    // Pega o mês selecionado
     const elFiltro = document.getElementById('filtroMesFinanceiro');
     let filtroMes = elFiltro ? elFiltro.value : "";
     if (!filtroMes) {
@@ -2440,20 +2505,96 @@ window.carregarLancamentos = async function() {
         if(elFiltro) elFiltro.value = filtroMes;
     }
 
-    const q = query(collection(db, "lancamentos"), where("userId", "==", auth.currentUser.uid));
+    // --- LÓGICA DE BLINDAGEM VISUAL ---
+    if (window.escopoFinanceiro === 'empresa') {
+        areaMeta.style.display = 'block';
+        // Membro não vê a tabela e o gráfico da empresa! Só a meta.
+        areaDados.style.display = window.userRole === 'admin' ? 'block' : 'none';
+        document.getElementById('card-saldo-real').style.borderColor = "#ffc107";
+    } else {
+        // Aba Pessoal
+        areaMeta.style.display = 'none';
+        areaDados.style.display = 'block'; // Dono sempre vê suas próprias contas
+        document.getElementById('card-saldo-real').style.borderColor = "var(--primary)";
+    }
+
+    // --- BUSCA OS DADOS ---
+    let q;
+    if (window.escopoFinanceiro === 'empresa') {
+        q = query(collection(db, "lancamentos"), where("escopo", "==", "empresa"));
+    } else {
+        // Traz tudo do usuário (e no JS a gente ignora o que ele marcou como 'empresa')
+        q = query(collection(db, "lancamentos"), where("userId", "==", auth.currentUser.uid));
+    }
+    
     const snap = await getDocs(q);
     
     let recPrev = 0, cusPrev = 0;
     let recReal = 0, cusReal = 0;
     let lancamentosMes = [];
+    
+    // Variável global para a Meta da Empresa (Soma TODO o histórico real do estúdio)
+    let saldoTotalHistoricoEmpresa = 0;
 
     snap.forEach(docSnap => {
         const d = docSnap.data();
+        
+        // Se estiver na aba pessoal, ignora os de empresa que ele criou
+        if (window.escopoFinanceiro === 'pessoal' && d.escopo === 'empresa') return;
+        // Tratamento para lançamentos velhos sem escopo
+        if (window.escopoFinanceiro === 'empresa' && (!d.escopo || d.escopo !== 'empresa')) return;
+
+        // Calcula o Saldo Total Histórico para a barra de Meta (Independente do Mês)
+        if (window.escopoFinanceiro === 'empresa' && d.status === 'pago') {
+            if (d.tipo === 'receita') saldoTotalHistoricoEmpresa += d.valor;
+            else saldoTotalHistoricoEmpresa -= d.valor;
+        }
+
+        // Filtra para a Tabela e Gráfico (Somente o mês selecionado)
         if ((d.dataVencimento || "").startsWith(filtroMes)) {
             lancamentosMes.push({id: docSnap.id, ...d});
         }
     });
 
+    // --- RENDERIZA A META DA EMPRESA ---
+    if (window.escopoFinanceiro === 'empresa') {
+        const metaSnap = await getDoc(doc(db, "configuracoes", "meta_estudio"));
+        let metaHtml = "";
+        
+        if (metaSnap.exists() && metaSnap.data().ativa) {
+            const meta = metaSnap.data();
+            const porcentagem = Math.min(100, Math.max(0, (saldoTotalHistoricoEmpresa / meta.valorAlvo) * 100));
+            const corBarra = porcentagem >= 100 ? 'var(--primary)' : '#ffc107';
+            
+            metaHtml = `
+                <h3 style="font-size: 1.5rem; color: #fff; margin-bottom: 5px;">🎯 Meta do Estúdio: <span style="color: ${corBarra};">${meta.titulo}</span></h3>
+                <p style="color: var(--text-muted); margin-bottom: 20px;">Todo o caixa excedente do estúdio é focado neste objetivo.</p>
+                
+                <div class="exp-bar-bg" style="height: 18px; border-radius: 9px; max-width: 600px; margin: 0 auto;">
+                    <div class="exp-bar-fill" style="width: ${porcentagem}%; background: ${corBarra}; box-shadow: 0 0 20px ${corBarra};"></div>
+                </div>
+                
+                <div style="margin-top: 15px; font-size: 1.2rem; font-weight: bold;">
+                    ${formatadorMoeda.format(Math.max(0, saldoTotalHistoricoEmpresa))} / <span style="color: #888;">${formatadorMoeda.format(meta.valorAlvo)}</span> 
+                    <span style="color: ${corBarra};">(${porcentagem.toFixed(1)}%)</span>
+                </div>
+            `;
+            if (window.userRole === 'admin') {
+                metaHtml += `<button class="btn-secondary" onclick="encerrarMetaEstudio()" style="margin-top: 20px; font-size: 0.8rem;">🏁 Encerrar Meta</button>`;
+            }
+        } else {
+            metaHtml = `<h3 style="color: #666;">O estúdio não possui metas financeiras ativas no momento.</h3>`;
+            if (window.userRole === 'admin') {
+                metaHtml += `<button class="btn-primary" onclick="configurarMetaEstudio()" style="margin-top: 15px;">🎯 Criar Nova Meta</button>`;
+            }
+        }
+        areaMeta.innerHTML = metaHtml;
+    }
+
+    // Se for membro olhando a aba da empresa, o código para por aqui, ele não processa a tabela!
+    if (window.escopoFinanceiro === 'empresa' && window.userRole !== 'admin') return;
+
+    // --- CONTINUA PARA RENDERIZAR TABELA E GRÁFICO (Dono ou Admin) ---
     lancamentosMes.sort((a,b) => new Date(a.dataVencimento) - new Date(b.dataVencimento));
 
     let html = '';
@@ -2472,7 +2613,6 @@ window.carregarLancamentos = async function() {
             ? '<span class="badge" style="background:rgba(76,175,80,0.1); color:#4caf50;">PAGO</span>' 
             : '<span class="badge" style="background:rgba(255,193,7,0.1); color:#ffc107;">PENDENTE</span>';
 
-        // MENU 3 PONTINHOS
         const menuAcoes = `
             <div style="position:relative; display:inline-block;">
                 <button class="icon-btn" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')" style="font-size:1.2rem;">⋮</button>
@@ -2495,7 +2635,7 @@ window.carregarLancamentos = async function() {
         </tr>`;
     });
 
-    tbody.innerHTML = html || '<tr><td colspan="6" style="text-align:center; padding:20px;">Sem dados.</td></tr>';
+    tbody.innerHTML = html || '<tr><td colspan="6" style="text-align:center; padding:20px;">Sem dados para este mês.</td></tr>';
     
     // Atualiza Cards
     document.getElementById('resumoReceita').innerText = formatadorMoeda.format(recReal);
@@ -2508,56 +2648,7 @@ window.carregarLancamentos = async function() {
     document.getElementById('resumoSaldo').className = saldoReal >= 0 ? 'valor text-neon' : 'valor text-red';
 
     // Renderiza o Gráfico
-    window.renderizarGraficoFinanceiro(lancamentosMes);
-};
-
-window.renderizarGraficoFinanceiro = (dados) => {
-    const ctx = document.getElementById('graficoFinanceiro');
-    if (!ctx) return;
-
-    // Prepara dados para o gráfico (Saldo acumulado dia a dia)
-    const diasNoMes = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-    const labels = Array.from({length: diasNoMes}, (_, i) => i + 1);
-    const valoresPorDia = new Array(diasNoMes).fill(0);
-
-    let saldoAcumulado = 0;
-    dados.forEach(d => {
-        if (d.status === 'pago') {
-            const dia = parseInt(d.dataVencimento.split('-')[2]);
-            if (d.tipo === 'receita') saldoAcumulado += d.valor;
-            else saldoAcumulado -= d.valor;
-            // Preenche do dia do lançamento até o fim do mês com esse novo saldo
-            for(let i = dia - 1; i < diasNoMes; i++) valoresPorDia[i] = saldoAcumulado;
-        }
-    });
-
-    if (window.meuGraficoFinanceiro) window.meuGraficoFinanceiro.destroy();
-
-    window.meuGraficoFinanceiro = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Saldo em Caixa (R$)',
-                data: valoresPorDia,
-                borderColor: '#81fe4e',
-                borderWidth: 2,
-                pointRadius: 0,
-                fill: true,
-                backgroundColor: 'rgba(129, 254, 78, 0.05)',
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { display: false },
-                y: { display: false }
-            }
-        }
-    });
+    if (window.renderizarGraficoFinanceiro) window.renderizarGraficoFinanceiro(lancamentosMes);
 };
 
 window.deletarLancamento = async function(id) { 
@@ -2627,42 +2718,185 @@ window.carregarEventos = async function() {
 window.deletarEvento = async function(id) { if(confirm("Cancelar evento?")) { await deleteDoc(doc(db, "eventos", id)); window.carregarEventos(); window.carregarDashboard();} };
 
 
-/* --- DIÁRIO PESSOAL --- */
+/* ==========================================
+   --- DIÁRIO PESSOAL (DEVLOG PRIVADO) ---
+   ========================================== */
+
+// MODO ESCRITA VS MODO LEITURA (MARKDOWN)
+window.setDiaryMode = (mode) => {
+    const edit = document.getElementById('noteContent');
+    const prev = document.getElementById('notePreview');
+    if (mode === 'preview') {
+        if (edit && prev) {
+            prev.innerHTML = marked.parse(edit.value || '*Nada escrito ainda.*');
+            edit.style.display = 'none';
+            prev.style.display = 'block';
+            try { mermaid.run({ nodes: prev.querySelectorAll('.language-mermaid') }); } catch(e){}
+        }
+        document.getElementById('btn-diary-preview').classList.add('active');
+        document.getElementById('btn-diary-edit').classList.remove('active');
+    } else {
+        edit.style.display = 'block';
+        prev.style.display = 'none';
+        document.getElementById('btn-diary-edit').classList.add('active');
+        document.getElementById('btn-diary-preview').classList.remove('active');
+    }
+};
+
+// --- CRIPTOGRAFIA DO COFRE ---
+window.chaveDoCofre = null;
+
+window.desbloquearCofre = () => {
+    const senha = prompt("🔑 Digite sua Senha do Cofre.\n\n⚠️ ATENÇÃO: Nós NÃO salvamos essa senha no banco. Se você a esquecer, SEUS DADOS SERÃO PERDIDOS PARA SEMPRE, pois nem nós conseguimos descriptografar!");
+    
+    if (senha) {
+        window.chaveDoCofre = senha;
+        const btn = document.getElementById('btn-unlock-diary');
+        btn.innerText = "🔓 Cofre Aberto";
+        btn.style.borderColor = "#4caf50";
+        btn.style.color = "#4caf50";
+        window.carregarNotas(); // Tenta ler os arquivos agora com a chave nova
+    }
+};
+
 window.salvarNota = async () => {
-    const tit = document.getElementById('noteTitle').value;
-    const cont = document.getElementById('noteContent').value;
+    const tit = document.getElementById('noteTitle').value.trim();
+    const cont = document.getElementById('noteContent').value.trim();
+    const mood = document.getElementById('noteMood').value;
+    const tag = document.getElementById('noteTag').value;
+    const querCriptografar = document.getElementById('noteEncrypt').checked;
+    
     if (!cont || !auth.currentUser) return;
-    await addDoc(collection(db, "diario"), { title: tit, content: cont, userId: auth.currentUser.uid, dataCriacao: new Date().toISOString() });
-    document.getElementById('noteTitle').value = ''; document.getElementById('noteContent').value = '';
-    window.carregarNotas();
+
+    // Se ele quer criptografar, mas não abriu o cofre ainda
+    if (querCriptografar && !window.chaveDoCofre) {
+        alert("🔒 Para criar uma nota criptografada, primeiro clique em '🔑 Destrancar Cofre' e defina sua senha.");
+        return;
+    }
+    
+    const btn = document.querySelector('button[onclick="salvarNota()"]');
+    btn.disabled = true;
+
+    try {
+        let conteudoFinal = cont;
+        
+        // Só criptografa se o checkbox estiver marcado
+        if (querCriptografar) {
+            conteudoFinal = CryptoJS.AES.encrypt(cont, window.chaveDoCofre).toString();
+        }
+
+        await addDoc(collection(db, "diario"), { 
+            title: tit || "Registro sem título", 
+            content: conteudoFinal, 
+            mood: mood,
+            tag: tag,
+            encrypted: querCriptografar, // Salva uma flag no banco
+            userId: auth.currentUser.uid, 
+            dataCriacao: new Date().toISOString() 
+        });
+        
+        document.getElementById('noteTitle').value = ''; 
+        document.getElementById('noteContent').value = '';
+        document.getElementById('noteEncrypt').checked = false; // Reseta o cadeado
+        window.setDiaryMode('edit');
+        window.carregarNotas();
+    } catch (e) { console.error(e); }
+    
+    btn.disabled = false;
 };
 
 window.carregarNotas = async () => {
     const grid = document.getElementById('diary-entries');
     if(!grid || !auth.currentUser) return;
+    
     const q = query(collection(db, "diario"), where("userId", "==", auth.currentUser.uid));
     const snap = await getDocs(q);
     
-    let notas = []; snap.forEach(d => notas.push({id: d.id, ...d.data()}));
+    let notas = snap.docs.map(d => ({id: d.id, ...d.data()}));
     notas.sort((a,b) => new Date(b.dataCriacao) - new Date(a.dataCriacao));
+
+    const moodConfig = {
+        'produtivo': { icone: '🔥', cor: '#ff9800', label: 'Produtivo' },
+        'criativo': { icone: '🧠', cor: '#e040fb', label: 'Criativo' },
+        'neutro': { icone: '🧘', cor: '#4caf50', label: 'Focado' },
+        'exausto': { icone: '💀', cor: '#ff5252', label: 'Exausto' }
+    };
 
     grid.innerHTML = notas.map(d => {
         const dataObj = new Date(d.dataCriacao);
         const dataF = `${String(dataObj.getDate()).padStart(2,'0')}/${String(dataObj.getMonth()+1).padStart(2,'0')}`;
+        const m = moodConfig[d.mood || 'neutro'];
+        
+        let textoFinal = d.content;
+        let badgeLock = "";
+
+        // Se a nota for criptografada...
+        if (d.encrypted) {
+            badgeLock = `<span style="color: #00eaff; margin-right: 5px;">🔒</span>`;
+            if (!window.chaveDoCofre) {
+                textoFinal = "*(Nota Criptografada. Destranque o cofre para ler)*";
+            } else {
+                try {
+                    const bytes = CryptoJS.AES.decrypt(d.content, window.chaveDoCofre);
+                    const originalText = bytes.toString(CryptoJS.enc.Utf8);
+                    textoFinal = originalText || "❌ *(Senha incorreta para esta nota)*";
+                } catch(e) { textoFinal = "❌ *(Erro de decodificação)*"; }
+            }
+        }
+
         return `
-        <div class="diary-card">
+        <div class="diary-card" style="border-top-color: ${m.cor}; position: relative;">
             <div class="diary-card-header">
-                <h4>${d.title || 'Sem título'}</h4>
-                <span class="diary-card-date">${dataF}</span>
+                <h4 style="font-size: 1.2rem; color: #fff;">${badgeLock}${d.title}</h4>
             </div>
-            <div class="diary-card-body"><p>${d.content.replace(/\n/g, '<br>')}</p></div>
-            <div class="diary-card-footer">
-                <button class="icon-btn" style="color:#ff5252" onclick="deletarNota('${d.id}')">🗑️ Apagar</button>
+            <div style="display: flex; gap: 8px; margin: 10px 0 15px 0; flex-wrap: wrap; align-items: center;">
+                <span class="badge" style="background: rgba(255,255,255,0.05); color: ${m.cor}; border: 1px solid ${m.cor}; font-size: 0.65rem;">${m.icone} ${m.label}</span>
+                <span class="diary-card-date" style="margin-left: auto;">${dataF}</span>
+            </div>
+            <div class="diary-card-body markdown-body" style="background: transparent !important; padding: 0 !important; border: none !important; box-shadow: none !important; min-height: auto; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; font-size: 0.85rem; color: #bbb;">
+                ${marked.parse(textoFinal)}
+            </div>
+            <div class="diary-card-footer" style="margin-top: 15px;">
+                <button class="icon-btn" style="color:var(--primary); font-size: 0.8rem;" onclick="abrirLeituraNota('${d.id}')">📖 Ler Tudo</button>
+                <button class="icon-btn" style="color:#ff5252; font-size: 0.8rem;" onclick="deletarNota('${d.id}')">🗑️ Apagar</button>
             </div>
         </div>`;
-    }).join('');
+    }).join('') || '<p style="color:#666; grid-column: 1/-1; text-align: center; padding: 40px;">Vazio.</p>';
 };
-window.deletarNota = async (id) => { if(confirm("Apagar nota?")) { await deleteDoc(doc(db, "diario", id)); window.carregarNotas(); } };
+
+// Precisamos atualizar o Modal Gigante de Leitura para ele também descriptografar!
+window.abrirLeituraNota = async (id) => {
+    const docSnap = await getDoc(doc(db, "diario", id));
+    if (docSnap.exists()) {
+        const d = docSnap.data();
+        let textoFinal = d.content;
+        
+        if (d.encrypted) {
+            if (!window.chaveDoCofre) {
+                alert("🔒 Esta nota é protegida. Use o botão 'Destrancar Cofre' primeiro.");
+                return;
+            }
+            try {
+                const bytes = CryptoJS.AES.decrypt(d.content, window.chaveDoCofre);
+                textoFinal = bytes.toString(CryptoJS.enc.Utf8) || "❌ Senha incorreta!";
+            } catch(e) { textoFinal = "❌ Erro ao descriptografar."; }
+        }
+
+        document.getElementById('detalheTaskTitulo').innerText = d.title;
+        const container = document.getElementById('detalheTaskDesc');
+        container.innerHTML = marked.parse(textoFinal);
+        
+        // Esconde campos do Kanban que não pertencem ao Diário
+        document.getElementById('detalheTaskTag').style.display = 'none';
+        document.getElementById('detalheTaskGit').style.display = 'none';
+        document.getElementById('btn-abrir-git').style.display = 'none';
+        
+        window.openModal('modalDetalhesTarefa');
+    }
+};
+
+window.deletarNota = async (id) => { if(confirm("Deseja queimar este registro? Esta ação é irreversível.")) { await deleteDoc(doc(db, "diario", id)); window.carregarNotas(); } };
+
 
 /* --- REUNIÕES (CONVITES) --- */
 window.enviarConviteAdmin = async function(event) {
@@ -3007,16 +3241,27 @@ window.carregarMeuPerfil = () => {
             }).join('');
 
             // Desenha a Ficha inteira!
+            const menu3PontosPerfil = `
+                <div style="position:absolute; top: 15px; right: 15px; z-index: 10;">
+                    <button class="icon-btn" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')" style="font-size:1.5rem; color:#fff; background: rgba(0,0,0,0.5); width: 35px; height: 35px; border-radius: 8px; display:flex; align-items:center; justify-content:center; padding-bottom: 5px; border: 1px solid rgba(255,255,255,0.2);">⋮</button>
+                    <div class="dropdown-content" style="right: 0; top: 45px; min-width: 180px;">
+                        <button type="button" class="icon-btn" onclick="openModal('modalConfigPerfil'); document.querySelectorAll('.dropdown-content.show').forEach(el => el.classList.remove('show'));" style="font-size:0.85rem; text-align:left; width:100%; padding:12px; color:#fff;">⚙️ Configurar Perfil</button>
+                    </div>
+                </div>
+            `;
+
+            // Desenha a Ficha inteira (agora com o menu injetado no banner)
             card.innerHTML = `
                 <div class="profile-card-container">
                     <div class="profile-banner" style="${bannerEstilo}">
+                        ${menu3PontosPerfil}
                         <div class="profile-avatar-wrapper">
                             <div class="profile-avatar">${avatarTexto}</div>
                         </div>
                     </div>
                     <div class="profile-info">
                         <div class="profile-name">
-                            ${u.nome.split(' ')[0]} 
+                            ${textoNomeFicha} 
                             <span class="profile-level">Lv. ${level}</span>
                         </div>
                         <div class="profile-class" style="color: ${classeInfo.cor};">
@@ -3049,7 +3294,6 @@ window.carregarMeuPerfil = () => {
                                 ${badgesHtml}
                             </div>
                         </div>
-
                     </div>
                 </div>
             `;
@@ -3119,7 +3363,10 @@ window.carregarRanking = () => {
 };
 
 window.salvarPreferencias = async (e) => {
-    const btn = e.target; btn.disabled = true; btn.innerText = "Salvando...";
+    e.preventDefault(); // Impede a página de recarregar
+    
+    const btn = e.target.querySelector('button[type="submit"]'); 
+    btn.disabled = true; btn.innerText = "Salvando...";
     
     // Puxa os dados novos
     const nome = document.getElementById('user-nome').value.trim();
@@ -3132,40 +3379,26 @@ window.salvarPreferencias = async (e) => {
     
     let bg64 = null;
 
-    // Se a pessoa escolheu um arquivo novo, converte ele
     if (file && file.size <= 800*1024) {
         bg64 = await new Promise(r => { const rd = new FileReader(); rd.onloadend = () => r(rd.result); rd.readAsDataURL(file); });
     } else if (file) {
-        alert("Imagem pesada! Máximo de 800kb."); btn.disabled = false; btn.innerText = "Salvar Minhas Configurações"; return;
+        alert("Imagem pesada! Máximo de 800kb."); btn.disabled = false; btn.innerText = "Salvar Alterações"; return;
     }
 
-    const upd = { 
-        nome: nome, 
-        apelido: apelido, 
-        corTema: cor, 
-        modoTema: modo, 
-        opacidadeTema: op, 
-        especialidade: especialidade 
-    };
-    
-    // A MÁGICA: Só atualiza a imagem no banco se realmente escolheu um arquivo novo
-    if (bg64) {
-        upd.bgTema = bg64;
-        window.meuBgTema = bg64; // Atualiza a memória também!
-    }
+    const upd = { nome: nome, apelido: apelido, corTema: cor, modoTema: modo, opacidadeTema: op, especialidade: especialidade };
+    if (bg64) { upd.bgTema = bg64; window.meuBgTema = bg64; }
     
     await updateDoc(doc(db, "usuarios", auth.currentUser.uid), upd);
     
-    // Atualiza a memória do nome
     window.meuNome = nome;
     window.meuApelido = apelido;
     document.querySelector('.user-email').innerHTML = `<strong>${window.obterNomeExibicao()}</strong><br><span style="font-size:0.65rem; opacity:0.7;">${auth.currentUser.email}</span>`;
     
-    // Pinta a tela passando a cor nova, e a imagem que está na memória (pode ser a nova ou a velha!)
     window.aplicarTema(cor, window.meuBgTema, modo, op);
     
-    btn.disabled = false; btn.innerText = "✓ Salvo com sucesso!";
-    setTimeout(() => btn.innerText = "Salvar Minhas Configurações", 2000);
+    // Fecha o modal e reseta o botão
+    closeModal('modalConfigPerfil');
+    btn.disabled = false; btn.innerText = "Salvar Alterações";
 };
 
 
