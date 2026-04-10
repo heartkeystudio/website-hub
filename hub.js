@@ -3605,24 +3605,38 @@ window.renderizarAudios = () => {
     grid.innerHTML = filtrados.map(a => {
         const temNotificacao = window.cacheNotificacoes.some(n => n.contextId === a.id);
         
+        // NOVO MENU DE 3 PONTINHOS
+        const menuAcoes = `
+            <div style="position:relative; display:inline-block;">
+                <button class="icon-btn" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')" style="font-size:1.5rem; padding: 0 5px;">⋮</button>
+                <div class="dropdown-content" style="right: 0; top: 30px; min-width: 160px;">
+                    <a href="${a.arquivoUrl}" download="${a.titulo}" class="icon-btn" style="font-size:0.8rem; text-align:left; width:100%; padding:10px; color:var(--primary); text-decoration:none; display:flex; align-items:center; gap:8px;">
+                        <span>💾</span> Baixar Arquivo
+                    </a>
+                    <button class="icon-btn" onclick="abrirFeedbackAudio('${a.id}', '${a.titulo}', '${a.arquivoUrl}')" style="font-size:0.8rem; text-align:left; width:100%; padding:10px; color:#ffc107; display:flex; align-items:center; gap:8px;">
+                        <span>💬</span> Comentários
+                    </button>
+                    <button class="icon-btn" onclick="deletarAudio('${a.id}')" style="color:#ff5252; font-size:0.8rem; text-align:left; width:100%; padding:10px; border-top:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; gap:8px;">
+                        <span>🗑️</span> Excluir
+                    </button>
+                </div>
+            </div>
+        `;
+
         return `
             <div class="audio-card" id="card-${a.id}">
                 <div class="audio-header">
-                    <div style="flex: 1;">
+                    <div style="flex: 1; overflow: hidden;">
                         <h4 class="audio-title">
                             ${temNotificacao ? '🔴 ' : ''}${a.titulo}
                         </h4>
-                        <div style="display: flex; gap: 5px; align-items: center; margin-top: 5px;">
+                        <div style="display: flex; gap: 5px; align-items: center; margin-top: 5px; flex-wrap: wrap;">
                             <span class="audio-tag tag-${a.tag}">${a.tag}</span>
                             <span class="badge" style="background: rgba(255,255,255,0.03); color: #888; border: 1px solid rgba(255,255,255,0.1); font-size: 0.6rem;">🥁 ${a.bpm} BPM</span>
                             <span class="badge" style="background: rgba(255,255,255,0.03); color: #888; border: 1px solid rgba(255,255,255,0.1); font-size: 0.6rem;">🎹 ${a.key}</span>
                         </div>
                     </div>
-                    <div style="display:flex; gap:8px;">
-                        <a href="${a.arquivoUrl}" download="${a.titulo}" class="icon-btn" style="color: var(--primary);" title="Baixar Arquivo">💾</a>
-                        <button class="icon-btn" onclick="abrirFeedbackAudio('${a.id}', '${a.titulo}', '${a.arquivoUrl}')" style="color: #ffc107;" title="Dar Feedback">💬</button>
-                        <button class="icon-btn" onclick="deletarAudio('${a.id}')" style="color:#ff5252;" title="Apagar">🗑️</button>
-                    </div>
+                    ${menuAcoes}
                 </div>
                 
                 <div class="audio-player-zone" style="margin-top: 15px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 10px;">
