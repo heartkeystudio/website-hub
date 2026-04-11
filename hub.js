@@ -1336,14 +1336,21 @@ window.setWikiMode = (mode) => {
     const edit = document.getElementById('wiki-conteudo');
     const prev = document.getElementById('wiki-preview-area');
     const toc = document.getElementById('wiki-toc');
-    const metadata = document.getElementById('wiki-metadata');
 
     if (mode === 'preview') {
         if (edit && prev) {
-            // 1. PRIMEIRO: O Markdown transforma o texto em HTML básico
-            let htmlGerado = marked.parse(edit.value);
+            let textoBruto = edit.value;
 
-            // 2. DEPOIS: Aplicamos nossas cores, fontes, centro e links no HTML já pronto
+            // MÁGICA: Converte todos os links do Dropbox dentro do Markdown antes de renderizar
+            // Dentro de window.setWikiMode, no bloco 'preview':
+            const textoConvertido = textoBruto.replace(/https?:\/\/(www\.)?dropbox\.com\/[^\s)]+/g, (match) => {
+                return window.converterLinkDireto(match);
+            });
+
+            // 1. O Markdown transforma o texto convertido em HTML
+            let htmlGerado = marked.parse(textoConvertido);
+
+            // 2. Aplicamos as tags customizadas (cores, fontes, centro)
             prev.innerHTML = window.processarTagsCustomizadas(htmlGerado);
 
             edit.style.setProperty('display', 'none', 'important');
@@ -1376,6 +1383,7 @@ window.setWikiMode = (mode) => {
         prev.style.setProperty('display', 'none', 'important');
         document.getElementById('btn-wiki-edit')?.classList.add('active');
         document.getElementById('btn-wiki-preview')?.classList.remove('active');
+        if (toc) toc.classList.remove('active'); // Esconde o índice ao editar
     }
 };
 
@@ -5047,19 +5055,28 @@ window.converterLinkDireto = (url) => {
     if (!url) return "";
     let link = url.trim();
 
-    // Lógica Dropbox
     if (link.includes("dropbox.com")) {
-        return link.replace("www.dropbox.com", "dl.dropboxusercontent.com")
-                   .replace("?dl=0", "")
-                   .replace("?dl=1", "");
+        // 1. Troca o domínio para o de conteúdo direto
+        link = link.replace("www.dropbox.com", "dl.dropboxusercontent.com");
+        
+        // 2. MÁGICA: Remove parâmetros inúteis (dl=0, st=...) mas MANTÉM o rlkey
+        // Se não fizermos isso, o Dropbox recusa a conexão
+        const urlObj = new URL(link);
+        const rlkey = urlObj.searchParams.get("rlkey");
+        
+        // Limpa todos os parâmetros e reconstrói apenas com o necessário
+        link = link.split('?')[0];
+        if (rlkey) {
+            link += `?rlkey=${rlkey}`;
+        }
+        return link;
     }
     
-    // Lógica Google Drive
     if (link.includes("drive.google.com/file/d/")) {
         const fileId = link.match(/[-\w]{25,}/);
         if (fileId) return `https://drive.google.com/uc?export=download&id=${fileId[0]}`;
     }
 
-    return link; // Se não for nenhum dos dois, retorna o original
+    return link;
 };
 
