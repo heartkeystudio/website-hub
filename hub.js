@@ -102,7 +102,8 @@ onAuthStateChanged(auth, async (user) => {
         window.carregarMeuPerfil();
         window.iniciarSistemaNotificacoes();
         window.verificarAgendaDoDia();
-        
+        window.carregarIncubadora();
+
         
         if (window.intervaloLembrete) clearInterval(window.intervaloLembrete);
             window.intervaloLembrete = setInterval(() => {
@@ -136,20 +137,17 @@ document.querySelector('.logout-btn').onclick = () => signOut(auth).catch(e => c
 // ==========================================
 // 4. NAVEGAÇÃO SPA E MODAIS (ATUALIZADO)
 // ==========================================
+// Remova o bloco antigo e use este:
 document.querySelectorAll('.nav-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    // Remove qualquer listener antigo antes de adicionar o novo (Prevenção de Duplicidade)
+    btn.onclick = (e) => {
         const target = btn.getAttribute('data-target');
         
-        // --- A MÁGICA DE SEGURANÇA ---
-        if (target !== 'wiki') {
-            if (typeof window.fecharSessaoWiki === 'function') {
-                window.fecharSessaoWiki();
-            }
+        // Só reseta a wiki se não estivermos indo PARA a wiki
+        if (target !== 'wiki' && typeof window.fecharSessaoWiki === 'function') {
+            window.fecharSessaoWiki();
         }
 
-        // --- A MÁGICA DA BOLINHA QUE SOME ---
-        // Passa exatamente o nome da aba clicada (ex: 'reunioes', 'projetos')
-        // O sistema vai no banco e apaga todas as bolinhas que pertencem a ela!
         if (typeof window.marcarNotificacoesComoLidas === 'function') {
             window.marcarNotificacoesComoLidas(target);
         }
@@ -163,7 +161,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
 
         if (window.innerWidth <= 768) document.querySelector('.menu').classList.remove('active');
         document.querySelector('.content-area').scrollTop = 0;
-    });
+    };
 });
 
 const mobileMenuBtn = document.getElementById('mobile-menu-btn');
@@ -522,6 +520,13 @@ window.salvarProjeto = async (e) => {
             userId: auth.currentUser.uid, 
             dataCriacao: new Date().toISOString()
         });
+
+        if (window.ideiaPromovendoId) {
+            if (confirm("Projeto criado! Deseja remover a ideia original da Incubadora?")) {
+                await deleteDoc(doc(db, "brainstorm_ideias", window.ideiaPromovendoId));
+            }
+            window.ideiaPromovendoId = null; // Reseta o controle
+        }
         
         const form = document.getElementById('formNovoProjeto');
         if (form) form.reset();
@@ -667,6 +672,8 @@ window.abrirProjeto = async (id, nome, repo, capaBase64, versaoAlvo) => {
     window.carregarArtesDoProjeto(id);
     window.carregarCoresProjeto(id);
     window.carregarReferenciasArt(id);
+
+    window.carregarBrainstorm(id);
 
     // 4. REDIRECIONAMENTO POR CARGO
     // Buscamos a especialidade salva no perfil do usuário
@@ -4730,3 +4737,154 @@ window.carregarArtesDoProjeto = (pid) => {
         }).join('') || '<p style="color:#666; grid-column:1/-1; text-align:center;">Nenhum asset encontrado com este filtro.</p>';
     });
 };
+
+
+/* ==========================================
+   --- MÓDULO BRAINSTORM & INCUBADORA (FINAL) ---
+   ========================================== */
+
+window.ideiaEditandoId = null;
+window.projetoAtualIdBackup = null;
+window.ideiaPromovendoId = null;
+
+// Abrir para projeto específico
+window.abrirModalNovaIdeiaProjeto = () => {
+    window.ideiaEditandoId = null;
+    window.projetoAtualIdBackup = null;
+    document.getElementById('formBrainstorm')?.reset();
+    document.getElementById('modalBrainTitle').innerText = "💡 Nova Sacada";
+    window.openModal('modalNovaIdeia');
+};
+
+// Abrir para Incubadora (Global)
+window.abrirModalNovaIdeiaGlobal = () => {
+    window.ideiaEditandoId = null; 
+    window.projetoAtualIdBackup = window.projetoAtualId;
+    window.projetoAtualId = "global";
+    document.getElementById('formBrainstorm')?.reset();
+    document.getElementById('modalBrainTitle').innerText = "💡 Nova Ideia Global";
+    window.openModal('modalNovaIdeia');
+};
+
+// Salvar Ideia (Global ou Projeto)
+window.salvarIdeiaBrainstorm = async (e) => {
+    e.preventDefault();
+    if (!window.projetoAtualId) return;
+
+    const titulo = document.getElementById('brainTitulo')?.value;
+    const desc = document.getElementById('brainDesc')?.value;
+    const tag = document.getElementById('brainTag')?.value;
+
+    if (!titulo || !desc) return alert("Preencha título e descrição.");
+
+    const dados = {
+        titulo, descricao: desc, tag,
+        projetoId: window.projetoAtualId,
+        autor: window.obterNomeExibicao(),
+        autorId: auth.currentUser.uid,
+        dataAtualizacao: new Date().toISOString()
+    };
+
+    try {
+        if (window.ideiaEditandoId) {
+            await updateDoc(doc(db, "brainstorm_ideias", window.ideiaEditandoId), dados);
+            window.ideiaEditandoId = null;
+        } else {
+            dados.votos = [];
+            dados.dataCriacao = new Date().toISOString();
+            await addDoc(collection(db, "brainstorm_ideias"), dados);
+        }
+        
+        window.closeModal('modalNovaIdeia');
+        if (window.projetoAtualId === "global" && window.projetoAtualIdBackup) {
+            window.projetoAtualId = window.projetoAtualIdBackup;
+            window.projetoAtualIdBackup = null;
+        }
+    } catch(err) { console.error(err); }
+};
+
+// Carregar Mural de Projeto
+window.carregarBrainstorm = (pid) => {
+    const grid = document.getElementById('brainstorm-grid');
+    if (!grid) return;
+    onSnapshot(query(collection(db, "brainstorm_ideias"), where("projetoId", "==", pid)), (snap) => {
+        let ideias = snap.docs.map(d => ({id: d.id, ...d.data()}));
+        ideias.sort((a,b) => (b.votos?.length || 0) - (a.votos?.length || 0));
+        grid.innerHTML = ideias.map(i => renderizarCardIdeia(i)).join('') || '<p style="text-align:center; color:#666;">Vazio.</p>';
+    });
+};
+
+// Carregar Incubadora (Global)
+window.carregarIncubadora = () => {
+    const grid = document.getElementById('incubadora-grid');
+    if (!grid) return;
+    onSnapshot(query(collection(db, "brainstorm_ideias"), where("projetoId", "==", "global")), (snap) => {
+        let ideias = snap.docs.map(d => ({id: d.id, ...d.data()}));
+        ideias.sort((a,b) => (b.votos?.length || 0) - (a.votos?.length || 0));
+        grid.innerHTML = ideias.map(i => renderizarCardIdeia(i)).join('') || '<p style="text-align:center; color:#666;">Sem ideias na incubadora.</p>';
+    });
+};
+
+// Função auxiliar para evitar repetição de código HTML
+function renderizarCardIdeia(i) {
+    const jaVotou = i.votos?.includes(auth.currentUser.uid);
+    const isMe = i.autorId === auth.currentUser.uid;
+    const menuHtml = (isMe || window.userRole === 'admin') ? `
+        <div class="comment-menu-container" style="position:absolute; top:15px; right:15px;">
+            <button class="comment-menu-trigger" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')">⋮</button>
+            <div class="dropdown-content" style="right:0; min-width: 150px;">
+                <button onclick="window.promoverIdeiaParaProjeto('${i.id}')" style="color:var(--primary);">🚀 Iniciar Projeto</button>
+                <button onclick="window.abrirEdicaoIdeia('${i.id}')">✏️ Editar</button>
+                <button class="del" onclick="window.deletarIdeia('${i.id}')">🗑️ Apagar</button>
+            </div>
+        </div>` : '';
+
+    return `
+        <div class="idea-card ${i.tag}">
+            ${menuHtml}
+            <h4>${i.titulo}</h4>
+            <div class="markdown-body idea-desc">${marked.parse(i.descricao || "")}</div>
+            <div class="idea-footer">
+                <span style="font-size:0.65rem; color:#666;">Por ${i.autor}</span>
+                <button class="vote-btn ${jaVotou ? 'voted' : ''}" onclick="window.votarIdeia('${i.id}', ${jaVotou})">
+                    ${jaVotou ? '✅' : '🚀'} ${i.votos?.length || 0}
+                </button>
+            </div>
+        </div>`;
+}
+
+window.promoverIdeiaParaProjeto = async (id) => {
+    const docSnap = await getDoc(doc(db, "brainstorm_ideias", id));
+    if (docSnap.exists()) {
+        const i = docSnap.data();
+        document.getElementById('projName').value = i.titulo;
+        document.getElementById('projetoDesc').value = i.descricao;
+        window.ideiaPromovendoId = id;
+        window.openModal('modalNovoProjeto');
+    }
+};
+
+window.abrirEdicaoIdeia = async (id) => {
+    const docSnap = await getDoc(doc(db, "brainstorm_ideias", id));
+    if (docSnap.exists()) {
+        const i = docSnap.data();
+        window.ideiaEditandoId = id;
+        document.getElementById('brainTitulo').value = i.titulo;
+        document.getElementById('brainTag').value = i.tag;
+        document.getElementById('brainDesc').value = i.descricao;
+        document.getElementById('modalBrainTitle').innerText = "✏️ Editar Ideia";
+        window.openModal('modalNovaIdeia');
+    }
+};
+
+window.deletarIdeia = async (id) => { if(confirm("Remover permanentemente?")) await deleteDoc(doc(db, "brainstorm_ideias", id)); };
+
+window.votarIdeia = async (id, jaVotou) => {
+    const docRef = doc(db, "brainstorm_ideias", id);
+    const meuUid = auth.currentUser.uid;
+    const snap = await getDoc(docRef);
+    let votos = snap.data().votos || [];
+    votos = jaVotou ? votos.filter(u => u !== meuUid) : [...votos, meuUid];
+    await updateDoc(docRef, { votos });
+};
+

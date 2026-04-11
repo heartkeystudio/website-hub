@@ -9,7 +9,7 @@
     <!-- Bibliotecas para Wiki e Diagramas -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
 <body>
@@ -35,6 +35,7 @@
         <nav class="menu">
             <button class="nav-btn active" data-target="dashboard" data-tooltip="Dashboard">📊 <span class="nav-text">Dashboard</span></button>
             <button class="nav-btn" data-target="projetos" data-tooltip="Projetos">📁 <span class="nav-text">Projetos</span></button>
+            <button class="nav-btn" data-target="incubadora" data-tooltip="Incubadora de Ideias">💡 <span class="nav-text">Incubadora</span></button>
             <button class="nav-btn" data-target="gamejam" style="color: var(--primary);" data-tooltip="Game Jam">🎮 <span class="nav-text">Game Jam</span></button>
             <button class="nav-btn" data-target="clientes" data-tooltip="Clientes">🤝 <span class="nav-text">Clientes</span></button>
             <button class="nav-btn" data-target="cronograma" data-tooltip="Cronograma">📅 <span class="nav-text">Cronograma</span></button>
@@ -175,7 +176,7 @@
                     <button class="itab-btn" data-tooltip="Artes e Assets" onclick="switchProjectTab('tab-artes', this)">🎨</button>
                     <button class="itab-btn" data-tooltip="Trilha e Efeitos" onclick="switchProjectTab('tab-audios', this)">🎵</button>
                     <button class="itab-btn" data-tooltip="Documentação" onclick="switchProjectTab('tab-wiki', this)">📖</button>
-                
+                    <button class="itab-btn" data-tooltip="Brainstorm de Ideias" onclick="switchProjectTab('tab-brainstorm', this)">💡</button>
                 </div>
                 <!-- Kanban -->
                 <div id="tab-kanban" class="project-tab-content active">
@@ -264,6 +265,29 @@
                     </div>
                 </div>
 
+                <div id="tab-brainstorm" class="project-tab-content" style="display: none;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                        <div>
+                            <h2 style="margin:0;">💡 Mural de Ideias</h2>
+                            <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 5px;">Captura rápida de conceitos e sugestões.</p>
+                        </div>
+                        <div style="display: flex; gap: 15px; align-items: center;">
+                            <select id="brain-filter" onchange="window.carregarBrainstorm(window.projetoAtualId)" style="width: auto; margin-bottom: 0; padding: 8px; background: rgba(255,255,255,0.05); font-size: 0.8rem;">
+                                <option value="all">Todas as Ideias</option>
+                                <option value="mechanic">⚙️ Mecânica</option>
+                                <option value="story">📖 História/Lore</option>
+                                <option value="marketing">📢 Marketing</option>
+                                <option value="polish">✨ Polimento</option>
+                            </select>
+                            <button class="btn-primary" onclick="window.abrirModalNovaIdeiaProjeto()">+ Nova Ideia</button>
+                        </div>
+                    </div>
+
+                    <div id="brainstorm-grid" class="brain-grid">
+                        </div>
+                </div>
+
+
                 <div id="tab-audios" class="project-tab-content" style="display: none;">
                     
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 20px;">
@@ -346,6 +370,20 @@
                     </div>
                 </div>
             </div>
+        </section>
+
+        <!-- Incubadora -->
+        <section id="incubadora" class="page-section">
+            <div class="section-header">
+                <div>
+                    <h1>Incubadora</h1>
+                    <p class="subtitle">Ideias brutas que ainda não viraram projetos oficiais.</p>
+                </div>
+                <button class="btn-primary" onclick="window.abrirModalNovaIdeiaGlobal()">+ Nova Ideia Global</button>
+            </div>
+
+            <div id="incubadora-grid" class="brain-grid">
+                </div>
         </section>
 
         <!-- GAME JAM -->
@@ -1052,32 +1090,65 @@
 
             
 
-            <div style="padding: 20px; border-bottom: 1px solid var(--border-color); position: relative;" class="view-art-header">
+            <div style="width: 350px; background: var(--bg-panel); border-left: 1px solid var(--border-color); display: flex; flex-direction: column;">
+                <div style="padding: 20px; border-bottom: 1px solid var(--border-color); position: relative;" class="view-art-header">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;">
                         <h2 id="view-art-titulo" style="font-size: 1.1rem; margin-bottom: 5px; flex: 1;">Título da Arte</h2>
-                        
                         <div class="comment-menu-container">
                             <button class="icon-btn comment-menu-trigger" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')">⋮</button>
                             <div class="dropdown-content" style="right: 0; top: 20px; min-width: 110px;">
-                                <button class="icon-btn" onclick="window.editarTituloArte()" style="font-size:0.75rem; text-align:left; width:100%; padding:8px; color:#fff;">✏️ Editar</button>
+                                <button class="icon-btn" onclick="window.editarTituloArte()">✏️ Editar</button>
                             </div>
                         </div>
                     </div>
                     <p id="view-art-meta" style="font-size: 0.75rem; color: var(--text-muted);">Enviado por ...</p>
-                
+                </div>
 
-                <div id="art-comments-list">
+                <div id="art-comments-list"></div>
+
+                <div class="art-comment-input-area">
+                    <form onsubmit="salvarComentarioArte(event)" style="display: flex; gap: 8px;">
+                        <input type="text" id="art-comment-input" placeholder="Dar feedback..." required style="margin-bottom: 0; padding: 12px; font-size: 0.85rem; flex: 1;">
+                        <button type="submit" class="btn-primary" style="padding: 10px; width: 45px;">🚀</button>
+                    </form>
+                </div>
+            </div> 
+        </div> 
+    </div>
+
+    <div id="modalNovaIdeia" class="modal-overlay">
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2 id="modalBrainTitle">💡 Nova Sacada</h2>
+                <button class="close-btn" onclick="closeModal('modalNovaIdeia')">×</button>
             </div>
-
-        <div class="art-comment-input-area">
-            <form onsubmit="salvarComentarioArte(event)" style="display: flex; gap: 8px;">
-                <input type="text" id="art-comment-input" placeholder="Dar feedback..." required 
-                       style="margin-bottom: 0; padding: 12px; font-size: 0.85rem; flex: 1;">
-                <button type="submit" class="btn-primary" style="padding: 10px; width: 45px;">🚀</button>
+            <form class="hub-form" id="formBrainstorm" onsubmit="window.salvarIdeiaBrainstorm(event)">
+                <div class="form-group">
+                    <label>Título Curto</label>
+                    <input type="text" id="brainTitulo" placeholder="Ex: Sistema de Parry" required>
+                </div>
+                <div class="form-group">
+                    <label>Categoria</label>
+                    <select id="brainTag">
+                        <option value="mechanic">⚙️ Mecânica</option>
+                        <option value="story">📖 História / Lore</option>
+                        <option value="marketing">📢 Marketing / Promo</option>
+                        <option value="polish">✨ Suco / Polimento</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Explicação da Ideia (Suporta Markdown)</label>
+                    <textarea id="brainDesc" rows="6" placeholder="Descreva sua ideia..." required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn-primary" style="width: 100%;">Fixar no Mural</button>
+                </div>
             </form>
         </div>
     </div>
+
 </div>
+
 
     <script type="module" src="hub.js"></script>
 </body>
