@@ -1625,14 +1625,50 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
     position: absolute; bottom: -45px; left: 30px; 
 }
 
-.profile-avatar { 
-    width: 90px; height: 90px; 
-    border-radius: 50%; 
-    border: 4px solid var(--bg-panel); 
-    background: var(--bg-card); 
-    display: flex; align-items: center; justify-content: center; 
-    font-size: 2.2rem; font-weight: bold; color: var(--primary); 
-    box-shadow: 0 5px 20px rgba(0,0,0,0.5); overflow: hidden; 
+.profile-avatar {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    border: 4px solid var(--bg-panel);
+    background: var(--bg-card);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.2rem;
+    font-weight: bold;
+    color: var(--primary);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+    overflow: hidden; /* Garante o recorte circular */
+}
+
+.profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* A mágica para não distorcer a foto */
+}
+
+.user-info-sidebar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 25px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar-avatar {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    border: 1px solid var(--primary);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.sidebar-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .profile-info { padding: 60px 30px 30px 30px; }

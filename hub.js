@@ -60,12 +60,25 @@ onAuthStateChanged(auth, async (user) => {
             // --- CARREGA A IDENTIDADE PRA MEMÓRIA ---
             window.meuNome = d.nome || user.displayName || user.email.split('@')[0];
             window.meuApelido = d.apelido || "";
-            window.meuBgTema = d.bgTema || null; // <--- ADICIONE ESTA LINHA AQUI!
+            window.meuBgTema = d.bgTema || null;
+            window.meuAvatar = d.avatarBase64 || null;
             
             window.aplicarTema(d.corTema, d.bgTema, d.modoTema, d.opacidadeTema);
             
             // Atualiza a barra lateral com o seu Apelido!
             document.querySelector('.user-email').innerHTML = `<strong>${window.obterNomeExibicao()}</strong><br><span style="font-size:0.65rem; opacity:0.7;">${user.email}</span>`;
+            
+            const sidebarAvatarHtml = d.avatarBase64 
+                ? `<div class="sidebar-avatar"><img src="${d.avatarBase64}"></div>` 
+                : '';
+            
+            document.querySelector('.user-info-sidebar').innerHTML = `
+                ${sidebarAvatarHtml}
+                <div class="user-meta-sidebar">
+                    <strong>${window.obterNomeExibicao()}</strong><br>
+                    <span style="font-size:0.65rem; opacity:0.7;">${user.email}</span>
+                </div>
+            `;
         }
 
         // 2. Trava de Segurança: Se for um dos donos, força o cargo de admin
@@ -554,22 +567,22 @@ window.carregarProjetos = async () => {
             const p = d.data();
             const iniciais = p.nome.substring(0,2).toUpperCase();
             
-            // --- LÓGICA DE BOTÕES CORRIGIDA ---
             const souDono = p.userId === auth.currentUser.uid;
             let botoesAcao = '';
 
             if (souDono) {
-                // Se eu sou o dono, vejo a lixeira para deletar tudo
                 botoesAcao = `<button class="icon-btn" onclick="event.stopPropagation(); deletarProjeto('${d.id}')" style="color:#ff5252; background: rgba(0,0,0,0.5); padding: 6px; border-radius: 6px;" data-tooltip="Excluir Projeto">🗑️</button>`;
             } else {
-                // Se sou convidado, vejo o botão de "porta" para sair da equipe
                 botoesAcao = `<button class="icon-btn" onclick="event.stopPropagation(); sairDoProjeto('${d.id}', '${p.nome}')" style="color:#ffc107; background: rgba(0,0,0,0.5); padding: 6px; border-radius: 6px;" data-tooltip="Sair do Projeto">🚪</button>`;
             }
-            // ---------------------------------
 
             const bgStyle = p.capaBase64 ? `background: linear-gradient(rgba(15,15,15,0.7), rgba(15,15,15,0.95)), url('${p.capaBase64}') center/cover; border-color: rgba(255,255,255,0.2);` : '';
-            const avatarHtml = p.avatarBase64 ? `<img src="${p.avatarBase64}" style="width:100%; height:100%; border-radius:12px; object-fit:cover;">` : iniciais;
-
+            
+            // CORREÇÃO AQUI: Usando p.avatarBase64 (ícone do projeto) ou iniciais
+            const avatarHtml = p.avatarBase64 
+                ? `<img src="${p.avatarBase64}" alt="Logo">` 
+                : iniciais;
+            
             return `
                 <div class="client-card" id="proj-card-${d.id}" onclick="window.abrirProjeto('${d.id}', '${p.nome}', '${p.githubRepo}', '${p.capaBase64 || ""}', ${p.versaoAlvo || 1})" style="cursor:pointer; position:relative; ${bgStyle}">
                     <div class="client-header" style="border-bottom-color: rgba(255,255,255,0.1);">
@@ -767,10 +780,24 @@ window.renderizarKanban = () => {
         let badgeClass = `badge-${t.tag}`;
         const ghLink = t.githubIssue ? `<span style="color:var(--primary);" title="GitHub Issue">🔗 #${t.githubIssue}</span>` : '';
 
+        // Dentro de window.renderizarKanban:
+
         let assignedHtml = "";
         if (t.assignedTo) {
             const iniciais = t.assignedName ? t.assignedName.substring(0, 2).toUpperCase() : "??";
-            assignedHtml = `<div class="task-owner" title="Assumido por ${t.assignedName}. Clique para largar." onclick="event.stopPropagation(); window.desassumirTarefa('${t.id}')" style="cursor: pointer; background: var(--primary); color: #000;">${iniciais}</div>`;
+            
+            // MÁGICA: Se houver foto na tarefa, mostra a <img>, senão mostra iniciais
+            const conteúdoAvatar = t.assignedAvatar 
+                ? `<img src="${t.assignedAvatar}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">` 
+                : iniciais;
+
+            assignedHtml = `
+                <div class="task-owner" 
+                    title="Assumido por ${t.assignedName}. Clique para largar." 
+                    onclick="event.stopPropagation(); window.desassumirTarefa('${t.id}')" 
+                    style="cursor: pointer; background: var(--primary); color: #000; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                    ${conteúdoAvatar}
+                </div>`;
         } else {
             assignedHtml = `<button class="btn-assumir" onclick="event.stopPropagation(); window.assumirTarefa('${t.id}')">Assumir</button>`;
         }
@@ -1947,16 +1974,15 @@ window.fecharSessaoWiki = () => {
 window.assumirTarefa = async (taskId) => {
     if (!auth.currentUser) return;
     
-    // Pega o nome do usuário atual (do perfil ou e-mail)
     const nomeUser = window.obterNomeExibicao();
 
     try {
         await updateDoc(doc(db, "tarefas", taskId), {
             assignedTo: auth.currentUser.uid,
             assignedName: nomeUser,
-            status: 'doing' // Opcional: Já move pra "Fazendo" ao assumir
+            assignedAvatar: window.meuAvatar || null, // <--- AGORA SALVA A FOTO NA TAREFA
+            status: 'doing'
         });
-        // A renderização acontece automaticamente via onSnapshot
     } catch (e) { console.error("Erro ao assumir tarefa:", e); }
 };
 
@@ -3372,7 +3398,7 @@ window.carregarMeuPerfil = () => {
         if (docSnap.exists()) {
             const u = docSnap.data();
             
-            // Preenche os campos do formulário para não virem em branco
+            // Preenche os campos do formulário
             document.getElementById('user-nome').value = u.nome || "";
             document.getElementById('user-apelido').value = u.apelido || "";
             if(u.especialidade) document.getElementById('user-specialty').value = u.especialidade;
@@ -3390,16 +3416,16 @@ window.carregarMeuPerfil = () => {
             const porcentagem = Math.min(100, Math.max(0, (progressoXP / metaXP) * 100));
 
             const classeInfo = window.calcularClasseRPG(stats);
-            const avatarTexto = window.obterNomeExibicao().substring(0, 2).toUpperCase();
             const bannerEstilo = u.bgTema ? `background-image: url('${u.bgTema}')` : 'background: #2a2a2d';
             
-            // Texto formatado: Ex: João "MagoDasTrevas"
+            // CORREÇÃO AQUI: Definindo a variável avatarHtml
+            const avatarHtml = u.avatarBase64 
+                ? `<img src="${u.avatarBase64}" alt="Avatar">` 
+                : window.obterNomeExibicao().substring(0, 2).toUpperCase();
+
             const textoNomeFicha = u.apelido ? `${u.nome.split(' ')[0]} <span style="color:var(--primary);">"${u.apelido}"</span>` : u.nome.split(' ')[0];
 
-
-            // ==========================================
-            // 🏆 MATRIZ DE CONQUISTAS (BADGES)
-            // ==========================================
+            // Badges logic...
             const badges = [
                 { nome: 'Primeiro Sangue', desc: 'Ganhou seu primeiro XP no Hub.', icone: '🩸', unlocked: xp > 0 },
                 { nome: 'Senhor do Tempo', desc: 'Completou 10 ciclos de Pomodoro.', icone: '⏳', unlocked: pomodoros >= 10 },
@@ -3415,7 +3441,6 @@ window.carregarMeuPerfil = () => {
                 return `<div class="badge-medal ${classe}" data-tooltip="${tooltip}">${b.icone}</div>`;
             }).join('');
 
-            // Desenha a Ficha inteira!
             const menu3PontosPerfil = `
                 <div style="position:absolute; top: 15px; right: 15px; z-index: 10;">
                     <button class="icon-btn" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')" style="font-size:1.5rem; color:#fff; background: rgba(0,0,0,0.5); width: 35px; height: 35px; border-radius: 8px; display:flex; align-items:center; justify-content:center; padding-bottom: 5px; border: 1px solid rgba(255,255,255,0.2);">⋮</button>
@@ -3425,13 +3450,12 @@ window.carregarMeuPerfil = () => {
                 </div>
             `;
 
-            // Desenha a Ficha inteira (agora com o menu injetado no banner)
             card.innerHTML = `
                 <div class="profile-card-container">
                     <div class="profile-banner" style="${bannerEstilo}">
                         ${menu3PontosPerfil}
                         <div class="profile-avatar-wrapper">
-                            <div class="profile-avatar">${avatarTexto}</div>
+                            <div class="profile-avatar">${avatarHtml}</div>
                         </div>
                     </div>
                     <div class="profile-info">
@@ -3442,32 +3466,16 @@ window.carregarMeuPerfil = () => {
                         <div class="profile-class" style="color: ${classeInfo.cor};">
                             ${classeInfo.icone} ${classeInfo.nome}
                         </div>
-                        
-                        <div class="xp-bar-container">
-                            <div class="xp-bar-fill" style="width: ${porcentagem}%;"></div>
-                        </div>
+                        <div class="xp-bar-container"><div class="xp-bar-fill" style="width: ${porcentagem}%;"></div></div>
                         <div class="xp-text">${progressoXP} / ${metaXP} XP pro Nível ${level + 1}</div>
-
                         <div class="profile-stats-grid">
-                            <div class="stat-box">
-                                <div class="value">${tasksFeitas}</div>
-                                <div class="label">Tarefas Feitas</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="value">${pomodoros}</div>
-                                <div class="label">Pomodoros</div>
-                            </div>
-                            <div class="stat-box" style="border-color: ${classeInfo.cor}; background: rgba(0,0,0,0.2);">
-                                <div class="value" style="color: ${classeInfo.cor};">${xp}</div>
-                                <div class="label">XP Total</div>
-                            </div>
+                            <div class="stat-box"><div class="value">${tasksFeitas}</div><div class="label">Tarefas Feitas</div></div>
+                            <div class="stat-box"><div class="value">${pomodoros}</div><div class="label">Pomodoros</div></div>
+                            <div class="stat-box" style="border-color: ${classeInfo.cor}; background: rgba(0,0,0,0.2);"><div class="value" style="color: ${classeInfo.cor};">${xp}</div><div class="label">XP Total</div></div>
                         </div>
-
                         <div class="badges-container">
                             <div class="badges-title">Estante de Conquistas</div>
-                            <div class="badges-grid">
-                                ${badgesHtml}
-                            </div>
+                            <div class="badges-grid">${badgesHtml}</div>
                         </div>
                     </div>
                 </div>
@@ -3537,42 +3545,77 @@ window.carregarRanking = () => {
     });
 };
 
+// --- REDIMENSIONAR E COMPRIMIR IMAGEM ---
+window.comprimirImagem = (file, maxWidth, quality) => {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const scale = maxWidth / img.width;
+                if (scale < 1) {
+                    canvas.width = maxWidth;
+                    canvas.height = img.height * scale;
+                } else {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                }
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                // Transforma em JPEG comprimido (0.7 = 70% de qualidade)
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+        };
+    });
+};
+
 window.salvarPreferencias = async (e) => {
-    e.preventDefault(); // Impede a página de recarregar
-    
-    const btn = e.target.querySelector('button[type="submit"]'); 
-    btn.disabled = true; btn.innerText = "Salvando...";
-    
-    // Puxa os dados novos
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true; btn.innerText = "Processando Imagens...";
+
     const nome = document.getElementById('user-nome').value.trim();
     const apelido = document.getElementById('user-apelido').value.trim();
-    const cor = document.getElementById('theme-color').value;
-    const modo = document.getElementById('theme-mode').value;
-    const op = document.getElementById('theme-opacity').value;
-    const file = document.getElementById('theme-bg-file').files[0];
     const especialidade = document.getElementById('user-specialty').value;
-    
-    let bg64 = null;
+    const corTema = document.getElementById('theme-color').value;
+    const modoTema = document.getElementById('theme-mode').value;
+    const opacidadeTema = document.getElementById('theme-opacity').value;
 
-    if (file && file.size <= 800*1024) {
-        bg64 = await new Promise(r => { const rd = new FileReader(); rd.onloadend = () => r(rd.result); rd.readAsDataURL(file); });
-    } else if (file) {
-        alert("Imagem pesada! Máximo de 800kb."); btn.disabled = false; btn.innerText = "Salvar Alterações"; return;
+    // Arquivos
+    const avatarFile = document.getElementById('user-avatar-file').files[0];
+    const bgFile = document.getElementById('theme-bg-file').files[0];
+
+    try {
+        const upd = { 
+            nome, apelido, especialidade, 
+            corTema, modoTema, opacidadeTema: parseFloat(opacidadeTema) 
+        };
+
+        // Comprime o Avatar (Pequeno: 200px)
+        if (avatarFile) {
+            upd.avatarBase64 = await window.comprimirImagem(avatarFile, 200, 0.8);
+        }
+
+        // Comprime o Wallpaper (Grande: 1280px)
+        if (bgFile) {
+            upd.bgTema = await window.comprimirImagem(bgFile, 1280, 0.7);
+        }
+
+        await updateDoc(doc(db, "usuarios", auth.currentUser.uid), upd);
+        
+        // Aplica o tema na hora
+        window.aplicarTema(upd.corTema, upd.bgTema, upd.modoTema, upd.opacidadeTema);
+        window.closeModal('modalConfigPerfil');
+        window.mostrarToastNotificacao("Perfil", "Alterações salvas com sucesso!", "geral");
+        
+    } catch (err) { 
+        console.error(err);
+        alert("Erro ao salvar: O arquivo ainda está muito grande. Tente uma imagem menor."); 
     }
 
-    const upd = { nome: nome, apelido: apelido, corTema: cor, modoTema: modo, opacidadeTema: op, especialidade: especialidade };
-    if (bg64) { upd.bgTema = bg64; window.meuBgTema = bg64; }
-    
-    await updateDoc(doc(db, "usuarios", auth.currentUser.uid), upd);
-    
-    window.meuNome = nome;
-    window.meuApelido = apelido;
-    document.querySelector('.user-email').innerHTML = `<strong>${window.obterNomeExibicao()}</strong><br><span style="font-size:0.65rem; opacity:0.7;">${auth.currentUser.email}</span>`;
-    
-    window.aplicarTema(cor, window.meuBgTema, modo, op);
-    
-    // Fecha o modal e reseta o botão
-    closeModal('modalConfigPerfil');
     btn.disabled = false; btn.innerText = "Salvar Alterações";
 };
 
