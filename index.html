@@ -172,8 +172,10 @@
                 </div>
                 <div class="internal-tabs">
                     <button class="itab-btn active" data-tooltip="Quadro Kanban" onclick="switchProjectTab('tab-kanban', this)">📋</button>
+                    <button class="itab-btn" data-tooltip="Artes e Assets" onclick="switchProjectTab('tab-artes', this)">🎨</button>
                     <button class="itab-btn" data-tooltip="Trilha e Efeitos" onclick="switchProjectTab('tab-audios', this)">🎵</button>
                     <button class="itab-btn" data-tooltip="Documentação" onclick="switchProjectTab('tab-wiki', this)">📖</button>
+                
                 </div>
                 <!-- Kanban -->
                 <div id="tab-kanban" class="project-tab-content active">
@@ -206,6 +208,58 @@
                         <div class="kanban-column">
                             <div class="kanban-column-header">Feito <span id="count-done" class="task-count">0</span></div>
                             <div class="kanban-dropzone" id="done" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-artes" class="project-tab-content" style="display: none;">
+                    <div class="art-layout">
+                        <aside class="art-sidebar dash-panel">
+                            <h3>🎨 Style Guide</h3>
+                            <div id="palette-container" class="palette-grid">
+                                </div>
+                            <button class="btn-secondary" style="width:100%; font-size: 0.7rem;" onclick="adicionarCorPaleta()">+ Adicionar Cor</button>
+                            
+                            <div class="style-notes" style="margin-top: 20px;">
+                                <label>Diretrizes Visuais</label>
+                                <textarea id="art-guidelines" placeholder="Ex: Traço grosso, sombras cell-shaded..." oninput="salvarDiretrizesArt()"></textarea>
+                            </div>
+                        </aside>
+
+                        <div class="art-main">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <div class="audio-subtabs">
+                                    <button class="audio-subtab-btn active" onclick="switchArtSubTab('view-galeria', this)">🖼️ Galeria de Assets</button>
+                                    <button class="audio-subtab-btn" onclick="switchArtSubTab('view-ref-visual', this)">📌 Referências</button>
+                                </div>
+
+                                <div id="btn-group-galeria">
+                                    <button class="btn-primary" onclick="openModal('modalNovaArte')">+ Novo Asset</button>
+                                </div>
+                                <div id="btn-group-referencias" style="display: none;">
+                                    <button class="btn-secondary" onclick="openModal('modalNovaReferenciaArt')">+ Link de Referência</button>
+                                </div>
+                            </div>
+
+                            <div id="view-galeria" class="art-view-content">
+                                <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                                    <label style="color: var(--text-muted); font-size: 0.85rem;">Filtrar Galeria:</label>
+                                    <select id="art-filter" onchange="window.aplicarFiltroArtes()" style="width: auto; margin-bottom: 0; padding: 8px 12px; background: rgba(255,255,255,0.05);">
+                                        <option value="all">Todos os Assets</option>
+                                        <option value="concept">🎨 Concept Art</option>
+                                        <option value="ui">🖱️ UI / Interface</option>
+                                        <option value="sprite">👾 Sprite / 2D</option>
+                                        <option value="model">🧊 3D Model</option>
+                                        <option value="env">🌲 Environment</option>
+                                    </select>
+                                </div>
+                                <div id="art-gallery-grid" class="art-grid"></div>
+                            </div>
+
+                            <div id="view-ref-visual" class="art-view-content" style="display: none;">
+                                <div id="art-ref-grid" class="art-grid moodboard-columns">
+                                    </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -825,6 +879,70 @@
         </div>
     </div>
 
+    <div id="modalNovaArte" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🖼️ Registrar Novo Asset</h2>
+                <button class="close-btn" onclick="closeModal('modalNovaArte')">×</button>
+            </div>
+            <form class="hub-form" onsubmit="salvarArte(event)">
+                <div class="form-group">
+                    <label>Título do Asset</label>
+                    <input type="text" id="artTitulo" placeholder="Ex: Protagonista_Idle_Animation" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Categoria</label>
+                        <select id="artTag">
+                            <option value="concept">🎨 Concept Art</option>
+                            <option value="ui">🖱️ UI / Interface</option>
+                            <option value="sprite">👾 Sprite / 2D</option>
+                            <option value="model">🧊 3D Model</option>
+                            <option value="env">🌲 Environment</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <select id="artStatus">
+                            <option value="wip">⏳ Em progresso (WIP)</option>
+                            <option value="review">👁️ Em Revisão</option>
+                            <option value="done">✅ Finalizado</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Link da Imagem (URL Direta, Imgur, Drive...)</label>
+                    <input type="url" id="artUrl" placeholder="https://i.imgur.com/..." required>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn-primary">Postar na Galeria</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalNovaReferenciaArt" class="modal-overlay">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>📌 Nova Referência Visual</h2>
+                <button class="close-btn" onclick="closeModal('modalNovaReferenciaArt')">×</button>
+            </div>
+            <form class="hub-form" id="formNovaReferenciaArt" onsubmit="salvarReferenciaArt(event)">
+                <div class="form-group">
+                    <label>Título / Descrição</label>
+                    <input type="text" id="artRefTitulo" placeholder="Ex: Estilo de vegetação" required>
+                </div>
+                <div class="form-group">
+                    <label>Link da Imagem</label>
+                    <input type="url" id="artRefUrl" placeholder="https://..." required>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn-primary">Adicionar ao Moodboard</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="modalFeedbackAudio" class="modal-overlay">
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header" style="margin-bottom: 15px;">
@@ -923,6 +1041,43 @@
             <button class="close-master-btn" onclick="fecharPlayerMestre()">×</button>
         </div>
     </div>
+
+    <div id="modalVisualizarArte" class="modal-overlay">
+        <div class="modal-content" style="max-width: 95vw; width: 1200px; height: 90vh; display: flex; flex-direction: row; padding: 0; overflow: hidden;">
+            
+            <div style="flex: 1; background: #000; display: flex; align-items: center; justify-content: center; position: relative; overflow: auto;">
+                <img id="view-art-img" src="" style="max-width: 100%; max-height: 100%; object-fit: contain; cursor: zoom-in;" onclick="window.open(this.src, '_blank')">
+                <button class="close-btn" onclick="closeModal('modalVisualizarArte')" style="position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.5); width: 40px; height: 40px; border-radius: 50%; line-height: 35px;">×</button>
+            </div>
+
+            
+
+            <div style="padding: 20px; border-bottom: 1px solid var(--border-color); position: relative;" class="view-art-header">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;">
+                        <h2 id="view-art-titulo" style="font-size: 1.1rem; margin-bottom: 5px; flex: 1;">Título da Arte</h2>
+                        
+                        <div class="comment-menu-container">
+                            <button class="icon-btn comment-menu-trigger" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')">⋮</button>
+                            <div class="dropdown-content" style="right: 0; top: 20px; min-width: 110px;">
+                                <button class="icon-btn" onclick="window.editarTituloArte()" style="font-size:0.75rem; text-align:left; width:100%; padding:8px; color:#fff;">✏️ Editar</button>
+                            </div>
+                        </div>
+                    </div>
+                    <p id="view-art-meta" style="font-size: 0.75rem; color: var(--text-muted);">Enviado por ...</p>
+                
+
+                <div id="art-comments-list">
+            </div>
+
+        <div class="art-comment-input-area">
+            <form onsubmit="salvarComentarioArte(event)" style="display: flex; gap: 8px;">
+                <input type="text" id="art-comment-input" placeholder="Dar feedback..." required 
+                       style="margin-bottom: 0; padding: 12px; font-size: 0.85rem; flex: 1;">
+                <button type="submit" class="btn-primary" style="padding: 10px; width: 45px;">🚀</button>
+            </form>
+        </div>
+    </div>
+</div>
 
     <script type="module" src="hub.js"></script>
 </body>

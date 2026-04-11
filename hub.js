@@ -542,11 +542,23 @@ window.carregarProjetos = async () => {
         grid.innerHTML = snap.docs.map(d => {
             const p = d.data();
             const iniciais = p.nome.substring(0,2).toUpperCase();
-            let btnApagar = (p.userId === auth.currentUser.uid) ? `<button class="icon-btn" onclick="event.stopPropagation(); deletarProjeto('${d.id}')" style="color:#ff5252; background: rgba(0,0,0,0.5); padding: 6px; border-radius: 6px;">🗑️</button>` : '';
+            
+            // --- LÓGICA DE BOTÕES CORRIGIDA ---
+            const souDono = p.userId === auth.currentUser.uid;
+            let botoesAcao = '';
+
+            if (souDono) {
+                // Se eu sou o dono, vejo a lixeira para deletar tudo
+                botoesAcao = `<button class="icon-btn" onclick="event.stopPropagation(); deletarProjeto('${d.id}')" style="color:#ff5252; background: rgba(0,0,0,0.5); padding: 6px; border-radius: 6px;" data-tooltip="Excluir Projeto">🗑️</button>`;
+            } else {
+                // Se sou convidado, vejo o botão de "porta" para sair da equipe
+                botoesAcao = `<button class="icon-btn" onclick="event.stopPropagation(); sairDoProjeto('${d.id}', '${p.nome}')" style="color:#ffc107; background: rgba(0,0,0,0.5); padding: 6px; border-radius: 6px;" data-tooltip="Sair do Projeto">🚪</button>`;
+            }
+            // ---------------------------------
+
             const bgStyle = p.capaBase64 ? `background: linear-gradient(rgba(15,15,15,0.7), rgba(15,15,15,0.95)), url('${p.capaBase64}') center/cover; border-color: rgba(255,255,255,0.2);` : '';
             const avatarHtml = p.avatarBase64 ? `<img src="${p.avatarBase64}" style="width:100%; height:100%; border-radius:12px; object-fit:cover;">` : iniciais;
 
-            // Passando a versaoAlvo para a tela do projeto saber que nível está
             return `
                 <div class="client-card" id="proj-card-${d.id}" onclick="window.abrirProjeto('${d.id}', '${p.nome}', '${p.githubRepo}', '${p.capaBase64 || ""}', ${p.versaoAlvo || 1})" style="cursor:pointer; position:relative; ${bgStyle}">
                     <div class="client-header" style="border-bottom-color: rgba(255,255,255,0.1);">
@@ -554,8 +566,7 @@ window.carregarProjetos = async () => {
                         <div class="client-title" style="flex:1;">
                             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                                 <h3 style="margin:0;">${p.nome}</h3>
-                                ${btnApagar}
-                            </div>
+                                ${botoesAcao} </div>
                             <p class="client-role" style="margin-top:5px;">Equipe: ${p.colaboradores.length} membro(s)</p>
                         </div>
                     </div>
@@ -653,6 +664,10 @@ window.abrirProjeto = async (id, nome, repo, capaBase64, versaoAlvo) => {
     window.carregarWikiDoProjeto(id);
     window.carregarAudiosDoProjeto(id);
 
+    window.carregarArtesDoProjeto(id);
+    window.carregarCoresProjeto(id);
+    window.carregarReferenciasArt(id);
+
     // 4. REDIRECIONAMENTO POR CARGO
     // Buscamos a especialidade salva no perfil do usuário
     const userDoc = await getDoc(doc(db, "usuarios", auth.currentUser.uid));
@@ -680,6 +695,27 @@ window.abrirProjeto = async (id, nome, repo, capaBase64, versaoAlvo) => {
 
 window.voltarParaProjetos = () => { window.projetoAtualId = null; document.getElementById('projetos-home').style.display = 'block'; document.getElementById('projeto-view').style.display = 'none'; };
 window.switchProjectTab = (id, btn) => { document.querySelectorAll('.project-tab-content').forEach(c => c.style.display = 'none'); document.querySelectorAll('.itab-btn').forEach(b => b.classList.remove('active')); const tab = document.getElementById(id); if (tab) tab.style.display = 'block'; btn.classList.add('active'); };
+
+window.sairDoProjeto = async (id, nome) => {
+    if (confirm(`Deseja se retirar da equipe do projeto "${nome}"?`)) {
+        try {
+            const docRef = doc(db, "projetos", id);
+            const docSnap = await getDoc(docRef);
+            
+            if (docSnap.exists()) {
+                const colaboradoresAtuais = docSnap.data().colaboradores || [];
+                const meuEmail = auth.currentUser.email.toLowerCase();
+                
+                // Remove meu e-mail da lista
+                const novaLista = colaboradoresAtuais.filter(email => email !== meuEmail);
+                
+                await updateDoc(docRef, { colaboradores: novaLista });
+                window.mostrarToastNotificacao('Projeto', `Você saiu de ${nome}`, 'geral');
+                // O onSnapshot carregará a lista atualizada automaticamente
+            }
+        } catch (e) { console.error(e); }
+    }
+};
 
 // 5. CACHE E FILTROS KANBAN
 window.tarefasProjetoCache = [];
@@ -2171,16 +2207,34 @@ window.iniciarArsenalWarRoom = () => {
     onSnapshot(collection(db, "war_room_links"), (snap) => {
         if(!container) return;
         container.innerHTML = "";
-        snap.forEach(doc => {
-            const l = doc.data();
+        snap.forEach(docSnap => {
+            const l = docSnap.data();
+            const id = docSnap.id;
+            
+            // Só Admin ou Gerente podem ver o X de deletar
+            const btnDelete = (window.userRole === 'admin' || window.userRole === 'gerente') 
+                ? `<button onclick="event.preventDefault(); deletarLinkWarRoom('${id}')" style="background:none; border:none; color:#ff5252; cursor:pointer; padding:5px; font-size:1rem; opacity:0.6; transition:0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">×</button>` 
+                : '';
+
             container.innerHTML += `
-                <a href="${l.url}" target="_blank" class="war-link-item">
-                    <span style="font-size: 1.2rem;">🔗</span> 
-                    <div><strong>${l.titulo}</strong><br><span style="font-size:0.7rem; color:#888;">Recurso Externo</span></div>
-                </a>
+                <div style="display:flex; align-items:center; gap:5px; width:100%;">
+                    <a href="${l.url}" target="_blank" class="war-link-item" style="flex:1;">
+                        <span style="font-size: 1.2rem;">🔗</span> 
+                        <div><strong>${l.titulo}</strong><br><span style="font-size:0.7rem; color:#888;">Recurso Externo</span></div>
+                    </a>
+                    ${btnDelete}
+                </div>
             `;
         });
     });
+};
+
+window.deletarLinkWarRoom = async (id) => {
+    if (confirm("Remover este link do arsenal?")) {
+        try {
+            await deleteDoc(doc(db, "war_room_links", id));
+        } catch (e) { console.error(e); }
+    }
 };
 
 // --- 6. PROTOCOLO DO ADMINISTRADOR (RESET) ---
@@ -4332,5 +4386,347 @@ window.verificarLembretesProximos = async () => {
             );
             window.lembretesDisparados.add(d.id); // Marca como avisado
         }
+    });
+};
+
+
+// --- LÓGICA DA SUBSEÇÃO DE ARTES ---
+
+// --- NAVEGAÇÃO INTERNA DA ABA DE ARTES (CORRIGIDA) ---
+window.switchArtSubTab = (viewId, btn) => {
+    // 1. Esconde todas as sub-views de conteúdo
+    document.querySelectorAll('.art-view-content').forEach(el => el.style.display = 'none');
+    
+    // 2. Tira a cor ativa de todos os botões do menu
+    const container = btn.closest('.audio-subtabs');
+    container.querySelectorAll('.audio-subtab-btn').forEach(b => b.classList.remove('active'));
+    
+    // 3. Mostra a sub-view selecionada e acende o botão
+    document.getElementById(viewId).style.display = 'block';
+    btn.classList.add('active');
+
+    // 4. MÁGICA: Troca os botões de ação lá no topo
+    const btnGaleria = document.getElementById('btn-group-galeria');
+    const btnRef = document.getElementById('btn-group-referencias');
+
+    if (viewId === 'view-galeria') {
+        btnGaleria.style.display = 'block';
+        btnRef.style.display = 'none';
+    } else {
+        btnGaleria.style.display = 'none';
+        btnRef.style.display = 'block';
+    }
+};
+
+// --- GESTÃO DE REFERÊNCIAS VISUAIS (MOODBOARD) ---
+
+window.salvarReferenciaArt = async (e) => {
+    e.preventDefault();
+    const titulo = document.getElementById('artRefTitulo').value;
+    const url = document.getElementById('artRefUrl').value.trim();
+
+    try {
+        await addDoc(collection(db, "referencias_arte"), {
+            titulo: titulo,
+            url: url,
+            projetoId: window.projetoAtualId,
+            enviadoPor: window.obterNomeExibicao(),
+            dataCriacao: new Date().toISOString()
+        });
+        closeModal('modalNovaReferenciaArt');
+        document.getElementById('formNovaReferenciaArt').reset();
+    } catch(err) { console.error(err); }
+};
+
+window.carregarReferenciasArt = (pid) => {
+    const grid = document.getElementById('art-ref-grid');
+    if (!grid) return;
+
+    onSnapshot(query(collection(db, "referencias_arte"), where("projetoId", "==", pid)), (snap) => {
+        grid.innerHTML = snap.docs.map(d => {
+            const r = d.data();
+            return `
+                <div class="art-card" style="border-color: #ffc107;">
+                    <img src="${r.url}" class="art-thumb" onclick="window.open('${r.url}', '_blank')">
+                    <div class="art-info">
+                        <h4 style="font-size:0.8rem;">${r.titulo}</h4>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
+                            <span style="font-size:0.6rem; color:#666;">Por ${r.enviadoPor}</span>
+                            <button class="icon-btn" style="color:#ff5252; font-size:0.7rem;" onclick="deletarReferenciaArt('${d.id}')">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('') || '<p style="color:#666; grid-column:1/-1; text-align:center;">Nenhuma referência visual salva.</p>';
+    });
+};
+
+window.deletarReferenciaArt = async (id) => {
+    if(confirm("Remover esta referência?")) await deleteDoc(doc(db, "referencias_arte", id));
+};
+
+window.deletarArte = async (id) => {
+    if(confirm("Apagar este asset da galeria?")) await deleteDoc(doc(db, "artes", id));
+};
+
+window.salvarArte = async (e) => {
+    e.preventDefault();
+    if (!window.projetoAtualId) return;
+
+    let url = document.getElementById('artUrl').value.trim();
+
+    // ADICIONADO: Conversor automático para Artes (Dropbox e Drive)
+    if (url.includes("dropbox.com")) {
+        url = url.replace("www.dropbox.com", "dl.dropboxusercontent.com").replace("?dl=0", "").replace("?dl=1", "");
+    } else if (url.includes("drive.google.com/file/d/")) {
+        const fileId = url.match(/[-\w]{25,}/); 
+        if (fileId) url = `https://drive.google.com/uc?export=download&id=${fileId[0]}`;
+    }
+
+    const dados = {
+        titulo: document.getElementById('artTitulo').value,
+        tag: document.getElementById('artTag').value,
+        status: document.getElementById('artStatus').value,
+        url: url, // Agora usa a URL já convertida
+        projetoId: window.projetoAtualId,
+        autor: window.obterNomeExibicao(),
+        dataCriacao: new Date().toISOString()
+    };
+
+    try {
+        await addDoc(collection(db, "artes"), dados);
+        window.registrarAtividade(`postou um novo asset: ${dados.titulo}`, 'art', '🎨');
+        closeModal('modalNovaArte');
+        document.getElementById('formNovaArte').reset();
+    } catch(err) { console.error(err); }
+};
+
+// Funções de Paleta de Cores
+window.adicionarCorPaleta = async () => {
+    const cor = prompt("Cole o código HEX da cor (ex: #ff0000):");
+    if (cor && cor.startsWith('#')) {
+        await addDoc(collection(db, "projeto_cores"), {
+            hex: cor,
+            projetoId: window.projetoAtualId
+        });
+    }
+};
+
+window.carregarCoresProjeto = (pid) => {
+    const container = document.getElementById('palette-container');
+    if (!container) return;
+
+    onSnapshot(query(collection(db, "projeto_cores"), where("projetoId", "==", pid)), (snap) => {
+        container.innerHTML = snap.docs.map(d => `
+            <div class="color-swatch" 
+                 style="background: ${d.data().hex}" 
+                 onclick="navigator.clipboard.writeText('${d.data().hex}'); window.mostrarToastNotificacao('Wiki Cores', 'HEX Copiado!', 'geral')"
+                 data-tooltip="${d.data().hex}">
+                 
+                 <button class="icon-btn delete-color-btn" onclick="event.stopPropagation(); window.deletarCorPaleta('${d.id}', '${d.data().hex}')">×</button>
+            </div>
+        `).join('');
+    });
+};
+
+window.deletarCorPaleta = async (id, hex) => {
+    if (confirm(`Deseja remover a cor ${hex} do Style Guide?`)) {
+        try {
+            await deleteDoc(doc(db, "projeto_cores", id));
+            window.registrarAtividade(`removeu a cor ${hex} do Style Guide`, 'art', '🎨');
+        } catch (e) { console.error(e); }
+    }
+};
+
+/* ==========================================
+   --- FEEDBACK VISUAL (ARTES) ---
+   ========================================== */
+window.arteVisualizandoId = null;
+
+window.abrirVisualizadorArte = (id, titulo, url, autor) => {
+    window.arteVisualizandoId = id;
+    
+    // Atualiza o Modal
+    document.getElementById('view-art-img').src = url;
+    document.getElementById('view-art-titulo').innerText = titulo;
+    document.getElementById('view-art-meta').innerText = `Enviado por ${autor}`;
+    
+    window.carregarComentariosArte(id);
+    window.openModal('modalVisualizarArte');
+    
+    // Limpa a bolinha de notificação deste item
+    window.limparNotificacaoItem(id);
+};
+
+window.salvarComentarioArte = async (e) => {
+    e.preventDefault();
+    if (!window.arteVisualizandoId || !auth.currentUser) return;
+
+    const input = document.getElementById('art-comment-input');
+    const texto = input.value.trim();
+    
+    try {
+        // 1. Salva o comentário
+        await addDoc(collection(db, "comentarios_arte"), {
+            arteId: window.arteVisualizandoId,
+            texto: texto,
+            autor: window.obterNomeExibicao(),
+            autorEmail: auth.currentUser.email,
+            dataCriacao: new Date().toISOString()
+        });
+
+        // 2. Busca quem é o dono da arte para notificar
+        const arteRef = doc(db, "artes", window.arteVisualizandoId);
+        const artSnap = await getDoc(arteRef);
+        
+        if (artSnap.exists()) {
+            const artData = artSnap.data();
+            // Se eu não for o dono da arte, notifico ele
+            if (artData.autor !== window.obterNomeExibicao()) {
+                // Aqui precisaríamos do UID do autor. 
+                // Como salvamos o Nome no 'artes', o ideal é buscar o UID dele na coleção 'usuarios'
+                const qUser = query(collection(db, "usuarios"), where("nome", "==", artData.autor));
+                const userSnap = await getDocs(qUser);
+                
+                if (!userSnap.empty) {
+                    window.criarNotificacao(
+                        userSnap.docs[0].id, 
+                        'art', 
+                        'Novo Feedback', 
+                        `${window.obterNomeExibicao()} comentou na sua arte: "${artData.titulo}"`,
+                        {
+                            abaAlvo: 'projetos',
+                            subAba: 'tab-artes',
+                            projetoId: window.projetoAtualId,
+                            contextId: window.arteVisualizandoId
+                        }
+                    );
+                }
+            }
+        }
+
+        input.value = "";
+    } catch(err) { console.error(err); }
+};
+
+/* ==========================================
+   --- GESTÃO AVANÇADA DE ARTES ---
+   ========================================== */
+
+window.artFiltroAtual = 'all';
+
+window.aplicarFiltroArtes = () => {
+    window.artFiltroAtual = document.getElementById('art-filter').value;
+    // Forçamos o recarregamento da galeria para aplicar o filtro na memória
+    window.carregarArtesDoProjeto(window.projetoAtualId);
+};
+
+// --- EDITAR TÍTULO DA IMAGEM ---
+window.editarTituloArte = async () => {
+    if (!window.arteVisualizandoId) return;
+    
+    const tituloAtual = document.getElementById('view-art-titulo').innerText;
+    const novoTitulo = prompt("Novo título para este asset:", tituloAtual);
+    
+    if (novoTitulo && novoTitulo.trim() !== "" && novoTitulo !== tituloAtual) {
+        try {
+            await updateDoc(doc(db, "artes", window.arteVisualizandoId), { 
+                titulo: novoTitulo.trim() 
+            });
+            document.getElementById('view-art-titulo').innerText = novoTitulo.trim();
+            window.mostrarToastNotificacao('Sucesso', 'Título atualizado!', 'geral');
+        } catch (e) { console.error(e); }
+    }
+};
+
+// --- GESTÃO DE COMENTÁRIOS (EDITAR/APAGAR) ---
+window.carregarComentariosArte = (id) => {
+    const lista = document.getElementById('art-comments-list');
+    const q = query(collection(db, "comentarios_arte"), where("arteId", "==", id), orderBy("dataCriacao", "asc"));
+    
+    onSnapshot(q, (snap) => {
+        lista.innerHTML = snap.docs.map(d => {
+            const c = d.data();
+            const isMe = c.autorEmail === auth.currentUser.email;
+            const isAdmin = window.userRole === 'admin';
+            
+            // Menu de 3 pontinhos compacto
+            let menuHtml = '';
+            if (isMe || isAdmin) {
+                menuHtml = `
+                    <div class="comment-menu-container">
+                        <button class="comment-menu-trigger" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')">⋮</button>
+                        <div class="dropdown-content">
+                            ${isMe ? `<button onclick="window.editarComentarioArte('${d.id}', '${c.texto.replace(/'/g, "\\'")}')">✏️ Editar</button>` : ''}
+                            <button class="del" onclick="window.deletarComentarioArte('${d.id}')">🗑️ Apagar</button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            return `
+                <div class="art-comment-item ${isMe ? 'is-me' : ''}">
+                    ${menuHtml} 
+                    
+                    <div class="comment-top-row">
+                        <span class="comment-author">${c.autor}</span>
+                        <span class="comment-time">${new Date(c.dataCriacao).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    </div>
+                    <p class="comment-text">${c.texto}</p>
+                </div>
+            `;
+        }).join('') || '<p style="color:#666; text-align:center; font-size: 0.8rem; margin-top: 20px;">Nenhum feedback ainda.</p>';
+        
+        setTimeout(() => {
+            lista.scrollTop = lista.scrollHeight;
+        }, 100);
+    });
+};
+
+window.editarComentarioArte = async (id, textoAntigo) => {
+    const novoTexto = prompt("Editar seu feedback:", textoAntigo);
+    if (novoTexto && novoTexto.trim() !== "" && novoTexto !== textoAntigo) {
+        await updateDoc(doc(db, "comentarios_arte", id), { texto: novoTexto.trim() });
+    }
+};
+
+window.deletarComentarioArte = async (id) => {
+    if (confirm("Apagar este comentário?")) {
+        await deleteDoc(doc(db, "comentarios_arte", id));
+    }
+};
+
+// --- ATUALIZAÇÃO DA RENDERIZAÇÃO DA GALERIA (COM FILTRO) ---
+window.carregarArtesDoProjeto = (pid) => {
+    const grid = document.getElementById('art-gallery-grid');
+    if (!grid) return;
+
+    onSnapshot(query(collection(db, "artes"), where("projetoId", "==", pid)), (snap) => {
+        const artes = snap.docs.map(d => ({id: d.id, ...d.data()}));
+        
+        // Aplica o filtro da memória
+        const filtradas = window.artFiltroAtual === 'all' 
+            ? artes 
+            : artes.filter(a => a.tag === window.artFiltroAtual);
+
+        grid.innerHTML = filtradas.map(a => {
+            const statusColor = a.status === 'done' ? 'var(--primary)' : (a.status === 'review' ? '#ffc107' : '#888');
+            
+            return `
+                <div class="art-card">
+                    <img src="${a.url}" class="art-thumb" onclick="window.abrirVisualizadorArte('${a.id}', '${a.titulo}', '${a.url}', '${a.autor}')" style="cursor: pointer;">
+                    <div class="art-info">
+                        <h4>${a.titulo}</h4>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span class="badge" style="font-size:0.55rem; padding:2px 6px;">${a.tag}</span>
+                            <span style="font-size:0.6rem; color:${statusColor}; font-weight:bold;">● ${a.status.toUpperCase()}</span>
+                        </div>
+                        <div style="margin-top:10px; display:flex; justify-content:flex-end; gap:8px;">
+                             <button class="icon-btn" style="font-size:0.8rem;" onclick="window.deletarArte('${a.id}')">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('') || '<p style="color:#666; grid-column:1/-1; text-align:center;">Nenhum asset encontrado com este filtro.</p>';
     });
 };

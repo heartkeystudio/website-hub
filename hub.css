@@ -927,58 +927,117 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 }
 
 /* ==========================================================================
-   TOOLTIPS (BALÕES DE COMENTÁRIO CUSTOMIZADOS)
+   SUPER PACK DE CORREÇÕES VISUAIS (INTERFACE & BUGS)
    ========================================================================== */
+
+/* --- 1. TOOLTIPS PROFISSIONAIS (Fim do Bug de Corte) --- */
 [data-tooltip] {
-    position: relative;
-    cursor: pointer;
+    position: relative !important;
+    overflow: visible !important;
 }
 
-/* O corpo do balão */
 [data-tooltip]::after {
-    content: attr(data-tooltip); /* Puxa o texto direto do HTML */
+    content: attr(data-tooltip);
     position: absolute;
-    bottom: calc(100% + 8px); /* Fica exatamente acima do botão */
-    left: 50%;
-    transform: translateX(-50%) translateY(10px); /* Começa um pouco para baixo */
-    background: var(--bg-card);
-    color: #fff;
-    padding: 6px 12px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    border: 1px solid var(--primary); /* Bordinha com a cor de destaque */
-    border-radius: 6px;
-    white-space: nowrap; /* Impede o texto de quebrar linha */
-    opacity: 0;
-    visibility: hidden;
-    z-index: 10000;
-    pointer-events: none; /* Para não bugar o clique no botão */
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-}
-
-/* A setinha apontando para baixo */
-[data-tooltip]::before {
-    content: "";
-    position: absolute;
-    bottom: 100%;
+    /* Posição padrão: Acima */
+    bottom: 140%;
     left: 50%;
     transform: translateX(-50%) translateY(10px);
-    border-width: 5px;
-    border-style: solid;
-    border-color: var(--primary) transparent transparent transparent;
+    
+    /* Estilo */
+    background: #000000 !important;
+    color: #ffffff !important;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    z-index: 999999 !important;
+    border: 1px solid var(--primary);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    
+    /* Animação */
     opacity: 0;
     visibility: hidden;
-    z-index: 10000;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
 }
 
-/* Animação quando passa o mouse */
-[data-tooltip]:hover::after,
-[data-tooltip]:hover::before {
+[data-tooltip]:hover::after {
     opacity: 1;
     visibility: visible;
     transform: translateX(-50%) translateY(0);
+}
+
+/* --- 2. CORREÇÃO DA SIDEBAR (Imagem 3) --- */
+/* Se a sidebar NÃO estiver colapsada, escondemos o balão de ajuda nos botões 
+   para ele não tampar o texto original que já está lá */
+.sidebar:not(.collapsed) .nav-btn::after {
+    display: none !important;
+}
+
+/* Quando a sidebar ESTÁ colapsada, jogamos o balão para a DIREITA */
+.sidebar.collapsed .nav-btn::after {
+    display: block !important;
+    left: 110%;
+    bottom: auto;
+    top: 50%;
+    transform: translateY(-50%) translateX(-10px);
+}
+
+.sidebar.collapsed .nav-btn:hover::after {
+    transform: translateY(-50%) translateX(0);
+}
+
+/* --- 3. ALINHAMENTO DO BANNER DO PROJETO (Imagem 4) --- */
+.project-banner {
+    padding-top: 40px !important; /* Dá mais teto para os botões */
+    align-items: flex-start !important; /* Alinha o conteúdo pelo topo */
+    flex-direction: column;
+}
+
+/* Container dos botões de controle (Voltar e Engrenagem) */
+.project-banner > div:first-child {
+    position: absolute !important;
+    top: 25px !important;
+    left: 25px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 15px !important;
+}
+
+/* O título do projeto desce um pouco para não bater nos botões */
+#titulo-workspace {
+    margin-top: 60px !important;
+    font-size: 2.2rem !important;
+}
+
+/* --- 4. BLINDAGEM CONTRA CORTES (Imagens 1 e 2) --- */
+/* Força visibilidade em todos os containers de cards e listas */
+.badges-grid, 
+.badge-medal, 
+.stat-box, 
+.bento-card, 
+.dash-panel, 
+.client-card, 
+.kanban-card {
+    overflow: visible !important;
+}
+
+/* Ajuste específico para a Estante de Conquistas */
+.badges-container {
+    padding-bottom: 20px; /* Dá um respiro embaixo para o balão não sumir */
+}
+
+.badge-medal {
+    position: relative !important; /* Garante que o balão saiba de onde "nascer" */
+}
+
+/* Se o balão estiver muito na beirada direita da tela (últimas medalhas),
+   ele se alinha para a esquerda para não sumir */
+.badge-medal:nth-last-child(-n+2) [data-tooltip]::after {
+    left: auto;
+    right: 0;
+    transform: translateX(0);
 }
 
 /* ==========================================================================
@@ -1715,7 +1774,6 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
     margin: 0 auto;
 }
 
-/* 3. ESTILO DOS CARDS (GLASSMORPHISM REFORÇADO) */
 .bento-card {
     background: rgba(20, 20, 24, 0.6);
     backdrop-filter: blur(20px);
@@ -1727,6 +1785,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
     display: flex;
     align-items: center;
     gap: 20px;
+    overflow: visible !important; /* MUDAR AQUI: de hidden para visible */
 }
 
 .bento-card:hover {
@@ -2025,9 +2084,15 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 /* Mini-Kanban Tático */
 .mini-kanban-board { display: flex; gap: 15px; flex: 1; overflow: hidden; }
 .mini-column {
-    flex: 1; display: flex; flex-direction: column; background: rgba(0,0,0,0.4);
-    border-radius: 12px; border: 1px solid rgba(255,255,255,0.03); overflow: hidden;
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    background: rgba(0,0,0,0.4);
+    border-radius: 12px; 
+    border: 1px solid rgba(255,255,255,0.03); 
+    overflow: visible !important; /* MUDAR AQUI: de hidden para visible */
 }
+
 .mini-col-header {
     padding: 12px; font-size: 0.85rem; font-weight: 900; text-align: center;
     border-top: 3px solid #8e8e93; background: rgba(255,255,255,0.02);
@@ -2219,6 +2284,323 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 @media (max-width: 768px) {
     .master-player { bottom: 85px; /* Sobe para não ficar atrás da barra de navegação mobile */ padding: 10px 15px; }
     .master-volume, .master-visualizer { display: none; }
+}
+
+
+/* ==========================================================================
+   SUBSEÇÃO DE ARTES
+   ========================================================================== */
+.art-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 25px;
+    height: calc(100vh - 350px);
+}
+
+.art-main {
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+.art-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+}
+
+/* Card de Arte */
+.art-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: visible !important; /* Para o balão não cortar */
+    transition: 0.3s;
+    position: relative;
+}
+
+.art-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-5px);
+}
+
+.art-thumb {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    border-radius: 10px 10px 0 0;
+    background: #000;
+}
+
+.art-info {
+    padding: 12px;
+}
+
+.art-info h4 {
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 5px;
+}
+
+/* Style Guide / Palette */
+.palette-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.color-swatch {
+    aspect-ratio: 1/1;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.1);
+    cursor: pointer;
+    position: relative;
+}
+
+.color-swatch:hover::after {
+    content: 'Copiar HEX';
+    position: absolute;
+    font-size: 0.5rem;
+    background: #000;
+    bottom: -20px;
+    left: 0;
+    width: 100%;
+    text-align: center;
+}
+
+/* --- ESTILO DOS COMENTÁRIOS DE ARTE --- */
+.art-comment-item {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px;
+    border-radius: 12px;
+    border-left: 3px solid #333;
+    position: relative;
+    transition: background 0.2s ease;
+}
+
+.art-comment-item.is-me {
+    background: rgba(129, 254, 78, 0.05);
+    border-left-color: var(--primary);
+}
+
+/* O GATILHO DOS 3 PONTINHOS */
+.comment-menu-container {
+    position: relative;
+    line-height: 1;
+}
+
+.comment-menu-trigger {
+    opacity: 0; /* Escondido por padrão */
+    transition: opacity 0.2s ease;
+    font-size: 1.2rem !important;
+    padding: 0 4px !important;
+    color: var(--text-muted) !important;
+}
+
+/* Quando o mouse entra no comentário, o menu aparece */
+.art-comment-item:hover .comment-menu-trigger {
+    opacity: 1;
+}
+
+/* Quando o menu está aberto, ele também deve ficar visível mesmo se o mouse sair */
+.comment-menu-trigger:focus, 
+.dropdown-content.show ~ .comment-menu-trigger {
+    opacity: 1;
+}
+
+.art-comment-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+/* --- CORREÇÃO DO TÍTULO DO VISUALIZADOR DE ARTE --- */
+.view-art-header .comment-menu-trigger {
+    font-size: 1.5rem !important; /* Aumenta o tamanho para ficar mais fácil de clicar no título */
+    position: absolute;
+    top: 20px;
+    right: 20px;
+}
+
+/* Garante que o menu do título fique visível no hover */
+.view-art-header:hover .comment-menu-trigger {
+    opacity: 1;
+}
+
+/* --- GESTÃO DE CORES DA PALETA --- */
+.color-swatch {
+    position: relative; /* Base para o botão × */
+    overflow: visible !important; /* Para o × não ser cortado */
+}
+
+.delete-color-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: rgba(255, 82, 82, 0.9);
+    color: #fff;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    padding: 0;
+    opacity: 0; /* Escondido por padrão */
+    transition: 0.2s ease;
+    z-index: 10;
+}
+
+/* Mostra o X quando passa o mouse no swatch inteiro */
+.color-swatch:hover .delete-color-btn {
+    opacity: 1;
+}
+
+/* --- REESTILIZAÇÃO DOS COMENTÁRIOS DE ARTE --- */
+#art-comments-list {
+    padding: 10px !important;
+    gap: 8px !important; /* Espaço menor entre mensagens */
+}
+
+.art-comment-item {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px 15px;
+    padding-right: 40px; /* ABRE ESPAÇO para os pontos não sobreporem o texto */
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    position: relative; /* GARANTE que o menu se baseie no card */
+    transition: 0.2s;
+}
+
+/* Posicionamento do container do menu */
+.art-comment-item .comment-menu-container {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 10;
+}
+
+.art-comment-item.is-me {
+    background: rgba(129, 254, 78, 0.05);
+    border-left: 3px solid var(--primary);
+}
+
+/* Top row agora foca apenas nos textos */
+.comment-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.comment-author {
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.comment-time {
+    font-size: 0.6rem;
+    color: #555;
+}
+
+.comment-text {
+    font-size: 0.85rem;
+    color: #eee;
+    line-height: 1.4;
+    word-break: break-word;
+    margin: 0;
+}
+
+/* O botão de 3 pontinhos em si */
+.comment-menu-trigger {
+    opacity: 0; /* Escondido por padrão */
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 5px;
+    transition: 0.2s;
+    line-height: 1;
+}
+
+/* Mostra apenas no hover do card */
+.art-comment-item:hover .comment-menu-trigger {
+    opacity: 1;
+}
+
+/* Ajuste do Dropdown para não fugir da lateral */
+.art-comment-item .dropdown-content {
+    right: 0;
+    top: 30px;
+    min-width: 120px;
+    background: #111 !important;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+}
+
+.art-comment-item .dropdown-content button {
+    width: 100%;
+    text-align: left;
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    background: transparent;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+}
+
+.art-comment-item .dropdown-content button.del {
+    color: #ff5252;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.art-comment-item .dropdown-content button:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+/* --- TRAVA DA BARRA DE FEEDBACK (ARTES) --- */
+
+/* Força o painel lateral a ocupar 100% da altura do modal sem vazar */
+#modalVisualizarArte .modal-content > div:last-child {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+}
+
+.view-art-header {
+    position: relative;
+    padding-right: 50px !important; /* Espaço para o menu do título */
+}
+
+.view-art-header .comment-menu-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+}
+/* A lista de comentários é a única que cresce e ganha o scroll */
+#art-comments-list {
+    flex-grow: 1 !important;
+    overflow-y: auto !important;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 15px;
+    /* Faz o scroll começar no final se houver muitas mensagens */
+    scroll-behavior: smooth;
+}
+
+/* Estilo da barra de escrita fixa */
+.art-comment-input-area {
+    padding: 15px;
+    border-top: 1px solid var(--border-color);
+    background: rgba(10, 10, 10, 0.95) !important; /* Fundo sólido para não ver mensagens por baixo */
+    backdrop-filter: blur(10px);
 }
 
 /* ==========================================================================
