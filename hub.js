@@ -3818,8 +3818,28 @@ window.audioTerminou = (id) => { document.getElementById(`btn-play-${id}`).inner
 // 4. DELETAR
 window.deletarAudio = async (id) => {
     if(confirm("Apagar este áudio?")) {
-        try { await deleteDoc(doc(db, "audios", id)); } 
-        catch (err) { console.error(err); }
+        try {
+            // 1. Apaga o documento do áudio (Ação original)
+            await deleteDoc(doc(db, "audios", id));
+
+            // 2. A FAXINA: Busca notificações "zumbis" vinculadas a este ID
+            // Procuramos qualquer notificação onde o contextId seja o ID da música deletada
+            const qNotifs = query(collection(db, "notificacoes"), where("contextId", "==", id));
+            const snapNotifs = await getDocs(qNotifs);
+
+            if (!snapNotifs.empty) {
+                // Marca todas como lidas para que sumam das bolinhas e do sistema
+                const promessasLimpeza = snapNotifs.docs.map(d => 
+                    updateDoc(doc(db, "notificacoes", d.id), { lida: true })
+                );
+                await Promise.all(promessasLimpeza);
+                console.log(`🧹 Faxina concluída: ${snapNotifs.size} notificações removidas.`);
+            }
+
+            // O onSnapshot da galeria e das notificações cuidará de atualizar a tela sozinho!
+        } catch (err) { 
+            console.error("Erro ao deletar áudio e limpar rastros:", err); 
+        }
     }
 };
 

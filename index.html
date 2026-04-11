@@ -83,47 +83,51 @@
                     </div>
                 </div>
 
+                
+
                 <div class="bento-card col-span-2 row-span-2 focus-area">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; width: 100%;">
-                        <h3>🎯 Foco do Dia</h3>
-                        <button class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="abrirFocusMode()">⛶ Focus Mode</button>
-                    </div>
-                    
-                    <div style="display: flex; gap: 20px; width: 100%; align-items: center;">
-                        <div class="pomodoro-mini">
-                            <div id="pomodoro-display" class="time-display">25:00</div>
-                            <div class="controls">
-                                <button onclick="iniciarPomodoro()" class="btn-play">▶</button>
-                                <button onclick="pausarPomodoro()" class="btn-pause">⏸</button>
-                                <button onclick="resetarPomodoro()" class="btn-reset">🔄</button>
-                            </div>
+                    <div class="internal-focus-grid">
+                        
+                        <div class="quick-actions-grid">
+                            <button class="quick-action-btn" onclick="document.querySelector('[data-target=projetos]').click()">
+                                <span class="icon" style="color: #00eaff;">📋</span>
+                                <span class="label">Projetos</span>
+                            </button>
+                            <button class="quick-action-btn" onclick="document.querySelector('[data-target=cronograma]').click(); setTimeout(()=>openModal('modalEvento'), 300)">
+                                <span class="icon" style="color: #ffc107;">📅</span>
+                                <span class="label">Agendar</span>
+                            </button>
+                            <button class="quick-action-btn" onclick="document.querySelector('[data-target=reunioes]').click()">
+                                <span class="icon" style="color: #ff5252;">🎥</span>
+                                <span class="label">Reuniões</span>
+                            </button>
+                            <button class="quick-action-btn" onclick="document.querySelector('[data-target=gamejam]').click()" style="border-color: var(--primary);">
+                                <span class="icon" style="color: var(--primary);">⚡</span>
+                                <span class="label">War Room</span>
+                            </button>
                         </div>
-                        <div id="dash-priorities" class="priority-list" style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
+                        
+                        <div class="pomodoro-mini">
+                            <h3 style="font-size: 0.7rem; color: #888; border: none; margin-bottom: 5px;">TIMER</h3>
+                            <div id="pomodoro-display" class="time-display">25:00</div>
+                            <div class="controls" style="display: flex; gap: 8px; justify-content: center;">
+                                <button onclick="iniciarPomodoro()" class="icon-btn" style="color: var(--primary);">▶</button>
+                                <button onclick="pausarPomodoro()" class="icon-btn">⏸</button>
+                                <button onclick="resetarPomodoro()" class="icon-btn">🔄</button>
                             </div>
+                            <button class="btn-primary" style="padding: 5px 10px; font-size: 0.65rem; margin-top: 15px; width: 100%;" onclick="abrirFocusMode()">MODO FOCO</button>
+                        </div>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <h3 style="font-size: 0.7rem; color: #888; border: none; margin: 0;">🎯 FOCO DO DIA</h3>
+                            <div id="dash-priorities" class="priority-list" style="display: flex; flex-direction: column; gap: 8px;">
+                                </div>
+                        </div>
+
                     </div>
                 </div>
 
-                <div class="bento-card quick-actions-grid">
-                    <button class="quick-action-btn" onclick="document.querySelector('[data-target=projetos]').click()">
-                        <span class="icon" style="color: #00eaff;">📋</span>
-                        <span class="label">Projetos</span>
-                    </button>
-                    
-                    <button class="quick-action-btn" onclick="document.querySelector('[data-target=cronograma]').click(); setTimeout(()=>openModal('modalEvento'), 300)">
-                        <span class="icon" style="color: #ffc107;">📅</span>
-                        <span class="label">Agendar</span>
-                    </button>
-                    
-                    <button class="quick-action-btn" onclick="document.querySelector('[data-target=reunioes]').click()">
-                        <span class="icon" style="color: #ff5252;">🎥</span>
-                        <span class="label">Reuniões</span>
-                    </button>
-                    
-                    <button class="quick-action-btn" onclick="document.querySelector('[data-target=gamejam]').click()" style="border-color: var(--primary);">
-                        <span class="icon" style="color: var(--primary);">⚡</span>
-                        <span class="label">War Room</span>
-                    </button>
-                </div>
+                
 
                 <div class="bento-card col-span-2 radar-panel">
                     <h3>📡 Radar do Estúdio (Atividade)</h3>
