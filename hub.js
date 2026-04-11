@@ -117,6 +117,7 @@ onAuthStateChanged(auth, async (user) => {
         window.verificarAgendaDoDia();
         window.carregarIncubadora();
         window.iniciarEscutaRadioGlobal();
+        window.carregarBarraIntegrantes();
 
         
         if (window.intervaloLembrete) clearInterval(window.intervaloLembrete);
@@ -128,6 +129,14 @@ onAuthStateChanged(auth, async (user) => {
         loginScreen.classList.remove('hidden');
         if (window.intervaloLembrete) clearInterval(window.intervaloLembrete);
     }
+
+    setInterval(async () => {
+        if (auth.currentUser) {
+            await updateDoc(doc(db, "usuarios", auth.currentUser.uid), {
+                ultimoVisto: new Date().toISOString()
+            });
+        }
+    }, 120000);
 });
 
 // FUNÇÃO QUE ESCONDE/MOSTRA AS COISAS BASEADO NO CARGO
@@ -5123,3 +5132,104 @@ window.converterLinkDireto = (url) => {
     return link;
 };
 
+
+// 1. Carrega os integrantes em tempo real
+window.carregarBarraIntegrantes = () => {
+    const container = document.getElementById('sidebar-integrantes');
+    if (!container) return;
+
+    onSnapshot(collection(db, "usuarios"), (snap) => {
+        const agora = new Date();
+        container.innerHTML = snap.docs.map(docSnap => {
+            const u = docSnap.data();
+            const iniciais = u.nome ? u.nome.substring(0,2).toUpperCase() : "??";
+            
+            // Lógica de Online: Se foi visto nos últimos 5 minutos
+            const ultimoVisto = u.ultimoVisto ? new Date(u.ultimoVisto) : new Date(0);
+            const isOnline = (agora - ultimoVisto) < (5 * 60 * 1000);
+            
+            const avatarHtml = u.avatarBase64 
+                ? `<img src="${u.avatarBase64}">` 
+                : iniciais;
+
+            return `
+                <div class="member-item" onclick="window.verDetalhesIntegrante('${docSnap.id}')">
+                    <div class="member-avatar-mini">${avatarHtml}</div>
+                    <div class="status-indicator ${isOnline ? 'online' : ''}"></div>
+                    <span class="member-name-tag">${u.apelido || u.nome.split(' ')[0]}</span>
+                </div>
+            `;
+        }).join('');
+    });
+};
+
+// 2. Mostra o mini-perfil flutuante
+window.verDetalhesIntegrante = async (uid) => {
+    const userSnap = await getDoc(doc(db, "usuarios", uid));
+    if (!userSnap.exists()) return;
+
+    const u = userSnap.data();
+    const painel = document.getElementById('card-perfil-flutuante');
+    const conteudo = document.getElementById('conteudo-perfil-flutuante');
+
+    // 1. Cálculos de RPG (Nível e Classe)
+    const xp = u.xp || 0;
+    const tasksFeitas = u.tasksFeitas || 0;
+    const pomodoros = u.pomodoros || 0;
+    const stats = u.stats || {};
+    const level = Math.floor(Math.sqrt(xp / 10)) + 1;
+    const classeInfo = window.calcularClasseRPG(stats);
+
+    // 2. Lógica de Insígnias (Igual ao Perfil Principal)
+    const badges = [
+        { nome: 'Primeiro Sangue', desc: 'Ganhou seu primeiro XP no Hub.', icone: '🩸', unlocked: xp > 0 },
+        { nome: 'Senhor do Tempo', desc: 'Completou 10 ciclos de Pomodoro.', icone: '⏳', unlocked: pomodoros >= 10 },
+        { nome: 'O Ferreiro', desc: 'Moveu 20 tarefas para Feito.', icone: '🔨', unlocked: tasksFeitas >= 20 },
+        { nome: 'Exterminador', desc: 'Esmagou 5 Bugs no Kanban.', icone: '🐛', unlocked: (stats.bug || 0) >= 5 },
+        { nome: 'Alma Criativa', desc: 'Entregou 5 tarefas de Arte ou Áudio.', icone: '🎨', unlocked: ((stats.art || 0) + (stats.audio || 0)) >= 5 },
+        { nome: 'Veterano', desc: 'Alcançou o Nível 10.', icone: '👑', unlocked: level >= 10 }
+    ];
+
+    const badgesHtml = badges.map(b => {
+        const classe = b.unlocked ? 'unlocked' : 'locked';
+        const tooltip = b.unlocked ? `${b.nome} (Conquistada)` : `Bloqueada: ${b.desc}`;
+        // Reduzi um pouco o tamanho das medalhas para caber no card flutuante (40px)
+        return `<div class="badge-medal ${classe}" data-tooltip="${tooltip}" style="width:40px; height:40px; font-size:1.2rem;">${b.icone}</div>`;
+    }).join('');
+
+    // 3. Montagem do HTML do Card
+    conteudo.innerHTML = `
+        <div style="width:100%; height:80px; background-image: url('${u.bgTema || ''}'); background-size:cover; background-color:#222; border-bottom: 1px solid var(--border-color);"></div>
+        <div style="padding: 20px; margin-top: -40px;">
+            <div class="profile-avatar" style="width:70px; height:70px; font-size:1.5rem; border-width:3px; position:relative;">
+                ${u.avatarBase64 ? `<img src="${u.avatarBase64}">` : u.nome.substring(0,2).toUpperCase()}
+            </div>
+            <h3 style="margin-top:10px; color:#fff; font-size: 1.1rem;">${u.nome}</h3>
+            <p style="color:${classeInfo.cor}; font-size:0.8rem; font-weight:bold;">Lv.${level} ${classeInfo.nome}</p>
+            
+            <div style="margin-top:15px; font-size:0.85rem; color:#aaa; display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <div class="stat-box" style="padding:8px; background:rgba(255,255,255,0.02);">
+                    <div style="font-size:1rem; color:#fff; font-weight:bold;">${tasksFeitas}</div>
+                    <div style="font-size:0.6rem; text-transform:uppercase; color:#666;">Tarefas</div>
+                </div>
+                <div class="stat-box" style="padding:8px; background:rgba(255,255,255,0.02);">
+                    <div style="font-size:1rem; color:#fff; font-weight:bold;">${pomodoros}</div>
+                    <div style="font-size:0.6rem; text-transform:uppercase; color:#666;">Pomodoros</div>
+                </div>
+            </div>
+
+            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed rgba(255,255,255,0.1);">
+                <div style="font-size:0.65rem; color:#666; text-transform:uppercase; font-weight:bold; margin-bottom:10px; text-align:center;">Insígnias Conquistadas</div>
+                <div class="badges-grid" style="grid-template-columns: repeat(auto-fit, minmax(40px, 1fr)); gap: 8px;">
+                    ${badgesHtml}
+                </div>
+            </div>
+
+            <div style="text-align:center; margin-top:15px;">
+                <span style="color:#444; font-size:0.65rem;">Visto por último: ${new Date(u.ultimoVisto).toLocaleTimeString()}</span>
+            </div>
+        </div>
+    `;
+
+    painel.classList.add('active');
+};

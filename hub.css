@@ -2957,3 +2957,113 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
     
     .focus-side-panel { width: 100%; right: -100%; } 
 }
+
+/* --- BARRA DE INTEGRANTES FLUTUANTE --- */
+.members-sidebar {
+    position: fixed;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 60px;
+    background: var(--bg-panel);
+    backdrop-filter: blur(15px);
+    border: 1px solid var(--border-color);
+    border-radius: 30px;
+    padding: 15px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    z-index: 900;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+/* Quando expandida (ao passar o mouse ou via classe) */
+.members-sidebar:hover {
+    width: 220px;
+    border-radius: 20px;
+    align-items: flex-start;
+    padding: 20px;
+}
+
+.member-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    width: 100%;
+    position: relative;
+    transition: 0.2s;
+}
+
+.member-item:hover { transform: translateX(5px); }
+
+/* Avatar na barra flutuante */
+.member-avatar-mini {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    border: 2px solid var(--border-color);
+    flex-shrink: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.8rem;
+}
+
+.member-avatar-mini img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Indicador Online */
+.status-indicator {
+    position: absolute;
+    bottom: 0;
+    left: 30px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid var(--bg-panel);
+    background: #666; /* Offline padrão */
+}
+
+.status-indicator.online { background: #4caf50; box-shadow: 0 0 10px #4caf50; }
+
+.member-name-tag {
+    font-size: 0.85rem;
+    color: #fff;
+    white-space: nowrap;
+    opacity: 0;
+    transition: 0.2s;
+    pointer-events: none;
+}
+
+.members-sidebar:hover .member-name-tag { opacity: 1; }
+.members-sidebar:hover .status-indicator { left: 32px; }
+
+/* --- PAINEL DE PERFIL FLUTUANTE (DETALHES) --- */
+.profile-floating-card {
+    position: fixed;
+    right: 250px; /* Aparece ao lado da barra */
+    top: 50%;
+    transform: translateY(-50%) scale(0.9);
+    width: 320px;
+    background: var(--bg-card);
+    border: 1px solid var(--primary);
+    border-radius: 20px;
+    padding: 0;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+    overflow: hidden;
+}
+
+.profile-floating-card.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(-50%) scale(1);
+}
