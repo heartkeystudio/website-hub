@@ -103,6 +103,7 @@ onAuthStateChanged(auth, async (user) => {
         window.iniciarSistemaNotificacoes();
         window.verificarAgendaDoDia();
         window.carregarIncubadora();
+        window.iniciarEscutaRadioGlobal();
 
         
         if (window.intervaloLembrete) clearInterval(window.intervaloLembrete);
@@ -129,6 +130,11 @@ window.aplicarPermissoes = (cargo) => {
     const podeCriar = (cargo === 'admin' || cargo === 'gerente');
     if (btnNovoProj) btnNovoProj.style.display = podeCriar ? "block" : "none";
     if (btnNovaTask) btnNovaTask.style.display = podeCriar ? "block" : "none";
+
+    const btnCfgRadio = document.getElementById('btn-config-radio');
+    if (btnCfgRadio) {
+        btnCfgRadio.style.display = (cargo === 'admin') ? "block" : "none";
+    }
 };
 
 document.getElementById('btn-login-google').onclick = () => signInWithPopup(auth, provider).catch(e => console.error(e));
@@ -4886,5 +4892,174 @@ window.votarIdeia = async (id, jaVotou) => {
     let votos = snap.data().votos || [];
     votos = jaVotou ? votos.filter(u => u !== meuUid) : [...votos, meuUid];
     await updateDoc(docRef, { votos });
+};
+
+
+/* ==========================================
+   --- HEARTKEY RADIO GLOBAL ENGINE ---
+   ========================================== */
+window.playerRadio = new Audio();
+window.radioConfigGlobal = {}; // Cache da programação vinda do banco
+
+// 1. ESCUTA GLOBAL (Roda para todos os usuários)
+window.iniciarEscutaRadioGlobal = () => {
+    onSnapshot(doc(db, "configuracoes", "radio_global"), (docSnap) => {
+        if (docSnap.exists()) {
+            window.radioConfigGlobal = docSnap.data();
+            console.log("📻 Programação da rádio atualizada pelo Admin.");
+        }
+    });
+};
+
+// 2. SALVAR CONFIGURAÇÃO (SÓ ADMIN)
+window.salvarConfigRadioGlobal = async () => {
+    if (window.userRole !== 'admin') return alert("Acesso Negado.");
+
+    const dados = {
+        playlist: document.getElementById('cfg-radio-playlist').value,
+        vinheta: document.getElementById('cfg-radio-vinheta').value,
+        noticia: document.getElementById('cfg-radio-noticia').value,
+        horario: document.getElementById('cfg-radio-horario').value,
+        atualizadoPor: auth.currentUser.email,
+        dataAtualizacao: new Date().toISOString()
+    };
+
+    try {
+        await setDoc(doc(db, "configuracoes", "radio_global"), dados);
+        window.closeModal('modalConfigRadio');
+        window.mostrarToastNotificacao("Rádio Global", "Transmissão atualizada para todos!", "geral");
+        window.registrarAtividade("atualizou a programação da Rádio Global", "radio", "🎙️");
+    } catch (e) { console.error(e); }
+};
+
+// 3. O PLAYER (Lê do objeto global)
+window.iniciarRadioFrequencia = () => {
+    const config = window.radioConfigGlobal;
+    
+    if (!config.playlist || config.playlist.trim() === "") {
+        return alert("O Admin ainda não configurou a playlist global.");
+    }
+
+    const links = config.playlist.split('\n').filter(l => l.trim() !== "");
+    const linkSorteado = links[Math.floor(Math.random() * links.length)];
+
+    const urlFinal = window.converterLinkDireto(linkSorteado);
+    window.playerRadio.src = urlFinal;
+    window.playerRadio.play();
+    
+    document.getElementById('radio-status').innerText = `📻 Sintonizado na HeartKey`;
+    document.getElementById('radio-status').style.color = "var(--primary)";
+
+    window.playerRadio.onended = () => {
+        if (!window.radioStatus?.estaTocandoNoticia) window.iniciarRadioFrequencia();
+    };
+};
+
+// 4. AGENDADOR DE PLANTÃO (Continua igual, mas lê da window.radioConfigGlobal)
+setInterval(() => {
+    const config = window.radioConfigGlobal;
+    if (!config.horario) return;
+
+    const agora = new Date();
+    const horaAtual = agora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    if (horaAtual === config.horario && !window.radioStatus?.estaTocandoNoticia) {
+        window.dispararPlantaoGlobal();
+    }
+}, 60000);
+
+/* ==========================================
+   --- MOTOR DE RÁDIO COM FADE OUT ---
+   ========================================== */
+
+// Função auxiliar para diminuir o volume suavemente
+window.fadeAudio = (audio, duration = 2000) => {
+    return new Promise((resolve) => {
+        const volumeOriginal = audio.volume;
+        const intervalo = 50; //ms
+        const passos = duration / intervalo;
+        const reducaoPorPasso = volumeOriginal / passos;
+
+        const timerFade = setInterval(() => {
+            if (audio.volume > reducaoPorPasso) {
+                audio.volume -= reducaoPorPasso;
+            } else {
+                audio.volume = 0;
+                clearInterval(timerFade);
+                audio.pause();
+                audio.volume = volumeOriginal; // Reseta volume para a próxima música
+                resolve();
+            }
+        }, intervalo);
+    });
+};
+
+window.dispararPlantaoGlobal = async () => {
+    const config = window.radioConfigGlobal;
+    const vinhetaUrl = window.converterLinkDireto(config.vinheta);
+    const noticiaUrl = window.converterLinkDireto(config.noticia);
+
+    if (!vinhetaUrl || !noticiaUrl || window.radioStatus?.estaTocandoNoticia) return;
+
+    window.radioStatus = { estaTocandoNoticia: true };
+    
+    // 1. EFEITO FADE OUT: A música vai sumindo em 2 segundos
+    await window.fadeAudio(window.playerRadio, 2000);
+    
+    window.mostrarToastNotificacao("📻 RÁDIO", "Iniciando Boletim Informativo...", "geral");
+
+    // 2. TOCA A VINHETA
+    window.playerRadio.src = vinhetaUrl;
+    window.playerRadio.play();
+    
+    window.playerRadio.onended = async () => {
+        // 3. TOCA A NOTÍCIA (SUA VOZ)
+        window.playerRadio.src = noticiaUrl;
+        window.playerRadio.play();
+        
+        window.playerRadio.onended = () => {
+            // 4. FINALIZA E VOLTA PRA PLAYLIST
+            window.radioStatus.estaTocandoNoticia = false;
+            window.iniciarRadioFrequencia();
+        };
+    };
+};
+
+window.salvarConfigRadio = () => {
+    localStorage.setItem('radio_vinheta', document.getElementById('cfg-radio-vinheta').value);
+    localStorage.setItem('radio_noticia', document.getElementById('cfg-radio-noticia').value);
+    localStorage.setItem('radio_horario', document.getElementById('cfg-radio-horario').value);
+    
+    window.closeModal('modalConfigRadio');
+    window.mostrarToastNotificacao("Rádio", "Programação atualizada!", "geral");
+};
+
+// Função para abrir o modal já preenchido
+window.abrirConfigRadio = () => {
+    document.getElementById('cfg-radio-vinheta').value = localStorage.getItem('radio_vinheta') || "";
+    document.getElementById('cfg-radio-noticia').value = localStorage.getItem('radio_noticia') || "";
+    document.getElementById('cfg-radio-horario').value = localStorage.getItem('radio_horario') || "09:00";
+    window.openModal('modalConfigRadio');
+};
+
+// --- CONVERSOR UNIVERSAL DE LINKS (DROPBOX / DRIVE) ---
+window.converterLinkDireto = (url) => {
+    if (!url) return "";
+    let link = url.trim();
+
+    // Lógica Dropbox
+    if (link.includes("dropbox.com")) {
+        return link.replace("www.dropbox.com", "dl.dropboxusercontent.com")
+                   .replace("?dl=0", "")
+                   .replace("?dl=1", "");
+    }
+    
+    // Lógica Google Drive
+    if (link.includes("drive.google.com/file/d/")) {
+        const fileId = link.match(/[-\w]{25,}/);
+        if (fileId) return `https://drive.google.com/uc?export=download&id=${fileId[0]}`;
+    }
+
+    return link; // Se não for nenhum dos dois, retorna o original
 };
 

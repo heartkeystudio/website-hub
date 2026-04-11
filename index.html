@@ -84,9 +84,22 @@
                     </div>
                 </div>
 
-                
-
                 <div class="bento-card col-span-2 row-span-2 focus-area">
+                    <div class="bento-card" style="border-color: #e040fb; background: rgba(224, 64, 251, 0.05); position: relative;">
+                        <button id="btn-config-radio" class="icon-btn" onclick="window.abrirConfigRadio()" 
+                                style="position: absolute; top: 15px; right: 15px; font-size: 0.8rem; display: none;">⚙️</button>
+                        
+                        <div class="bento-icon" style="color: #e040fb;">📻</div>
+                        <div class="bento-content">
+                            <h3>Rádio HeartKey</h3>
+                            <p id="radio-status" class="bento-value" style="font-size: 0.85rem; color: #888;">Offline</p>
+                            <div style="display: flex; gap: 8px; margin-top: 12px;">
+                                <button class="btn-primary" style="padding: 6px 12px; font-size: 0.7rem; background: #e040fb;" onclick="window.iniciarRadioFrequencia()">OUVIR</button>
+                                <button class="btn-secondary" style="padding: 6px 12px; font-size: 0.7rem;" onclick="window.playerRadio.pause(); document.getElementById('radio-status').innerText = 'Offline'">PARAR</button>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="internal-focus-grid">
                         
                         <div class="quick-actions-grid">
@@ -1147,7 +1160,38 @@
         </div>
     </div>
 
+    <div id="modalConfigRadio" class="modal-overlay">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>🎙️ Programação da Rádio Global</h2>
+                <button class="close-btn" onclick="closeModal('modalConfigRadio')">×</button>
+            </div>
+            <div class="hub-form">
+                <div class="form-group">
+                    <label>Playlist Global (Um link por linha)</label>
+                    <textarea id="cfg-radio-playlist" rows="6" placeholder="Cole os links das músicas aqui..."></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Link Vinheta</label>
+                        <input type="url" id="cfg-radio-vinheta">
+                    </div>
+                    <div class="form-group">
+                        <label>Link Notícia</label>
+                        <input type="url" id="cfg-radio-noticia">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Horário do Plantão</label>
+                    <input type="time" id="cfg-radio-horario" value="09:00">
+                </div>
+                <button class="btn-primary" style="width: 100%; margin-top: 15px;" onclick="window.salvarConfigRadioGlobal()">Publicar para toda a Equipe</button>
+            </div>
+        </div>
+    </div>
+
 </div>
+
 
 
     <script type="module" src="hub.js"></script>
