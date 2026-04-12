@@ -692,7 +692,7 @@ window.adicionarTagColab = (email, nome) => {
     if (!window.colaboradoresSelecionados.find(c => c.email === email)) {
         window.colaboradoresSelecionados.push({ email, nome });
         window.renderizarTagsColabs();
-    }
+    } 
     document.getElementById('colabs-search-input').value = '';
     document.getElementById('colabs-suggestions').style.display = 'none';
     document.getElementById('colabs-search-input').focus();
@@ -1652,30 +1652,37 @@ window.toggleFullscreenWiki = () => {
     }
 };
 
-// --- CRIAÇÃO INSTANTÂNEA DE ARQUIVO ---
+// --- CRIAÇÃO INSTANTÂNEA DE ARQUIVO (AGORA PEDINDO O NOME) ---
 window.novaPaginaWiki = async () => {
     if (!window.projetoAtualId) return;
     
+    // 1. Pede o nome do documento logo de cara!
+    const nomeDoc = prompt("Nome do novo documento:", "Novo Documento");
+    
+    // Se a pessoa cancelar ou deixar em branco, aborta a criação
+    if (!nomeDoc || nomeDoc.trim() === "") return; 
+    
     try {
-        // Cria o documento direto no banco na pasta que estiver selecionada!
+        // 2. Cria o documento direto no banco com o nome escolhido
         const docRef = await addDoc(collection(db, "wiki"), {
-            titulo: "Novo Documento",
+            titulo: nomeDoc.trim(),
             conteudo: "",
             projetoId: window.projetoAtualId,
             pastaId: window.ultimaPastaSelecionada, 
             dataCriacao: new Date().toISOString()
         });
         
-        // Abre o documento na tela na mesma hora
+        // 3. Prepara a tela para a digitação
         window.wikiAtualId = docRef.id;
-        document.getElementById('wiki-titulo').value = "Novo Documento";
-        document.getElementById('wiki-conteudo').value = "";
-        window.setWikiMode('edit');
         
-        // UX Premium: Foca no título e seleciona o texto pra pessoa só começar a digitar!
-        const tituloInput = document.getElementById('wiki-titulo');
-        tituloInput.focus();
-        tituloInput.select();
+        const inputConteudo = document.getElementById('wiki-conteudo');
+        if(inputConteudo) {
+            inputConteudo.value = "";
+            window.setWikiMode('edit');
+            
+            // Foca o cursor piscando direto na folha em branco
+            setTimeout(() => inputConteudo.focus(), 100); 
+        }
         
     } catch(e) { console.error("Erro ao criar documento:", e); }
 };
@@ -1704,46 +1711,21 @@ window.selecionarRaizWiki = () => {
 window.isSavingWiki = false;
 
 window.salvarPaginaWiki = async (isAutoSave = false) => {
-    // Se já estiver salvando no banco neste exato milissegundo, ele ignora para não duplicar!
-    if (window.isSavingWiki) return; 
+    // Só salva se houver um documento aberto
+    if (window.isSavingWiki || !window.wikiAtualId) return; 
 
-    const t = document.getElementById('wiki-titulo').value;
-    const c = document.getElementById('wiki-conteudo').value;
-    if (!t) return; // Não salva documentos sem título
+    const conteudoTexto = document.getElementById('wiki-conteudo').value;
+    window.isSavingWiki = true;
 
-    window.isSavingWiki = true; // Tranca a porta do cofre
-
-    // MÁGICA 1: Preservar a pasta corretamente
-    let pastaAtual = window.ultimaPastaSelecionada || null;
-    if (window.wikiAtualId && window.wikiCache[window.wikiAtualId]) {
-        // Se o arquivo já existe e já estava numa pasta, mantém ele lá dentro!
-        pastaAtual = window.wikiCache[window.wikiAtualId].pastaId || null;
-    }
-
-    const data = { 
-        titulo: t, 
-        conteudo: c, 
-        projetoId: window.projetoAtualId, 
-        pastaId: pastaAtual,
-        autorUltimaModificacao: auth.currentUser.email,
-        dataAtualizacao: new Date().toISOString()
-    };
-    
     try {
-        if (window.wikiAtualId) {
-            // Se já tem ID, apenas ATUALIZA o documento existente
-            await updateDoc(doc(db, "wiki", window.wikiAtualId), data);
-        } else {
-            // MÁGICA 2: A CORREÇÃO DO BUG DOS CLONES!
-            // Ele cria no banco e IMEDIATAMENTE salva a ID nova no Hub
-            const docRef = await addDoc(collection(db, "wiki"), { ...data, dataCriacao: new Date().toISOString() });
-            window.wikiAtualId = docRef.id; // TRANCANDO A ID! Nunca mais vai duplicar.
-            
-            // Adiciona no cache temporário pra tela não piscar e não perder a referência
-            window.wikiCache[docRef.id] = { id: docRef.id, ...data, pastaId: pastaAtual };
-        }
+        // Atualiza apenas o conteúdo e a data
+        await updateDoc(doc(db, "wiki", window.wikiAtualId), {
+            conteudo: conteudoTexto,
+            autorUltimaModificacao: auth.currentUser.email,
+            dataAtualizacao: new Date().toISOString()
+        });
         
-        // Feedback visual silencioso
+        // Feedback visual do "✓ Salvo"
         if (isAutoSave) {
             const indicador = document.getElementById('wiki-autosave-indicator');
             if (indicador) {
@@ -1752,19 +1734,11 @@ window.salvarPaginaWiki = async (isAutoSave = false) => {
                 indicador.innerText = '✓ Salvo';
                 setTimeout(() => indicador.style.opacity = '0', 2000); 
             }
-        } else {
-            // Se foi clicado no botão manualmente
-            const btn = document.querySelector('button[onclick="salvarPaginaWiki()"]');
-            if(btn) { 
-                const textoAntigo = btn.innerText;
-                btn.innerText = "✓ Salvo"; 
-                setTimeout(() => btn.innerText = textoAntigo, 2000); 
-            }
         }
     } catch(e) { 
         console.error("Erro ao salvar:", e); 
     } finally {
-        window.isSavingWiki = false; // Destranca a porta pro próximo save!
+        window.isSavingWiki = false;
     }
 };
 
@@ -1893,59 +1867,96 @@ window.renderizarWikiTree = () => {
         return; 
     }
 
-    // 2. Função que desenha a árvore de verdade
+    // 2. Função que desenha a árvore de verdade (Com Fantasma e Multi-Seleção)
     const construirArvore = (parentId, inTrash = false) => {
         let html = '';
+        
+        // --- DESENHANDO AS PASTAS ---
         if (pastasPorPai[parentId]) {
             pastasPorPai[parentId].forEach(f => {
                 const isFechada = window.wikiPastasFechadas.has(f.id);
                 const seta = isFechada ? '▶' : '▼';
                 const classeLixo = inTrash ? 'item-apagado' : '';
-                
                 const isSelecionada = (f.id === window.ultimaPastaSelecionada);
                 const classeSelecionada = isSelecionada ? 'selected' : '';
+
+                // VERIFICAÇÃO MULTI-SELEÇÃO DA PASTA
+                const isMultiSelected = window.itensSelecionadosWiki.some(i => i.id === f.id);
+                const classeMulti = isMultiSelected ? 'multi-selected' : '';
+
+                const menuAcoes = inTrash ? '' : `
+                    <div class="comment-menu-container wiki-item-actions">
+                        <button class="comment-menu-trigger" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')">⋮</button>
+                        <div class="dropdown-content">
+                            <button onclick="window.renomearPastaWiki(event, '${f.id}', '${f.nome.replace(/'/g, "\\'")}')">✏️ Renomear</button>
+                            <button class="del" onclick="window.deletarPastaWiki(event, '${f.id}')">🗑️ Excluir Pasta</button>
+                        </div>
+                    </div>
+                `;
+
+                // Verifica se a pasta está vazia
+                const temSubpastas = pastasPorPai[f.id] && pastasPorPai[f.id].length > 0;
+                const temArquivos = arquivosPorPasta[f.id] && arquivosPorPasta[f.id].length > 0;
+                let conteudoDaPasta = construirArvore(f.id, inTrash);
                 
-                const displayBtn = isSelecionada ? 'block' : 'none';
-                const btnRenomear = `<button class="icon-btn btn-renomear-pasta" onclick="renomearPastaWiki(event, '${f.id}', '${f.nome}')" style="font-size: 0.8rem; color: var(--primary); padding:0; display: ${displayBtn};" data-tooltip="Renomear">✏️</button>`;
+                if (!temSubpastas && !temArquivos && !inTrash) {
+                    conteudoDaPasta = `<div style="padding: 10px 15px 10px 30px; color: #555; font-size: 0.75rem; font-style: italic; pointer-events: none;">📂 Pasta vazia... solte arquivos aqui.</div>`;
+                }
 
                 html += `
                     <div style="margin-top: 5px;" class="${classeLixo}">
-                        <div class="wiki-folder-header ${classeSelecionada}" draggable="true" ondragstart="dragStartWiki(event, '${f.id}', 'folder')" onclick="selecionarPastaWiki(event, '${f.id}')" ondblclick="togglePastaWiki(event, '${f.id}')" ondragover="dragOverWiki(event)" ondragleave="dragLeaveWiki(event)" ondrop="dropWiki(event, '${f.id}')">
-                            <span style="user-select: none;">${seta} 📁 ${f.nome}</span>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                ${btnRenomear}
+                        <div class="wiki-folder-header ${classeSelecionada} ${classeMulti}" draggable="true" 
+                             ondragstart="window.dragStartWiki(event, '${f.id}', 'folder')" 
+                             onclick="window.handleWikiItemClick(event, '${f.id}', 'folder', '${f.nome.replace(/'/g, "\\'")}')" 
+                             ondblclick="window.togglePastaWiki(event, '${f.id}')" 
+                             ondragover="window.dragOverWiki(event)" ondragleave="window.dragLeaveWiki(event)" ondrop="window.dropWiki(event, '${f.id}')">
+                            <div class="wiki-item-name" title="${f.nome}">
+                                <span class="folder-toggle-icon" onclick="window.togglePastaWiki(event, '${f.id}')">${seta}</span>
+                                <span>📁</span>
+                                <span class="wiki-item-text">${f.nome}</span>
                             </div>
+                            ${menuAcoes}
                         </div>
-                        <div class="wiki-folder-content wiki-dropzone" id="folder-${f.id}" style="display: ${isFechada ? 'none' : 'block'};" ondragover="dragOverWiki(event)" ondragleave="dragLeaveWiki(event)" ondrop="dropWiki(event, '${f.id}')">
-                            ${construirArvore(f.id, inTrash)}
+                        <div class="wiki-folder-content wiki-dropzone" id="folder-${f.id}" style="display: ${isFechada ? 'none' : 'block'};" ondragover="window.dragOverWiki(event)" ondragleave="window.dragLeaveWiki(event)" ondrop="window.dropWiki(event, '${f.id}')">
+                            ${conteudoDaPasta}
                         </div>
                     </div>
                 `;
             });
         }
         
-        // A MÁGICA ESTAVA AQUI!
+        // --- DESENHANDO OS ARQUIVOS ---
         if (arquivosPorPasta[parentId]) {
             arquivosPorPasta[parentId].forEach(p => {
                 const classeLixo = inTrash ? 'item-apagado' : '';
                 const classeAtiva = (p.id === window.wikiAtualId) ? 'active' : '';
-                
-                // MÁGICA: Confere se este arquivo é o que está aberto no momento
                 const temNotificacao = window.cacheNotificacoes.some(n => n.contextId === p.id || n.contextId === p.id + '_note');
-                const pingoHtml = temNotificacao ? '<span class="item-dot"></span>' : '';
+                const pingoHtml = temNotificacao ? '<span class="item-dot" style="flex-shrink:0;"></span>' : '';
 
-                // SE O DOCUMENTO ESTIVER ABERTO E TIVER NOTA, PÕE O PINGO NO BOTÃO LÁ EM CIMA TAMBÉM!
-                if (classeAtiva && temNotificacao) {
-                    const btnComments = document.getElementById('btn-wiki-comments');
-                    if (btnComments && !btnComments.querySelector('.item-dot')) {
-                        btnComments.innerHTML += '<span class="item-dot" style="position: absolute; top: -2px; right: -2px; box-shadow: 0 0 10px var(--primary);"></span>';
-                    }
-                }
+                // VERIFICAÇÃO MULTI-SELEÇÃO DO ARQUIVO
+                const isMultiSelected = window.itensSelecionadosWiki.some(i => i.id === p.id);
+                const classeMulti = isMultiSelected ? 'multi-selected' : '';
 
-                // AQUI VOLTAMOS COM O ONCLICK, O DRAGGABLE E AS CLASSES CERTAS!
+                const menuAcoes = inTrash ? '' : `
+                    <div class="comment-menu-container wiki-item-actions">
+                        <button class="comment-menu-trigger" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')">⋮</button>
+                        <div class="dropdown-content">
+                            <button onclick="window.renomearArquivoWikiDireto(event, '${p.id}', '${p.titulo.replace(/'/g, "\\'")}')">✏️ Renomear</button>
+                            <button class="del" onclick="window.deletarArquivoWikiDireto(event, '${p.id}')">🗑️ Excluir Arquivo</button>
+                        </div>
+                    </div>
+                `;
+
                 html += `
-                    <div class="wiki-file-item ${classeLixo} ${classeAtiva}" draggable="true" ondragstart="dragStartWiki(event, '${p.id}', 'file')" onclick="abrirWiki('${p.id}')">
-                        <span>📄</span> ${p.titulo} ${pingoHtml}
+                    <div class="wiki-file-item ${classeLixo} ${classeAtiva} ${classeMulti}" draggable="true" 
+                         ondragstart="window.dragStartWiki(event, '${p.id}', 'file')" 
+                         onclick="window.handleWikiItemClick(event, '${p.id}', 'file', '${p.titulo.replace(/'/g, "\\'")}')">
+                        <div class="wiki-item-name" title="${p.titulo}">
+                            <span>📄</span> 
+                            <span class="wiki-item-text">${p.titulo}</span>
+                            ${pingoHtml}
+                        </div>
+                        ${menuAcoes}
                     </div>
                 `;
             });
@@ -1957,73 +1968,76 @@ window.renderizarWikiTree = () => {
     let arvoreLixeira = construirArvore('trash', true); 
 
     let btnEsvaziar = (arvoreLixeira && window.userRole === 'admin') 
-        ? `<button class="btn-primary" onclick="esvaziarLixeira()" style="background: transparent; color: #ff5252; border: 1px solid #ff5252; width: 100%; margin-top: 15px; font-size: 0.8rem;">🔥 Esvaziar Definitivamente</button>` 
+        ? `<button class="btn-primary" onclick="window.esvaziarLixeira()" style="background: transparent; color: #ff5252; border: 1px solid #ff5252; width: 100%; margin-top: 15px; font-size: 0.8rem;">🔥 Esvaziar Definitivamente</button>` 
         : '';
 
-    const estiloRaiz = (window.ultimaPastaSelecionada === null) 
-        ? 'border-color: var(--primary); background: rgba(129, 254, 78, 0.05);' 
-        : 'border-color: rgba(255,255,255,0.1); background: transparent;';
+    // (Apague as variáveis estiloRaiz, etc. que estavam aqui)
+
+    // MÁGICA: Controle de exibição da Lixeira
+    const setaLixeira = window.lixeiraAberta ? '▼' : '▶';
+    const displayLixeira = window.lixeiraAberta ? 'block' : 'none';
+    const paddingLixeira = window.lixeiraAberta ? '15px' : '10px 15px';
+    const margemTitulo = window.lixeiraAberta ? '10px' : '0';
+
+    const isRootSelected = (window.ultimaPastaSelecionada === null);
 
     container.innerHTML = `
-        <div class="wiki-dropzone" id="folder-root" style="min-height: 100px;" ondragover="dragOverWiki(event)" ondragleave="dragLeaveWiki(event)" ondrop="dropWiki(event, 'root')">
-            ${arvoreCompleta}
-            <div id="btn-selecionar-raiz" style="text-align: center; color: var(--text-muted); cursor: pointer; font-size: 0.8rem; padding: 20px 0; border: 1px dashed; border-radius: 8px; margin-top: 10px; transition: 0.2s; ${estiloRaiz}" onclick="selecionarRaizWiki(event)">
-                ☁️ Raiz do Projeto (Clique para selecionar a raiz)
+        <div class="wiki-root-node ${isRootSelected ? 'selected' : ''}" onclick="window.selecionarRaizWiki(event)" ondragover="window.dragOverWiki(event)" ondragleave="window.dragLeaveWiki(event)" ondrop="window.dropWiki(event, 'root')">
+            <div class="wiki-item-name" title="Raiz do Workspace">
+                <span style="width: 22px; display: inline-block; text-align: center; font-size: 0.9rem;">☁️</span>
+                <span class="wiki-item-text" style="font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #888;">Workspace</span>
             </div>
         </div>
 
-        <div class="wiki-trash-zone wiki-dropzone" id="folder-trash" ondragover="dragOverWiki(event)" ondragleave="dragLeaveWiki(event)" ondrop="dropWiki(event, 'trash')">
-            <div class="wiki-trash-title">🗑️ Lixeira</div>
-            <div style="font-size: 0.75rem; color: #888; margin-bottom: 10px;">Arraste pastas/arquivos para cá.</div>
-            ${arvoreLixeira}
-            ${btnEsvaziar}
+        <div class="wiki-root-children wiki-dropzone" id="folder-root" ondragover="window.dragOverWiki(event)" ondragleave="window.dragLeaveWiki(event)" ondrop="window.dropWiki(event, 'root')">
+            ${arvoreCompleta}
+        </div>
+
+        <div class="wiki-trash-zone wiki-dropzone" id="folder-trash" ondragover="window.dragOverWiki(event)" ondragleave="window.dragLeaveWiki(event)" ondrop="window.dropWiki(event, 'trash')" style="padding: ${paddingLixeira};">
+            <div class="wiki-trash-title" onclick="window.toggleLixeiraWiki(event)" style="cursor: pointer; display: flex; align-items: center; gap: 6px; margin-bottom: ${margemTitulo}; transition: 0.2s;">
+                <span class="folder-toggle-icon" style="margin-left: 0; color: #ff5252;">${setaLixeira}</span> 
+                <span>🗑️ Lixeira</span>
+            </div>
+            
+            <div style="display: ${displayLixeira};">
+                <div style="font-size: 0.75rem; color: #888; margin-bottom: 10px;">Arraste pastas e arquivos para cá.</div>
+                ${arvoreLixeira}
+                ${btnEsvaziar}
+            </div>
         </div>
     `;
 };
 
 // --- MÁGICA DOS CLIQUES (AGORA SEM PISCAR A TELA) ---
 
-// 1 CLIQUE: Muda só o CSS para o duplo clique não falhar!
+// 1 CLIQUE: Seleciona a Pasta Comum
 window.selecionarPastaWiki = (e, folderId) => {
     e.stopPropagation();
     window.ultimaPastaSelecionada = folderId;
     
-    // Tira a seleção e o lápis de todo mundo
-    document.querySelectorAll('.wiki-folder-header').forEach(el => {
+    // Tira a seleção de pastas comuns E da raiz
+    document.querySelectorAll('.wiki-folder-header, .wiki-root-node').forEach(el => {
         el.classList.remove('selected');
-        const btn = el.querySelector('.btn-renomear-pasta');
-        if (btn) btn.style.display = 'none';
     });
     
-    // Adiciona a seleção e mostra o lápis só na que foi clicada
+    // Adiciona a seleção apenas na que foi clicada
     e.currentTarget.classList.add('selected');
-    const meuBtn = e.currentTarget.querySelector('.btn-renomear-pasta');
-    if (meuBtn) meuBtn.style.display = 'block';
-
-    // Apaga a cor da Raiz
-    const btnRaiz = document.getElementById('btn-selecionar-raiz');
-    if (btnRaiz) {
-        btnRaiz.style.borderColor = 'rgba(255,255,255,0.1)';
-        btnRaiz.style.background = 'transparent';
-    }
 };
 
+// 1 CLIQUE: Seleciona o Nó Raiz do Sistema
 window.selecionarRaizWiki = (e) => {
     if (e) e.stopPropagation();
     window.ultimaPastaSelecionada = null;
     
-    // Tira a seleção de todos
+    // Tira a seleção de todas as pastas comuns
     document.querySelectorAll('.wiki-folder-header').forEach(el => {
         el.classList.remove('selected');
-        const btn = el.querySelector('.btn-renomear-pasta');
-        if (btn) btn.style.display = 'none';
     });
 
     // Acende a Raiz
-    const btnRaiz = document.getElementById('btn-selecionar-raiz');
-    if (btnRaiz) {
-        btnRaiz.style.borderColor = 'var(--primary)';
-        btnRaiz.style.background = 'rgba(129, 254, 78, 0.05)';
+    const rootNode = document.querySelector('.wiki-root-node');
+    if (rootNode) {
+        rootNode.classList.add('selected');
     }
 };
 
@@ -2037,9 +2051,18 @@ window.togglePastaWiki = (e, folderId) => {
 
 window.dragStartWiki = (e, itemId, type) => { 
     e.stopPropagation();
-    e.dataTransfer.setData("itemId", itemId); 
-    e.dataTransfer.setData("itemType", type); 
+    
+    // Se você tentar arrastar um item que NÃO está na sua seleção múltipla,
+    // ele assume que você quer arrastar SÓ ele, e limpa o resto.
+    if (!window.itensSelecionadosWiki.find(i => i.id === itemId)) {
+        window.itensSelecionadosWiki = [{ id: itemId, type: type }];
+        window.renderizarWikiTree();
+    }
+    
+    // Transforma a nossa lista de itens num pacote de texto para o navegador carregar
+    e.dataTransfer.setData("items", JSON.stringify(window.itensSelecionadosWiki)); 
 };
+
 window.dragOverWiki = (e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('drag-over'); };
 window.dragLeaveWiki = (e) => { e.stopPropagation(); e.currentTarget.classList.remove('drag-over'); };
 
@@ -2047,30 +2070,43 @@ window.dropWiki = async (e, folderId) => {
     e.preventDefault(); e.stopPropagation(); 
     e.currentTarget.classList.remove('drag-over');
     
-    const itemId = e.dataTransfer.getData("itemId");
-    const itemType = e.dataTransfer.getData("itemType");
-    if (!itemId) return;
+    const pacote = e.dataTransfer.getData("items");
+    if (!pacote) return;
+    const itensArrastados = JSON.parse(pacote);
 
     let targetFolder = folderId;
     if (folderId === 'root') targetFolder = null;
     
     try {
-        if (itemType === 'file') {
-            await updateDoc(doc(db, "wiki", itemId), { pastaId: targetFolder });
-        } else if (itemType === 'folder') {
-            if (itemId === targetFolder) return alert("Erro: Você não pode colocar uma pasta nela mesma!");
-            
-            let checkId = targetFolder;
-            let isDescendant = false;
-            while (checkId != null && checkId !== 'trash') {
-                if (checkId === itemId) { isDescendant = true; break; }
-                const parent = window.wikiFoldersCache.find(f => f.id === checkId);
-                checkId = parent ? parent.parentId : null;
-            }
-            if (isDescendant) return alert("Paradoxo: Pasta filha não engole pasta pai!");
+        // Processa TODOS os arquivos do pacote de uma vez só!
+        for (let item of itensArrastados) {
+            if (item.type === 'file') {
+                await updateDoc(doc(db, "wiki", item.id), { pastaId: targetFolder });
+            } 
+            else if (item.type === 'folder') {
+                if (item.id === targetFolder) continue; // Ignora se tentar jogar a pasta nela mesma
+                
+                // Trava de Paradoxo (Impede de jogar a pasta pai dentro da pasta filha)
+                let checkId = targetFolder;
+                let isDescendant = false;
+                while (checkId != null && checkId !== 'trash') {
+                    if (checkId === item.id) { isDescendant = true; break; }
+                    const parent = window.wikiFoldersCache.find(f => f.id === checkId);
+                    checkId = parent ? parent.parentId : null;
+                }
+                if (isDescendant) {
+                    alert("Aviso: Algumas pastas foram ignoradas para evitar o paradoxo de colocar uma pasta pai dentro da própria filha!");
+                    continue;
+                }
 
-            await updateDoc(doc(db, "wiki_pastas", itemId), { parentId: targetFolder });
+                await updateDoc(doc(db, "wiki_pastas", item.id), { parentId: targetFolder });
+            }
         }
+        
+        // Limpa a seleção depois de soltar
+        window.itensSelecionadosWiki = [];
+        window.renderizarWikiTree();
+        
     } catch(err) { console.error(err); }
 };
 
@@ -2090,14 +2126,44 @@ window.abrirWiki = (id) => {
     window.limparNotificacaoItem(id);
 };
 
-window.novaPaginaWiki = () => {
-    window.wikiAtualId = null;
-    localStorage.removeItem('heartkey_ultima_wiki_id'); // Limpa a memória
+// --- CRIAÇÃO DE ARQUIVO COM NOME IMEDIATO ---
+window.novaPaginaWiki = async () => {
+    if (!window.projetoAtualId) return;
     
-    document.getElementById('wiki-titulo').value = '';
-    document.getElementById('wiki-conteudo').value = '';
-    window.setWikiMode('edit');
-    window.renderizarWikiTree();
+    // 1. Pede o nome do documento igual à pasta faz
+    const nomeDoc = prompt("Nome do novo documento:", "Novo Documento");
+    
+    // Se a pessoa cancelar ou deixar em branco, não cria nada
+    if (!nomeDoc || nomeDoc.trim() === "") return; 
+    
+    try {
+        // 2. Cria o documento no banco já dentro da pasta selecionada (ou na raiz)
+        const docRef = await addDoc(collection(db, "wiki"), {
+            titulo: nomeDoc.trim(),
+            conteudo: "",
+            projetoId: window.projetoAtualId,
+            pastaId: window.ultimaPastaSelecionada, // Nasce onde você clicou!
+            dataCriacao: new Date().toISOString(),
+            autorUltimaModificacao: auth.currentUser.email
+        });
+        
+        // 3. Define este novo arquivo como o ativo
+        window.wikiAtualId = docRef.id;
+        localStorage.setItem('heartkey_ultima_wiki_id', docRef.id);
+        
+        // 4. Prepara o editor
+        const inputConteudo = document.getElementById('wiki-conteudo');
+        if(inputConteudo) {
+            inputConteudo.value = "";
+            window.setWikiMode('edit');
+            
+            // UX Premium: Já coloca o cursor piscando na folha pra você
+            setTimeout(() => inputConteudo.focus(), 100); 
+        }
+        
+    } catch(e) { 
+        console.error("Erro ao criar documento:", e); 
+    }
 };
 
 window.esvaziarLixeira = async () => {
@@ -5944,3 +6010,130 @@ window.acionarComentarioFantasma = () => {
     // Foca na caixa de texto para a pessoa só começar a digitar
     setTimeout(() => inputBox.focus(), 100);
 };
+
+/* ==========================================================================
+   WIKI - GESTÃO DIRETA DA ÁRVORE (RENOMEAR / EXCLUIR)
+   ========================================================================== */
+
+window.renomearArquivoWikiDireto = async (e, id, nomeAtual) => {
+    e.stopPropagation(); // Impede de abrir o arquivo ao clicar no botão
+    
+    const novoNome = prompt("Renomear documento para:", nomeAtual);
+    
+    if (novoNome && novoNome.trim() !== "" && novoNome !== nomeAtual) {
+        try {
+            await updateDoc(doc(db, "wiki", id), { 
+                titulo: novoNome.trim(),
+                dataAtualizacao: new Date().toISOString()
+            });
+            
+            // Se o arquivo renomeado for o que está aberto na tela, atualiza o título grande lá no topo também!
+            if (window.wikiAtualId === id) {
+                const tituloInput = document.getElementById('wiki-titulo');
+                if(tituloInput) tituloInput.value = novoNome.trim();
+            }
+            
+        } catch(err) { 
+            console.error("Erro ao renomear arquivo:", err); 
+            alert("Erro ao renomear. Tente novamente.");
+        }
+    }
+};
+
+window.deletarArquivoWikiDireto = async (e, id) => {
+    e.stopPropagation(); // Impede de abrir o arquivo
+    
+    if (confirm("Mover este arquivo para a lixeira?")) {
+        try {
+            await updateDoc(doc(db, "wiki", id), { 
+                pastaId: 'trash', // Joga para a lixeira ao invés de apagar de vez
+                dataAtualizacao: new Date().toISOString()
+            });
+            
+            // Se eu apaguei o arquivo que estava lendo, limpa a tela para eu não editar um fantasma
+            if (window.wikiAtualId === id) {
+                window.fecharSessaoWiki();
+            }
+            
+        } catch(err) { 
+            console.error("Erro ao excluir arquivo:", err); 
+        }
+    }
+};
+
+/* ==========================================================================
+   WIKI - GESTOR DE CLIQUES (SELEÇÃO MÚLTIPLA E TRIPLO CLIQUE)
+   ========================================================================== */
+window.itensSelecionadosWiki = []; // Memória do que está selecionado
+
+window.handleWikiItemClick = (e, id, tipo, nomeAtual) => {
+    // 1. SELEÇÃO MÚLTIPLA (Ctrl / Cmd / Shift) - Ignora a velocidade do clique!
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        e.stopPropagation(); 
+        
+        const index = window.itensSelecionadosWiki.findIndex(i => i.id === id);
+        if (index > -1) {
+            window.itensSelecionadosWiki.splice(index, 1); // Se já tá selecionado, tira
+        } else {
+            window.itensSelecionadosWiki.push({ id: id, type: tipo }); // Se não tá, adiciona
+        }
+        window.renderizarWikiTree(); // Atualiza a cor na tela
+        return; // Interrompe o resto da função!
+    }
+
+    // 2. CLIQUE SIMPLES NORMAL
+    if (e.detail === 1) {
+        // Limpa a seleção múltipla e foca só neste item
+        window.itensSelecionadosWiki = [{ id: id, type: tipo }];
+        
+        if (tipo === 'folder') {
+            window.selecionarPastaWiki(e, id);
+        } else {
+            window.abrirWiki(id);
+        }
+        window.renderizarWikiTree();
+    } 
+    // 3. TRIPLO CLIQUE (Renomear)
+    else if (e.detail === 3) {
+        e.stopPropagation();
+        if (tipo === 'folder') window.renomearPastaWiki(e, id, nomeAtual);
+        else window.renomearArquivoWikiDireto(e, id, nomeAtual);
+    }
+};
+
+/* ==========================================================================
+   WIKI - GESTÃO DA LIXEIRA COLAPSÁVEL
+   ========================================================================== */
+// A lixeira nasce fechada por padrão
+window.lixeiraAberta = false;
+
+window.toggleLixeiraWiki = (e) => {
+    if (e) e.stopPropagation();
+    window.lixeiraAberta = !window.lixeiraAberta;
+    window.renderizarWikiTree(); // Redesenha a tela instantaneamente
+};
+
+/* ==========================================================================
+   WIKI - ATALHOS DE TECLADO (PRO FLOW)
+   ========================================================================== */
+document.addEventListener('keydown', (e) => {
+    // 1. Ignora se a pessoa estiver digitando dentro de um input ou na folha da Wiki
+    if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+
+    // 2. ATALHO: F2 para Renomear
+    if (e.key === 'F2') {
+        e.preventDefault(); // Impede o navegador de tentar fazer outra coisa
+        
+        // Se tem uma pasta selecionada (acesa em verde neon)
+        if (window.ultimaPastaSelecionada && window.ultimaPastaSelecionada !== 'root') {
+            const pasta = window.wikiFoldersCache.find(p => p.id === window.ultimaPastaSelecionada);
+            if (pasta) window.renomearPastaWiki(e, pasta.id, pasta.nome);
+        } 
+        // Se não tem pasta, mas tem um arquivo aberto lendo no momento
+        else if (window.wikiAtualId) {
+            const arquivo = window.wikiPagesCache.find(p => p.id === window.wikiAtualId);
+            if (arquivo) window.renomearArquivoWikiDireto(e, arquivo.id, arquivo.titulo);
+        }
+    }
+});

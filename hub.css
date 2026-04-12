@@ -3132,6 +3132,69 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
     box-shadow: 0 0 10px rgba(255, 193, 7, 0.4);
 }
 
+/* ==========================================================================
+   UX MASTER: GERENCIADOR DE ARQUIVOS (WIKI TREE)
+   ========================================================================== */
+
+/* Bloqueia a barra de rolagem horizontal no painel da Wiki */
+.wiki-sidebar {
+    overflow-x: hidden !important; 
+}
+
+/* Base flexível para Arquivos e Pastas */
+.wiki-file-item, .wiki-folder-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 6px 10px !important;
+    border-radius: 6px !important;
+    max-width: 100% !important; /* Impede de vazar do painel pai */
+    position: relative;
+}
+
+/* O contêiner do Nome (Aqui mora a mágica do '...') */
+.wiki-item-name {
+    flex: 1; /* Ocupa todo o espaço disponível */
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0; /* CRÍTICO: Permite que o Flexbox encolha o item abaixo do tamanho do texto */
+}
+
+/* O Texto em si, cortando elegantemente */
+.wiki-item-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.85rem;
+}
+
+/* Contêiner de Ações (Editar / Lixeira) - Escondido por padrão */
+.wiki-item-actions {
+    display: none; 
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0; /* Impede os botões de serem esmagados */
+}
+
+/* Aparece apenas quando passa o mouse no item (ou se estiver focado no mobile) */
+.wiki-file-item:hover .wiki-item-actions,
+.wiki-folder-header:hover .wiki-item-actions {
+    display: flex !important;
+    animation: fadeInDrop 0.2s ease forwards;
+}
+
+/* Ajuste dos botões minúsculos da árvore */
+.wiki-item-actions .icon-btn {
+    font-size: 0.8rem !important;
+    padding: 2px 4px !important;
+    background: rgba(0,0,0,0.3);
+    border-radius: 4px;
+}
+.wiki-item-actions .icon-btn:hover {
+    background: rgba(255,255,255,0.1);
+}
+
 
 /* ==========================================================================
    SELETOR DE EQUIPE (TAGS DE COLABORADORES)
@@ -3690,4 +3753,175 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
     opacity: 1;
     visibility: visible;
     transform: translateY(-50%) scale(1);
+}
+
+/* A Setinha de Expandir/Encolher Pastas */
+.folder-toggle-icon {
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: 0.2s ease;
+    margin-left: -5px; /* Compensa o espaço extra para ficar alinhado */
+    color: var(--text-muted);
+}
+
+.folder-toggle-icon:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+}
+
+/* ==========================================================================
+   WIKI - MENU DE AÇÕES NOS ITENS (3 PONTINHOS)
+   ========================================================================== */
+
+/* Ajuste do container de menu na árvore para ser mais discreto */
+.wiki-item-actions .dropdown-content {
+    right: 0;
+    top: 25px;
+    min-width: 140px;
+    background: #111 !important;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    z-index: 1000;
+}
+
+.wiki-item-actions .dropdown-content button {
+    width: 100%;
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 0.75rem;
+    background: transparent;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: 0.2s;
+}
+
+.wiki-item-actions .dropdown-content button:hover {
+    background: rgba(129, 254, 78, 0.1);
+    color: var(--primary);
+}
+
+.wiki-item-actions .dropdown-content button.del {
+    color: #ff5252;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.wiki-item-actions .dropdown-content button.del:hover {
+    background: rgba(255, 82, 82, 0.1);
+}
+
+/* Mostra os 3 pontinhos no hover do item */
+.wiki-file-item:hover .wiki-item-actions,
+.wiki-folder-header:hover .wiki-item-actions {
+    display: flex !important;
+}
+
+/* ==========================================================================
+   UX MASTER: CORREÇÕES DA ÁRVORE DA WIKI E LARGURA DO PAINEL
+   ========================================================================== */
+
+/* 1. Alarga o painel lateral e aproxima da folha de papel */
+.wiki-layout { 
+    grid-template-columns: 320px 1fr !important; /* Painel mais largo (era 240px) */
+    gap: 15px !important; /* Aproxima os painéis (era 25px) */
+}
+
+/* 2. Reduz o padding (espaço inútil) dentro do painel para caber mais texto */
+.wiki-sidebar {
+    padding: 20px 15px !important; 
+}
+
+/* 3. A MÁGICA DA SOBREPOSIÇÃO (Z-Index) */
+/* Quando o mouse passar por cima de um item, ele "salta" para a frente da tela. 
+   Assim, o menu dele sempre vai ficar por cima dos itens de baixo! */
+.wiki-file-item:hover, 
+.wiki-folder-header:hover {
+    z-index: 50; 
+}
+
+/* 4. Tira a invisibilidade dos 3 pontinhos e os deixa mais fáceis de clicar */
+.wiki-item-actions .comment-menu-trigger {
+    opacity: 1 !important;
+    font-size: 1.3rem !important; 
+    padding: 0 4px !important;
+    color: var(--text-muted);
+}
+
+.wiki-item-actions .comment-menu-trigger:hover {
+    color: #fff !important;
+    transform: scale(1.1);
+}
+
+/* ==========================================================================
+   WIKI - REMOÇÃO DO TÍTULO DUPLICADO E ALINHAMENTO
+   ========================================================================== */
+#wiki-titulo {
+    display: none !important; /* Extermina o campo de título da folha */
+}
+
+.wiki-header-tools {
+    justify-content: flex-end !important; /* Joga os botões e o aviso de 'Salvo' para a direita */
+}
+
+/* ==========================================================================
+   WIKI - NÓ RAIZ (ROOT NODE SYSTEM)
+   ========================================================================== */
+.wiki-root-node {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: 0.2s;
+    margin-bottom: 5px;
+    border: 1px solid transparent;
+}
+
+.wiki-root-node:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.wiki-root-node.selected {
+    background: rgba(129, 254, 78, 0.05);
+    border-color: var(--primary);
+}
+
+.wiki-root-node.selected .wiki-item-text {
+    color: var(--primary) !important;
+}
+
+/* Cria a linhazinha vertical embaixo da raiz para dar sensação de aninhamento */
+.wiki-root-children {
+    min-height: 50px; 
+    padding-left: 15px; 
+    margin-bottom: 15px; 
+    border-left: 1px solid rgba(255,255,255,0.05); 
+    margin-left: 10px;
+}
+
+/* Impede o texto de ser selecionado como texto normal ao fazer seleção múltipla */
+.wiki-file-item, .wiki-folder-header {
+    user-select: none !important; 
+    -webkit-user-select: none !important;
+}
+
+/* Garanta que esta classe da cor verde neon está no seu CSS! */
+.wiki-file-item.multi-selected, 
+.wiki-folder-header.multi-selected {
+    background: rgba(129, 254, 78, 0.15) !important;
+    border-color: rgba(129, 254, 78, 0.3) !important;
+}
+.wiki-file-item.multi-selected .wiki-item-text, 
+.wiki-folder-header.multi-selected .wiki-item-text {
+    color: #fff !important;
 }
