@@ -3069,8 +3069,58 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 }
 
 /* ==========================================================================
+   SCROLL ELEGANTE PARA OS MENUS LATERAIS (DOCKS)
+   ========================================================================== */
+.sidebar, .members-sidebar {
+    width: 80px; /* 5px mais largo para o brilho neon não encostar na parede e cortar */
+    overflow-y: auto !important; /* MÁGICA: Permite rolar a lista inteira para baixo */
+    overflow-x: hidden !important; /* Esconde qualquer coisa que vazar pros lados */
+    scrollbar-width: none; /* Esconde a barra visualmente no Firefox */
+}
+
+/* Esconde a barra de rolagem no Chrome/Edge/Safari (A rolagem pelo mouse/dedo continua funcionando!) */
+.sidebar::-webkit-scrollbar, 
+.members-sidebar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Garante a expansão correta no hover */
+.sidebar:hover { width: 240px !important; }
+.members-sidebar:hover { width: 250px !important; }
+
+/* ==========================================================================
    14. RESPONSIVIDADE MASTER (Múltiplos Breakpoints)
    ========================================================================== */
+
+   
+/* ==========================================================================
+   COMPACTAÇÃO INTELIGENTE (ANTI-ZOOM VERTICAL PARA OS DOCKS)
+   ========================================================================== */
+@media (max-height: 850px) {
+    .sidebar { max-height: 95vh; padding: 15px 0; }
+    .members-sidebar { max-height: 95vh !important; padding: 15px 0 !important; }
+    .sidebar .logo { margin-bottom: 15px; }
+    .menu { gap: 8px; }
+    .nav-icon-ball, .member-avatar-mini { width: 40px; height: 40px; font-size: 1.1rem; }
+}
+
+@media (max-height: 700px) {
+    .sidebar { padding: 10px 0; }
+    .members-sidebar { padding: 10px 0 !important; }
+    .sidebar .logo { margin-bottom: 10px; }
+    .menu { gap: 4px; }
+    .nav-btn, .member-item { padding: 4px 0; }
+    .nav-icon-ball, .member-avatar-mini { width: 34px; height: 34px; font-size: 0.9rem; }
+    .sidebar-footer { padding-top: 10px; }
+}
+
+@media (max-height: 600px) {
+    .sidebar .logo { margin-bottom: 5px; }
+    .menu { gap: 2px; }
+    .nav-btn, .member-item { padding: 2px 0; }
+    .nav-icon-ball, .member-avatar-mini { width: 30px; height: 30px; font-size: 0.8rem; }
+    .nav-text, .member-name-tag { font-size: 0.8rem; }
+}
 
 /* Breakpoint para Laptops Menores ou Zoom de 125% a 150% */
 @media (max-width: 1400px) {
