@@ -825,9 +825,14 @@
                     <label>Descrição</label>
                     <input type="text" id="editProjDesc" required>
                 </div>
-                <div class="form-group">
-                    <label>Colaboradores (E-mails separados por vírgula)</label>
-                    <input type="text" id="editProjColabs" placeholder="dev@gmail.com, arte@gmail.com">
+                <div class="form-group" style="position: relative;">
+                    <label>Equipe do Projeto</label>
+                    <div id="colabs-tags-container" class="tags-input-container">
+                        <div id="colabs-badges-area" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+                        <input type="text" id="colabs-search-input" placeholder="Digite o nome do colega..." autocomplete="off">
+                    </div>
+                    
+                    <ul id="colabs-suggestions" style="display: none; position: absolute; top: 100%; left: 0; background: rgba(15, 15, 18, 0.98); backdrop-filter: blur(10px); border: 1px solid var(--primary); border-radius: 12px; list-style: none; padding: 5px 0; margin-top: 5px; max-height: 180px; overflow-y: auto; width: 100%; z-index: 10000; box-shadow: 0 10px 30px rgba(0,0,0,0.8);"></ul>
                 </div>
                 <div class="form-group">
                     <label>Repositório GitHub</label>

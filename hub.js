@@ -633,21 +633,126 @@ window.carregarProjetos = async () => {
 };
 
 // 3. EDITAR PROJETO
+/* ==========================================================================
+   GESTOR DE EQUIPES (TAGS E DROPDOWN)
+   ========================================================================== */
+window.colaboradoresSelecionados = [];
+
 window.abrirModalEditarProjeto = async () => {
     if (!window.projetoAtualId) return;
     const docSnap = await getDoc(doc(db, "projetos", window.projetoAtualId));
+    
     if (docSnap.exists()) {
         const p = docSnap.data();
         document.getElementById('editProjNome').value = p.nome;
         document.getElementById('editProjDesc').value = p.descricao;
-        document.getElementById('editProjVersao').value = p.versaoAlvo || 1; // Puxa a versão
-        const colabsSemDono = p.colaboradores.filter(em => em !== auth.currentUser.email.toLowerCase());
-        document.getElementById('editProjColabs').value = colabsSemDono.join(', ');
+        document.getElementById('editProjVersao').value = p.versaoAlvo || 1;
         document.getElementById('editProjRepo').value = p.githubRepo || '';
+
+        // 1. Carrega os membros que já estão no projeto (tirando o próprio dono da lista)
+        const colabsSemDono = p.colaboradores.filter(em => em !== auth.currentUser.email.toLowerCase());
+        
+        // Busca a equipe toda pra pegar os nomes e fotos bonitos
+        const snapUsers = await getDocs(collection(db, "usuarios"));
+        window.todosUsuariosCache = snapUsers.docs.map(d => d.data());
+        
+        window.colaboradoresSelecionados = colabsSemDono.map(email => {
+            const u = window.todosUsuariosCache.find(user => user.email === email);
+            return { 
+                email: email, 
+                nome: u ? (u.apelido || u.nome.split(' ')[0]) : email.split('@')[0] 
+            };
+        });
+        
+        window.renderizarTagsColabs();
+        document.getElementById('colabs-search-input').value = '';
+        document.getElementById('colabs-suggestions').style.display = 'none';
+
         window.openModal('modalEditarProjeto');
     }
 };
 
+window.renderizarTagsColabs = () => {
+    const area = document.getElementById('colabs-badges-area');
+    if (!area) return;
+    area.innerHTML = window.colaboradoresSelecionados.map(c => `
+        <div class="user-tag">
+            @${c.nome}
+            <button type="button" onclick="window.removerTagColab('${c.email}')">&times;</button>
+        </div>
+    `).join('');
+};
+
+window.removerTagColab = (email) => {
+    window.colaboradoresSelecionados = window.colaboradoresSelecionados.filter(c => c.email !== email);
+    window.renderizarTagsColabs();
+};
+
+window.adicionarTagColab = (email, nome) => {
+    if (!window.colaboradoresSelecionados.find(c => c.email === email)) {
+        window.colaboradoresSelecionados.push({ email, nome });
+        window.renderizarTagsColabs();
+    }
+    document.getElementById('colabs-search-input').value = '';
+    document.getElementById('colabs-suggestions').style.display = 'none';
+    document.getElementById('colabs-search-input').focus();
+};
+
+// O Espião do Input (Auto-complete)
+setTimeout(() => {
+    const inputBusca = document.getElementById('colabs-search-input');
+    if (!inputBusca) return;
+
+    inputBusca.addEventListener('input', async (e) => {
+        const termo = e.target.value.trim().toLowerCase();
+        const box = document.getElementById('colabs-suggestions');
+        
+        if (termo.length < 1) { box.style.display = 'none'; return; }
+
+        if (!window.todosUsuariosCache) {
+            const snapUsers = await getDocs(collection(db, "usuarios"));
+            window.todosUsuariosCache = snapUsers.docs.map(d => d.data());
+        }
+
+        const meuEmail = auth.currentUser.email.toLowerCase();
+        const selecionadosEmails = window.colaboradoresSelecionados.map(c => c.email);
+
+        // Filtra quem bate com o que você digitou (ignorando quem já tá no projeto e você mesmo)
+        const matches = window.todosUsuariosCache.filter(u => {
+            if (u.email === meuEmail || selecionadosEmails.includes(u.email)) return false;
+            return u.nome.toLowerCase().includes(termo) || (u.apelido && u.apelido.toLowerCase().includes(termo));
+        });
+
+        if (matches.length > 0) {
+            box.innerHTML = matches.map(u => {
+                const nomeExibicao = u.apelido || u.nome.split(' ')[0];
+                const ft = u.avatarBase64 ? `<img src="${u.avatarBase64}" style="width:24px; height:24px; border-radius:50%; object-fit:cover;">` : `👤`;
+                return `
+                <li onmousedown="window.adicionarTagColab('${u.email}', '${nomeExibicao}')" style="padding: 10px 15px; cursor: pointer; color: #fff; font-size: 0.85rem; transition: 0.2s; border-bottom: 1px solid rgba(255,255,255,0.05);" onmouseover="this.style.background='var(--primary)'; this.style.color='#000';" onmouseout="this.style.background='transparent'; this.style.color='#fff';">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        ${ft}
+                        <div>
+                            <strong style="font-size: 0.95rem;">${nomeExibicao}</strong> <br>
+                            <span style="font-size: 0.65rem; opacity: 0.7;">${u.email}</span>
+                        </div>
+                    </div>
+                </li>`;
+            }).join('');
+            box.style.display = 'block';
+        } else {
+            box.innerHTML = `<li style="padding: 10px 15px; color: #888; font-size: 0.8rem; text-align: center;">Nenhum colega encontrado.</li>`;
+            box.style.display = 'block';
+        }
+    });
+    
+    // Esconde a lista se clicar fora
+    inputBusca.addEventListener('blur', () => setTimeout(() => {
+        const box = document.getElementById('colabs-suggestions');
+        if (box) box.style.display = 'none';
+    }, 200));
+}, 1500);
+
+// A Nova Função de Salvar (Lendo as Tags em vez do texto com vírgulas)
 window.salvarEdicaoProjeto = async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector('button[type="submit"]');
@@ -656,14 +761,11 @@ window.salvarEdicaoProjeto = async (e) => {
     const nome = document.getElementById('editProjNome').value.trim();
     const desc = document.getElementById('editProjDesc').value.trim();
     const repo = document.getElementById('editProjRepo').value.trim();
-    const versao = parseInt(document.getElementById('editProjVersao').value) || 1; // Puxa o número da versão
-    const colabsInput = document.getElementById('editProjColabs').value;
+    const versao = parseInt(document.getElementById('editProjVersao').value) || 1; 
     
-    let colaboradores = [auth.currentUser.email.toLowerCase()];
-    if (colabsInput) {
-        const extras = colabsInput.split(',').map(em => em.trim().toLowerCase()).filter(em => em !== '');
-        colaboradores = [...new Set([...colaboradores, ...extras])];
-    }
+    // A MÁGICA: Puxa a equipe direto das Pílulas que criamos
+    let colaboradores = [auth.currentUser.email.toLowerCase(), ...window.colaboradoresSelecionados.map(c => c.email)];
+    colaboradores = [...new Set(colaboradores)]; // Remove duplicatas por segurança
 
     const avatarFile = document.getElementById('editProjAvatar').files[0];
     const capaFile = document.getElementById('editProjCapa').files[0];
@@ -678,7 +780,7 @@ window.salvarEdicaoProjeto = async (e) => {
         
         document.getElementById('titulo-workspace').innerText = nome;
         window.projetoAtualRepo = repo;
-        window.projetoAtualVersaoAlvo = versao; // Atualiza o cérebro
+        window.projetoAtualVersaoAlvo = versao; 
         
         if (updateData.capaBase64) {
             const bannerDiv = document.getElementById('project-banner');
@@ -687,7 +789,7 @@ window.salvarEdicaoProjeto = async (e) => {
         
         closeModal('modalEditarProjeto');
         document.getElementById('formEditarProjeto').reset();
-        window.renderizarKanban(); // Manda a barra atualizar a matemática
+        window.renderizarKanban();
 
     } catch (err) { alert(err.message); }
     btn.disabled = false; btn.innerText = "Salvar Alterações";
