@@ -1396,18 +1396,15 @@ window.setWikiMode = (mode) => {
     if (mode === 'preview') {
         if (edit && prev) {
             let textoBruto = edit.value;
-
-            // MÁGICA: Converte todos os links do Dropbox dentro do Markdown antes de renderizar
-            // Dentro de window.setWikiMode, no bloco 'preview':
             const textoConvertido = textoBruto.replace(/https?:\/\/(www\.)?dropbox\.com\/[^\s)]+/g, (match) => {
                 return window.converterLinkDireto(match);
             });
-
-            // 1. O Markdown transforma o texto convertido em HTML
+            
             let htmlGerado = marked.parse(textoConvertido);
-
-            // 2. Aplicamos as tags customizadas (cores, fontes, centro)
             prev.innerHTML = window.processarTagsCustomizadas(htmlGerado);
+            
+            // MÁGICA 1: Salva o HTML original limpo na memória da folha
+            prev.dataset.originalHtml = prev.innerHTML;
 
             edit.style.setProperty('display', 'none', 'important');
             prev.style.setProperty('display', 'block', 'important');
@@ -1418,7 +1415,6 @@ window.setWikiMode = (mode) => {
         
         try { mermaid.run({ nodes: document.querySelectorAll('.language-mermaid') }); } catch(e){}
         
-        // --- GERAÇÃO DO ÍNDICE (TOC) ---
         if (prev) {
             const headers = prev.querySelectorAll('h2, h3');
             if (headers.length > 0 && toc) {
@@ -1434,12 +1430,16 @@ window.setWikiMode = (mode) => {
                 toc.classList.remove('active');
             }
         }
+
+        // MÁGICA 2: Avisa o banco para puxar os comentários e pintar a tela!
+        if (window.wikiAtualId) window.carregarComentariosWiki(window.wikiAtualId);
+
     } else {
         edit.style.setProperty('display', 'block', 'important');
         prev.style.setProperty('display', 'none', 'important');
         document.getElementById('btn-wiki-edit')?.classList.add('active');
         document.getElementById('btn-wiki-preview')?.classList.remove('active');
-        if (toc) toc.classList.remove('active'); // Esconde o índice ao editar
+        if (toc) toc.classList.remove('active');
     }
 };
 
@@ -1453,7 +1453,6 @@ window.processarTagsCustomizadas = (html) => {
     processado = processado.replace(/\{font:(.*?)\}([\s\S]*?)\{\/font\}/g, '<span style="font-family: \'$1\';">$2</span>');
 
     // 3. Centralização: {center}texto{/center}
-    // Usamos uma classe para o CSS forçar o centro em tudo
     processado = processado.replace(/\{center\}([\s\S]*?)\{\/center\}/g, '<div class="wiki-center">$1</div>');
 
     // 4. Links Obsidian: [[Link]]
@@ -1467,6 +1466,67 @@ window.processarTagsCustomizadas = (html) => {
         
         return `<a class="wiki-internal-link" onclick="abrirWikiPorTitulo(event, '${tituloSafe}', '${ancoraSafe}')">${textoLink}</a>`;
     });
+
+    // 5. MÁGICA DOS VÍDEOS: {video:LINK}
+    processado = processado.replace(/\{video:(.*?)\}/g, (match, url) => {
+        // A MÁGICA AQUI: Limpa qualquer tag HTML (<a>) que o marked.js tenha injetado sem querer
+        let link = url.replace(/<[^>]+>/g, '').trim(); 
+        
+        // 5.1 YouTube
+        if (link.includes('youtube.com/watch?v=')) {
+            let id = link.split('v=')[1].split('&')[0];
+            return `<iframe width="100%" height="450" src="https://www.youtube.com/embed/${id}" frameborder="0" allowfullscreen style="border-radius:12px; margin: 15px 0; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"></iframe>`;
+        } 
+        else if (link.includes('youtu.be/')) {
+            let id = link.split('youtu.be/')[1].split('?')[0];
+            return `<iframe width="100%" height="450" src="https://www.youtube.com/embed/${id}" frameborder="0" allowfullscreen style="border-radius:12px; margin: 15px 0; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"></iframe>`;
+        } 
+        // 5.2 Google Drive
+        else if (link.includes('drive.google.com/file/d/')) {
+            const fileId = link.match(/[-\w]{25,}/); 
+            if (fileId) {
+                return `<iframe width="100%" height="450" src="https://drive.google.com/file/d/${fileId[0]}/preview" frameborder="0" allowfullscreen style="border-radius:12px; margin: 15px 0; box-shadow: 0 10px 30px rgba(0,0,0,0.5);"></iframe>`;
+            }
+        }
+        // 5.3 Dropbox (O Truque do raw=1)
+        else if (link.includes('dropbox.com')) {
+            let dropLink = link.replace("dl=0", "raw=1").replace("dl=1", "raw=1");
+            if (!dropLink.includes("raw=1")) {
+                dropLink += dropLink.includes("?") ? "&raw=1" : "?raw=1";
+            }
+            return `
+                <video width="100%" controls style="border-radius:12px; margin: 15px 0; background: #000; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                    <source src="${dropLink}">
+                    Seu navegador não suporta a tag de vídeo.
+                </video>
+            `;
+        }
+        // 5.4 Arquivos Genéricos
+        else {
+            return `
+                <video width="100%" controls style="border-radius:12px; margin: 15px 0; background: #000; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                    <source src="${link}">
+                    Seu navegador não suporta a tag de vídeo.
+                </video>
+            `;
+        }
+    });
+
+    // 6. MÁGICA DAS IMAGENS COM TAMANHO MANUAL: {img: LINK | TAMANHO}
+    processado = processado.replace(/\{img:\s*([^|}]+)(?:\|\s*([^}]+))?\}/g, (match, url, tamanho) => {
+        let link = url.trim();
+        // Limpa lixo HTML caso o Markdown tente converter em link sozinho
+        link = link.replace(/<[^>]+>/g, '').trim(); 
+        
+        // Se a pessoa passou o tamanho depois do | (ex: 300px, 50%), aplica!
+        let sizeStyle = tamanho ? `width: ${tamanho.trim()} !important; max-height: none;` : '';
+
+        return `<img src="${link}" class="wiki-custom-img" style="${sizeStyle}">`;
+    });
+
+    // 7. Esconder comandos de Layout para não sujarem o texto final
+    processado = processado.replace(/\{width:\s*[^}]+\}/g, '');
+    processado = processado.replace(/\{margin:\s*[^}]+\}/g, '');
 
     return processado;
 };
@@ -1628,6 +1688,37 @@ window.carregarWikiDoProjeto = (pid) => {
     window.renderizarWikiTree();
 };
 
+/* ==========================================================================
+   WIKI - GERENCIADOR DINÂMICO DE LAYOUT DA FOLHA
+   ========================================================================== */
+window.atualizarLayoutFolha = () => {
+    const edit = document.getElementById('wiki-conteudo');
+    const prev = document.getElementById('wiki-preview-area');
+    if (!edit || !prev) return;
+
+    const texto = edit.value;
+
+    // 1. Controle de Largura Máxima (width)
+    const customWidth = texto.match(/\{width:\s*([^}]+)\}/);
+    if (customWidth) {
+        edit.style.setProperty('max-width', customWidth[1], 'important');
+        prev.style.setProperty('max-width', customWidth[1], 'important');
+    } else {
+        edit.style.removeProperty('max-width');
+        prev.style.removeProperty('max-width');
+    }
+
+    // 2. Controle de Margem Interna (margin / padding)
+    const customMargin = texto.match(/\{margin:\s*([^}]+)\}/);
+    if (customMargin) {
+        edit.style.setProperty('padding', customMargin[1], 'important');
+        prev.style.setProperty('padding', customMargin[1], 'important');
+    } else {
+        edit.style.removeProperty('padding');
+        prev.style.removeProperty('padding');
+    }
+};
+
 window.triggerAutoSave = () => {
     const indicador = document.getElementById('wiki-autosave-indicator');
     if (indicador) {
@@ -1636,12 +1727,12 @@ window.triggerAutoSave = () => {
         indicador.innerText = '⏳ Salvando...';
     }
     
-    // Zera o cronômetro se o usuário continuar digitando
-    clearTimeout(window.wikiTimeout);
+    // A MÁGICA: Estica a folha em tempo real enquanto você digita!
+    window.atualizarLayoutFolha();
     
-    // Se ele parar de digitar por 1,5 segundos, salva no banco!
+    clearTimeout(window.wikiTimeout);
     window.wikiTimeout = setTimeout(() => {
-        window.salvarPaginaWiki(true); // O 'true' avisa a função que é um Auto-Save invisível
+        window.salvarPaginaWiki(true);
     }, 1500);
 };
 
@@ -1738,8 +1829,16 @@ window.renderizarWikiTree = () => {
                 const classeAtiva = (p.id === window.wikiAtualId) ? 'active' : '';
                 
                 // MÁGICA: Confere se este arquivo é o que está aberto no momento
-                const temNotificacao = window.cacheNotificacoes.some(n => n.contextId === p.id);
+                const temNotificacao = window.cacheNotificacoes.some(n => n.contextId === p.id || n.contextId === p.id + '_note');
                 const pingoHtml = temNotificacao ? '<span class="item-dot"></span>' : '';
+
+                // SE O DOCUMENTO ESTIVER ABERTO E TIVER NOTA, PÕE O PINGO NO BOTÃO LÁ EM CIMA TAMBÉM!
+                if (classeAtiva && temNotificacao) {
+                    const btnComments = document.getElementById('btn-wiki-comments');
+                    if (btnComments && !btnComments.querySelector('.item-dot')) {
+                        btnComments.innerHTML += '<span class="item-dot" style="position: absolute; top: -2px; right: -2px; box-shadow: 0 0 10px var(--primary);"></span>';
+                    }
+                }
 
                 // AQUI VOLTAMOS COM O ONCLICK, O DRAGGABLE E AS CLASSES CERTAS!
                 html += `
@@ -1999,6 +2098,405 @@ window.fecharSessaoWiki = () => {
     
     console.log("🧹 Sessão da Wiki totalmente resetada.");
 };
+
+/* ==========================================================================
+   SISTEMA DE NOTAS/ALTERAÇÕES DA WIKI
+   ========================================================================== */
+
+window.abrirFeedbackWiki = () => {
+    if (!window.wikiAtualId) {
+        return window.mostrarToastNotificacao('Aviso', 'Abra ou crie um documento primeiro.', 'geral');
+    }
+    
+    // A MÁGICA: Captura o texto que o usuário selecionou com o mouse na tela
+    const selecao = window.getSelection().toString().trim();
+    const inputBox = document.getElementById('wiki-comment-input');
+    
+    // Se tiver algo selecionado, ele injeta o texto formatado como citação no estilo Markdown ( > )
+    if (selecao) {
+        inputBox.value = `> "${selecao}"\n\n`;
+    } else {
+        inputBox.value = ""; // Limpa a caixa se não tiver nada
+    }
+    
+    const docData = window.wikiCache[window.wikiAtualId];
+    document.getElementById('wiki-feedback-titulo').innerText = docData ? docData.titulo : "Documento";
+    
+    window.carregarComentariosWiki(window.wikiAtualId);
+    window.openModal('modalFeedbackWiki');
+    
+    // Foca na caixa de texto automaticamente
+    setTimeout(() => inputBox.focus(), 100);
+    
+    // Apaga a bolinha de notificação do botão de comentários!
+    window.limparNotificacaoItem(window.wikiAtualId + '_note');
+    
+    // Força a remoção visual da bolinha no botão imediatamente
+    const btnComentarios = document.getElementById('btn-wiki-comments');
+    if (btnComentarios) {
+        const dot = btnComentarios.querySelector('.item-dot');
+        if (dot) dot.remove();
+    }
+};
+
+window.carregarComentariosWiki = (wikiId) => {
+    const lista = document.getElementById('lista-comentarios-wiki');
+    const q = query(collection(db, "comentarios_wiki"), where("wikiId", "==", wikiId), orderBy("dataCriacao", "asc"));
+    
+    onSnapshot(q, (snap) => {
+        let abertosHtml = '';
+        let resolvidosHtml = '';
+        let countResolvidos = 0;
+
+        snap.docs.forEach(d => {
+            const c = d.data();
+            const isMe = c.autorEmail === auth.currentUser.email;
+            const isAdmin = window.userRole === 'admin';
+            
+            // Verifica se a nota já foi resolvida
+            const isResolved = c.status === 'resolved';
+
+            let menuHtml = '';
+            // Se eu escrevi OU sou admin, posso gerenciar a nota
+            if (isMe || isAdmin) {
+                const btnResolve = !isResolved ? `<button onclick="window.resolverComentarioWiki('${d.id}')" style="color: #4caf50; font-weight: bold;">✅ Resolver Nota</button>` : '';
+                const btnDelete = isAdmin ? `<button class="del" onclick="window.deletarComentarioWiki('${d.id}')" style="border-top: 1px solid rgba(255,255,255,0.1);">🗑️ Apagar Definitivo</button>` : '';
+
+                menuHtml = `
+                    <div class="comment-menu-container">
+                        <button class="comment-menu-trigger" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')">⋮</button>
+                        <div class="dropdown-content">
+                            ${btnResolve}
+                            ${btnDelete}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            const corBorda = isResolved ? '#4caf50' : (isMe ? 'var(--primary)' : '#ffc107');
+            const opacidade = isResolved ? '0.6' : '1';
+            const authorDecoration = isResolved ? 'text-decoration: line-through; opacity: 0.7;' : '';
+            
+            let conteudoVisual = "";
+
+            // O Pulo do Gato: Verifica se é nota normal ou SUGESTÃO DE EDIÇÃO
+            if (c.tipo === 'sugestao') {
+                const textoMencoes = (c.textoNovo || "").replace(/@([a-zA-Z0-9_À-ÿ]+)/g, '<span class="chat-mention">@$1</span>');
+                const renderNovo = marked.parse(textoMencoes);
+                
+                conteudoVisual = `
+                    <div style="background: rgba(0, 234, 255, 0.05); border: 1px solid rgba(0, 234, 255, 0.2); border-radius: 8px; padding: 12px; margin-top: 10px; margin-bottom: 10px;">
+                        <div style="font-size: 0.75rem; color: #ff5252; text-decoration: line-through; margin-bottom: 8px; border-bottom: 1px dashed rgba(255,82,82,0.3); padding-bottom: 8px;">
+                            <strong>Remover:</strong><br> ${c.textoAntigo}
+                        </div>
+                        <div style="font-size: 0.85rem; color: #00eaff; margin-bottom: 0;">
+                            <strong style="font-size: 0.75rem;">Adicionar:</strong><br> ${renderNovo}
+                        </div>
+                    </div>
+                `;
+
+                // O Botão Mágico (Só aparece se a sugestão estiver aberta)
+                if (!isResolved) {
+                    conteudoVisual += `<button onclick="window.aceitarSugestaoWiki('${d.id}')" class="btn-primary" style="width: 100%; padding: 8px; font-size: 0.85rem; background: #00eaff; color: #000; border: none; font-weight: bold; margin-bottom: 5px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">✨ Aceitar e Aplicar no Texto</button>`;
+                }
+            } else {
+                const textoMencoes = (c.texto || "").replace(/@([a-zA-Z0-9_À-ÿ]+)/g, '<span class="chat-mention">@$1</span>');
+                conteudoVisual = marked.parse(textoMencoes);
+            }
+
+            const itemHtml = `
+                <li class="art-comment-item ${isMe ? 'is-me' : ''}" style="border-left-color: ${corBorda}; margin-bottom: 5px; opacity: ${opacidade}; transition: 0.3s;">
+                    ${menuHtml}
+                    <div class="comment-top-row">
+                        <span class="comment-author" style="${authorDecoration}">${c.autor} ${isResolved ? ' <span style="color:#4caf50;">✓ Resolvido</span>' : ''}</span>
+                        <span class="comment-time">${new Date(c.dataCriacao).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                    </div>
+                    <div class="comment-text markdown-body" style="background:transparent!important; padding:0!important; border:none!important; box-shadow:none!important; min-height:auto; font-size:0.85rem; color: #eee;">
+                        ${conteudoVisual}
+                    </div>
+                </li>
+            `;
+
+            // Separa os resolvidos dos abertos
+            if (isResolved) {
+                resolvidosHtml += itemHtml;
+                countResolvidos++;
+            } else {
+                abertosHtml += itemHtml;
+            }
+        });
+        
+        let finalHtml = abertosHtml;
+
+        // Se houver notas resolvidas, cria uma "gavetinha" sanfona no final
+        if (countResolvidos > 0) {
+            finalHtml += `
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px dashed rgba(255,255,255,0.1);">
+                    <button onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'flex' : 'none'" style="background: transparent; border: none; color: #888; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 5px; font-family: inherit; font-weight: bold; width: 100%; text-align: left;">
+                        ▶ Mostrar ${countResolvidos} notas arquivadas no histórico
+                    </button>
+                    <ul style="display: none; list-style: none; padding: 0; flex-direction: column; gap: 5px; margin-top: 10px;">
+                        ${resolvidosHtml}
+                    </ul>
+                </div>
+            `;
+        }
+
+        lista.innerHTML = finalHtml || '<li style="color:#666; text-align:center; padding:15px;">Documento limpo! Nenhuma nota no momento.</li>';
+        
+        if (!window.preventWikiScroll) {
+            setTimeout(() => lista.scrollTop = lista.scrollHeight, 100);
+        }
+        window.preventWikiScroll = false;
+
+        // ===============================================================
+        // MÁGICA DO MARCA-TEXTO (GRIFOS ANCORADOS NO DOCUMENTO)
+        // ===============================================================
+        const preview = document.getElementById('wiki-preview-area');
+        
+        // Só tenta pintar se o modo de leitura estiver ativo e tivermos o backup limpo
+        if (preview && preview.dataset.originalHtml && preview.style.display !== 'none') {
+            let htmlPintado = preview.dataset.originalHtml;
+            
+            snap.docs.forEach(d => {
+                const c = d.data();
+                
+                // Nós SÓ grifamos notas e sugestões que AINDA ESTÃO ABERTAS!
+                if (c.status !== 'resolved') {
+                    
+                    // Tenta achar qual foi o texto citado na nota
+                    let alvo = c.textoAntigo; // Se for uma Sugestão
+                    if (!alvo) {
+                        // Se for uma Nota normal, garimpa a citação ( > "texto" )
+                        const match = (c.texto || "").match(/^>\s*"([^"]+)"/);
+                        if (match) alvo = match[1];
+                    }
+                    
+                    // Se achou um texto válido (maior que 3 letras pra não grifar a letra "a" solta no texto todo)
+                    if (alvo && alvo.length > 3) {
+                        // Protege caracteres especiais da programação
+                        const regexSafe = alvo.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                        // Cria um caçador de palavras
+                        const regex = new RegExp(`(${regexSafe})`, 'g');
+                        
+                        // Substitui o texto puro pelo texto abraçado pela tag do Marca-Texto!
+                        htmlPintado = htmlPintado.replace(regex, `<span class="wiki-highlight" onclick="window.abrirFeedbackWiki()" title="Comentário de ${c.autor}">$1</span>`);
+                    }
+                }
+            });
+            
+            // Joga o HTML final pintado de amarelo na tela!
+            preview.innerHTML = htmlPintado;
+        }
+    });
+};
+
+window.aceitarSugestaoWiki = async (id) => {
+    // Essa travinha impede a barra de rolagem de pular loucamente
+    window.preventWikiScroll = true; 
+    
+    try {
+        const comSnap = await getDoc(doc(db, "comentarios_wiki", id));
+        if (!comSnap.exists()) return;
+        const c = comSnap.data();
+
+        const wikiRef = doc(db, "wiki", c.wikiId);
+        const wikiSnap = await getDoc(wikiRef);
+        if (!wikiSnap.exists()) return;
+        const w = wikiSnap.data();
+
+        // Procura a frase exata no Markdown
+        if (w.conteudo.includes(c.textoAntigo)) {
+            // Substitui a primeira ocorrência do texto antigo pelo novo
+            const novoConteudo = w.conteudo.replace(c.textoAntigo, c.textoNovo);
+            
+            // 1. Atualiza a Wiki no banco
+            await updateDoc(wikiRef, { 
+                conteudo: novoConteudo,
+                dataAtualizacao: new Date().toISOString()
+            });
+            
+            // 2. Resolve o comentário automaticamente
+            await updateDoc(doc(db, "comentarios_wiki", id), {
+                status: 'resolved',
+                dataResolucao: new Date().toISOString(),
+                resolvidoPor: window.obterNomeExibicao()
+            });
+
+            // 3. Atualiza a tela em tempo real!
+            if (window.wikiAtualId === c.wikiId) {
+                document.getElementById('wiki-conteudo').value = novoConteudo;
+                window.setWikiMode('preview'); // Força a re-renderização visual e desenha o texto novo!
+            }
+            
+            window.mostrarToastNotificacao('Mágica Feita!', 'O texto foi substituído e a nota foi resolvida.', 'geral');
+        } else {
+            alert("⚠️ Não foi possível encontrar o texto original no documento. Talvez alguém já tenha alterado essa parte manualmente!");
+        }
+    } catch (e) { console.error(e); }
+};
+
+window.salvarComentarioWiki = async (e, tipo = 'nota') => {
+    if(e) e.preventDefault();
+    if (!window.wikiAtualId || !auth.currentUser) return;
+
+    const input = document.getElementById('wiki-comment-input');
+    const textoRaw = input.value.trim();
+    if (!textoRaw) return;
+
+    let textoAntigo = "";
+    let textoNovo = textoRaw;
+
+    // A MÁGICA: Se for uma Sugestão, ele "fatia" o texto para descobrir o que sai e o que entra
+    if (tipo === 'sugestao') {
+        const match = textoRaw.match(/^>\s*"([^"]+)"/);
+        if (match) {
+            textoAntigo = match[1];
+            textoNovo = textoRaw.replace(/^>\s*"[^"]+"\s*/, '').trim(); 
+            if(!textoNovo) return alert("Digite o texto novo abaixo da citação para sugerir a troca!");
+        } else {
+            return alert("Para sugerir uma edição, você precisa selecionar (grifar) o texto errado no documento primeiro!");
+        }
+    }
+
+    try {
+        await addDoc(collection(db, "comentarios_wiki"), {
+            wikiId: window.wikiAtualId,
+            texto: textoRaw, // O texto cru (Markdown original)
+            textoAntigo: textoAntigo, // A frase que vai sumir
+            textoNovo: textoNovo, // A frase que vai entrar
+            tipo: tipo, // 'nota' ou 'sugestao'
+            autor: window.obterNomeExibicao(),
+            autorEmail: auth.currentUser.email,
+            status: 'open', 
+            dataCriacao: new Date().toISOString()
+        });
+
+        // (MANTÉM O SISTEMA DE MENÇÕES @ INTÁCTO)
+        const mencoes = textoRaw.match(/@([a-zA-Z0-9_À-ÿ]+)/g);
+        let notificados = new Set(); 
+
+        if (mencoes && mencoes.length > 0) {
+            const snapUsers = await getDocs(collection(db, "usuarios"));
+            const todosUsuarios = snapUsers.docs.map(d => ({ uid: d.data().uid, nome: d.data().nome || "", apelido: d.data().apelido || "", email: d.data().email }));
+
+            mencoes.forEach(mencao => {
+                const nomeMencao = mencao.replace('@', '').toLowerCase();
+                const alvo = todosUsuarios.find(u => (u.apelido.toLowerCase() === nomeMencao) || (u.nome.split(' ')[0].toLowerCase() === nomeMencao));
+                if (alvo && alvo.email !== auth.currentUser.email && !notificados.has(alvo.uid)) {
+                    window.criarNotificacao(alvo.uid, 'geral', 'Você foi mencionado!', `${window.obterNomeExibicao()} te marcou em um documento.`, { abaAlvo: 'projetos', subAba: 'tab-wiki', projetoId: window.projetoAtualId, contextId: window.wikiAtualId + '_note' });
+                    notificados.add(alvo.uid); 
+                }
+            });
+        }
+
+        const docData = window.wikiCache[window.wikiAtualId];
+        if (docData && docData.autorUltimaModificacao && docData.autorUltimaModificacao !== auth.currentUser.email) {
+            const qUser = query(collection(db, "usuarios"), where("email", "==", docData.autorUltimaModificacao));
+            const userSnap = await getDocs(qUser);
+            if (!userSnap.empty) {
+                const donoUid = userSnap.docs[0].data().uid;
+                if (!notificados.has(donoUid)) {
+                    window.criarNotificacao(donoUid, 'geral', 'Nota no Documento', `${window.obterNomeExibicao()} deixou uma nota/sugestão no seu documento.`, { abaAlvo: 'projetos', subAba: 'tab-wiki', projetoId: window.projetoAtualId, contextId: window.wikiAtualId + '_note' });
+                }
+            }
+        }
+
+        input.value = "";
+        document.getElementById('mention-suggestions').style.display = 'none';
+    } catch(err) { console.error(err); }
+};
+
+window.deletarComentarioWiki = async (id) => {
+    if (confirm("Apagar esta nota?")) await deleteDoc(doc(db, "comentarios_wiki", id));
+};
+
+/* ==========================================================================
+   WIKI - AUTOCOMPLETAR MENÇÕES (@)
+   ========================================================================== */
+window.listaUsuariosEquipe = []; // Guarda a equipe na memória para não gastar o banco
+
+// Espião do Teclado
+setTimeout(() => { // Timeout rápido só pra garantir que o HTML já carregou
+    const textarea = document.getElementById('wiki-comment-input');
+    if (!textarea) return;
+
+    textarea.addEventListener('input', async (e) => {
+        const sugestoesBox = document.getElementById('mention-suggestions');
+        if (!sugestoesBox) return;
+
+        const cursor = textarea.selectionStart;
+        const textToCursor = textarea.value.substring(0, cursor);
+        
+        // Descobre qual foi a última palavra digitada antes do cursor
+        const palavras = textToCursor.split(/[\s\n]/);
+        const ultimaPalavra = palavras[palavras.length - 1];
+
+        // Se a palavra começar com @, ATIVA O RADAR!
+        if (ultimaPalavra.startsWith('@')) {
+            
+            // Carrega a equipe do banco só na primeira vez que tentar usar o @
+            if (window.listaUsuariosEquipe.length === 0) {
+                const snap = await getDocs(collection(db, "usuarios"));
+                window.listaUsuariosEquipe = snap.docs.map(d => ({
+                    apelido: d.data().apelido || d.data().nome.split(' ')[0], // Prioriza apelido
+                    nomeFull: d.data().nome
+                }));
+            }
+
+            const termo = ultimaPalavra.substring(1).toLowerCase(); // Tira o @ para pesquisar
+            
+            // Filtra quem bate com as letras que você digitou
+            const matches = window.listaUsuariosEquipe.filter(u => 
+                u.apelido.toLowerCase().includes(termo) || 
+                u.nomeFull.toLowerCase().includes(termo)
+            );
+
+            // Desenha a caixinha flutuante com os resultados
+            if (matches.length > 0) {
+                sugestoesBox.innerHTML = matches.map(u => 
+                    `<li onmousedown="window.inserirMencao('${u.apelido}', ${cursor}, '${ultimaPalavra}')" style="padding: 10px 15px; cursor: pointer; color: #fff; font-size: 0.85rem; transition: 0.2s; border-bottom: 1px solid rgba(255,255,255,0.05);" onmouseover="this.style.background='var(--primary)'; this.style.color='#000';" onmouseout="this.style.background='transparent'; this.style.color='#fff';">
+                        <strong style="font-size: 0.95rem;">@${u.apelido}</strong> <br>
+                        <span style="font-size: 0.65rem; opacity: 0.7;">${u.nomeFull}</span>
+                    </li>`
+                ).join('');
+                sugestoesBox.style.display = 'block';
+            } else {
+                sugestoesBox.style.display = 'none'; // Não achou ninguém
+            }
+        } else {
+            sugestoesBox.style.display = 'none'; // Esconde se apagou o @ ou deu espaço
+        }
+    });
+}, 1000);
+
+// Ação de clicar no nome da lista
+window.inserirMencao = (apelido, cursorPosition, palavraDigitada) => {
+    const textarea = document.getElementById('wiki-comment-input');
+    const textoInteiro = textarea.value;
+    
+    // Descobre onde a palavra defeituosa (ex: @leor) começou
+    const inicioPalavra = cursorPosition - palavraDigitada.length;
+    
+    // Pica o texto no meio, arranca o termo que você digitou, e cola o @Apelido perfeito!
+    const textoAntes = textoInteiro.substring(0, inicioPalavra);
+    const textoDepois = textoInteiro.substring(cursorPosition);
+    
+    textarea.value = textoAntes + '@' + apelido + ' ' + textoDepois;
+    
+    // Esconde a caixinha e joga você de volta pro texto
+    document.getElementById('mention-suggestions').style.display = 'none';
+    textarea.focus();
+    
+    // Joga o cursor do mouse logo depois do espaço do nome inserido pra você continuar digitando
+    const novaPosicao = inicioPalavra + apelido.length + 2; 
+    textarea.setSelectionRange(novaPosicao, novaPosicao);
+};
+
+
+/* ==========================================================================
+   SISTEMA DE TAREFAS - ASSUMIR E DESASSUMIR
+   ================================================================== */
 
 window.assumirTarefa = async (taskId) => {
     if (!auth.currentUser) return;
@@ -5275,4 +5773,72 @@ window.irParaAba = (targetId) => {
 
     // 5. Rola a tela para o topo
     document.querySelector('.content-area').scrollTop = 0;
+};
+
+/* ==========================================================================
+   WIKI - BOTÃO FANTASMA FLUTUANTE (NOTION STYLE)
+   ========================================================================== */
+
+// 1. O Olheiro: Fica vigiando o mouse quando você solta o clique
+document.addEventListener('mouseup', () => {
+    const previewArea = document.getElementById('wiki-preview-area');
+    const floatingBtn = document.getElementById('floating-comment-btn');
+    
+    // Se a Wiki não estiver aberta ou o botão não existir, ignora
+    if (!previewArea || !floatingBtn || previewArea.style.display === 'none') {
+        if(floatingBtn) floatingBtn.style.display = 'none';
+        return;
+    }
+
+    const selecao = window.getSelection();
+    const texto = selecao.toString().trim();
+
+    // Se a pessoa selecionou algo válido E a seleção está DENTRO da folha da Wiki
+    if (texto.length > 0 && previewArea.contains(selecao.anchorNode)) {
+        const range = selecao.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        
+        // Faz a matemática para colocar o botão exatamente em cima do texto grifado!
+        floatingBtn.style.display = 'flex';
+        floatingBtn.style.top = `${rect.top - 45}px`; 
+        floatingBtn.style.left = `${rect.left + (rect.width / 2) - 25}px`;
+        
+        // Uma animaçãozinha de pulo pra ficar charmoso
+        floatingBtn.style.transform = 'scale(0.8)';
+        setTimeout(() => floatingBtn.style.transform = 'scale(1)', 50);
+        
+        // Salva o texto no botão para usarmos depois
+        window.textoFantasma = texto;
+    } else {
+        // Se clicou no vazio, esconde o botão
+        floatingBtn.style.display = 'none';
+        window.textoFantasma = "";
+    }
+});
+
+// 2. A Ação: O que acontece quando você clica no botão flutuante
+window.acionarComentarioFantasma = () => {
+    const floatingBtn = document.getElementById('floating-comment-btn');
+    const inputBox = document.getElementById('wiki-comment-input');
+    
+    if (!window.wikiAtualId) return;
+
+    // Injeta a citação direto na caixa de texto
+    if (window.textoFantasma) {
+        inputBox.value = `> "${window.textoFantasma}"\n\n`;
+    }
+
+    const docData = window.wikiCache[window.wikiAtualId];
+    document.getElementById('wiki-feedback-titulo').innerText = docData ? docData.titulo : "Documento";
+    
+    // Abre o modal de notas
+    window.carregarComentariosWiki(window.wikiAtualId);
+    window.openModal('modalFeedbackWiki');
+    
+    // Limpa a seleção e esconde o botão fantasma
+    window.getSelection().removeAllRanges();
+    floatingBtn.style.display = 'none';
+    
+    // Foca na caixa de texto para a pessoa só começar a digitar
+    setTimeout(() => inputBox.focus(), 100);
 };

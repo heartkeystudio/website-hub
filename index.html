@@ -404,6 +404,7 @@
                                 <div class="internal-tabs" style="border:none; margin:0; padding:0; gap: 5px;">
                                     <button class="itab-btn active" id="btn-wiki-edit" data-tooltip="Escrever" onclick="setWikiMode('edit')">✍️</button>
                                     <button class="itab-btn" id="btn-wiki-preview" data-tooltip="Leitura" onclick="setWikiMode('preview')">👁️</button>
+                                    <button class="itab-btn" id="btn-wiki-comments" data-tooltip="Notas e Alterações" onclick="window.abrirFeedbackWiki()" style="position: relative;">💬</button>
                                     <button class="itab-btn" id="btn-wiki-fullscreen" data-tooltip="Tela Cheia" onclick="toggleFullscreenWiki()">⛶</button>
                                 </div>
                             </div>
@@ -1238,6 +1239,38 @@
             </div>
         </div>
     </div>
+
+    <div id="modalFeedbackWiki" class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header" style="margin-bottom: 15px;">
+                <h2>💬 Notas do Documento</h2>
+                <button class="close-btn" onclick="closeModal('modalFeedbackWiki')">×</button>
+            </div>
+            
+            <h3 id="wiki-feedback-titulo" style="font-size: 1.1rem; color: var(--primary); margin-bottom: 20px;">Título do Doc</h3>
+
+            <div class="art-comment-input-area" style="padding: 0; background: transparent; border: none; margin-bottom: 20px; position: relative;">
+                
+                <ul id="mention-suggestions" style="display: none; position: absolute; bottom: 100%; left: 0; background: rgba(15, 15, 18, 0.98); backdrop-filter: blur(10px); border: 1px solid var(--primary); border-radius: 12px; list-style: none; padding: 5px 0; margin-bottom: 10px; max-height: 180px; overflow-y: auto; width: 280px; z-index: 10000; box-shadow: 0 -10px 30px rgba(0,0,0,0.8);"></ul>
+
+                <form id="form-wiki-comment" style="display: flex; flex-direction: column; gap: 8px;">
+                    <textarea id="wiki-comment-input" rows="3" placeholder="Selecione um texto para citar, ou digite @ para marcar alguém..." required style="margin-bottom: 0; padding: 12px; font-size: 0.85rem; border-radius: 8px; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid var(--border-color); resize: vertical; font-family: inherit;"></textarea>
+                    
+                    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" class="btn-secondary" onclick="window.salvarComentarioWiki(event, 'sugestao')" style="padding: 8px 15px; border-color: #00eaff; color: #00eaff; font-size: 0.85rem;">✏️ Sugerir Troca</button>
+                        <button type="button" class="btn-primary" onclick="window.salvarComentarioWiki(event, 'nota')" style="padding: 8px 20px; font-size: 0.85rem;">💬 Enviar Nota</button>
+                    </div>
+                </form>
+            </div>
+
+            <ul id="lista-comentarios-wiki" style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto;">
+            </ul>
+        </div>
+    </div>
+
+    <button id="floating-comment-btn" class="btn-primary" onclick="window.acionarComentarioFantasma()" style="display: none; position: fixed; z-index: 10000; padding: 6px 12px; border-radius: 8px; font-size: 1.2rem; box-shadow: 0 10px 25px rgba(0,0,0,0.8); cursor: pointer; transition: transform 0.2s ease;">
+        💬
+    </button>
 
 </div>
 

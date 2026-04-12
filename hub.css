@@ -798,55 +798,74 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 }
 
 /* ==========================================================================
-   WIKI - CORREÇÃO DE LARGURA (OVERFLOW)
+   WIKI - MODO FOLHA DE PAPEL (ESTILO WORD / GOOGLE DOCS)
    ========================================================================== */
 
+/* A Folha de Papel (Editor e Leitura) */
 .markdown-body, #wiki-conteudo { 
-    background: #1a1a1d !important;
+    background: #1a1a1d !important; /* Cor da folha no tema escuro */
     color: #e0e0e0 !important;
-    padding: 40px !important;
-    border-radius: 12px !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4) !important;
+    padding: 60px 80px !important; /* Margens de uma folha A4 real (Cima/Baixo: 60px, Lados: 80px) */
+    border-radius: 4px !important; /* Folha de papel tem o canto mais "seco" */
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5) !important; /* Sombra de profundidade (flutuando na mesa) */
+    
     width: 100% !important;
+    max-width: 850px !important; /* A MÁGICA: Trava a largura para não esticar ao infinito! */
+    margin: 0 auto 40px auto !important; /* Centraliza a folha na tela perfeitamente */
+    
     box-sizing: border-box !important;
     line-height: 1.6;
     word-wrap: break-word;
-    min-height: 600px;
+    min-height: 1050px; /* Altura mínima imitando a proporção de um papel vertical */
+    
+    /* Remove o scroll interno para que a folha cresça naturalmente para baixo */
+    overflow-y: visible !important; 
 }
 
-.markdown-body {
-    overflow-y: auto;
-    margin-bottom: 20px;
-    /* REMOVIDO: display: block !important */
+/* Deixa a caixa onde a folha fica dentro com cara de "Mesa" */
+.wiki-editor-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Garante que tudo dentro (inclusive a folha) fique no meio */
+    overflow-x: hidden;
 }
 
-/* Se houver algo muito grande (como um diagrama), 
-   ele cria a barra interna apenas no elemento, não na folha toda */
-.markdown-body pre, 
-.markdown-body table, 
-.markdown-body blockquote {
-    max-width: 100% !important;
-    overflow-x: auto !important;
-    box-sizing: border-box !important;
+/* O Menu de Ferramentas acompanha a largura da folha */
+.wiki-header-tools {
+    width: 100%;
+    max-width: 850px;
+    margin: 0 auto 20px auto !important;
 }
 
-/* Garante que imagens e elementos dentro do bloco centralizado obedeçam o alinhamento */
-.markdown-body div[style*="text-align: center"] img {
-    margin: 0 auto;
-    display: block;
+/* ==========================================================================
+   Proteção para Celulares (Para as margens não esmagarem o texto)
+   ========================================================================== */
+@media (max-width: 900px) {
+    .markdown-body, #wiki-conteudo {
+        padding: 40px 30px !important; /* Diminui a margem em notebooks/tablets */
+        min-height: 800px;
+    }
+}
+@media (max-width: 600px) {
+    .markdown-body, #wiki-conteudo {
+        padding: 25px 15px !important; /* Margem fininha no celular */
+        min-height: 600px;
+    }
 }
 
-.markdown-body div[style*="text-align: center"] table {
-    margin-left: auto;
-    margin-right: auto;
+/* ==========================================================================
+   WIKI - CONTROLE INTELIGENTE DE IMAGENS
+   ========================================================================== */
+.markdown-body img, .wiki-custom-img {
+    max-width: 100% !important; /* Nunca ultrapassa as margens da folha */
+    max-height: 650px; /* Impede que imagens compridas ocupem a tela inteira */
+    object-fit: contain; /* Garante que a imagem não seja esticada ou esmagada */
+    border-radius: 8px; /* Cantos arredondados elegantes */
+    margin: 25px auto !important; /* Espaço para respirar e centraliza automático */
+    display: block !important;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3); /* Uma sombrinha leve para destacar */
 }
-
-.jam-grid { display: grid; grid-template-columns: 1fr 1fr 300px; gap: 25px; height: calc(100vh - 280px); }
-.chat-panel, .tasks-panel, .links-panel { display: flex; flex-direction: column; overflow: hidden; }
-.chat-container { flex: 1; overflow-y: auto; padding: 20px; border-radius: 12px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); margin-bottom: 15px;}
-.chat-msg { margin-bottom: 12px; padding: 12px 16px; background: rgba(255,255,255,0.03); border-radius: 0 12px 12px 12px; max-width: 85%; font-size: 0.9rem;}
-.chat-msg.me { background: var(--primary); color: #000; margin-left: auto; border-radius: 12px 12px 0 12px; }
 
 /* ==========================================================================
    BANNER DO PROJETO
@@ -3087,6 +3106,31 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 /* Garante a expansão correta no hover */
 .sidebar:hover { width: 240px !important; }
 .members-sidebar:hover { width: 250px !important; }
+
+/* ==========================================================================
+   LIBERTAÇÃO DA CAIXA DE MENÇÕES (@) NO MODAL DA WIKI
+   ========================================================================== */
+#modalFeedbackWiki .modal-content {
+    overflow: visible !important; 
+}
+
+/* ==========================================================================
+   MARCA-TEXTO DA WIKI (COMENTÁRIOS ANCORADOS)
+   ========================================================================== */
+.wiki-highlight {
+    background: rgba(255, 193, 7, 0.25); /* Fundo amarelo translúcido */
+    border-bottom: 2px solid #ffc107; /* Sublinhado amarelo forte */
+    color: #fff;
+    cursor: pointer;
+    padding: 0 4px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.wiki-highlight:hover {
+    background: rgba(255, 193, 7, 0.6); /* Brilha quando passa o mouse */
+    box-shadow: 0 0 10px rgba(255, 193, 7, 0.4);
+}
 
 /* ==========================================================================
    14. RESPONSIVIDADE MASTER (Múltiplos Breakpoints)
