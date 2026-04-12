@@ -45,48 +45,42 @@ onAuthStateChanged(auth, async (user) => {
     const loginScreen = document.getElementById('login-screen');
     if (user) {
         loginScreen.classList.add('hidden');
-        document.querySelector('.user-email').textContent = user.email;
         
-        // 1. Busca os dados do usuário no banco de dados
         const userDocRef = doc(db, "usuarios", user.uid);
         const userDoc = await getDoc(userDocRef);
         
         let cargoAtual = 'membro';
-        
+        let dadosUsuario = {};
+
         if (userDoc.exists()) {
-            const d = userDoc.data();
-            cargoAtual = d.role || 'membro';
+            dadosUsuario = userDoc.data();
+            cargoAtual = dadosUsuario.role || 'membro';
             
-            // --- CARREGA A IDENTIDADE PRA MEMÓRIA ---
-            window.meuNome = d.nome || user.displayName || user.email.split('@')[0];
-            window.meuApelido = d.apelido || "";
-            window.meuBgTema = d.bgTema || null;
-            window.meuAvatar = d.avatarBase64 || null;
+            window.meuNome = dadosUsuario.nome || user.displayName || user.email.split('@')[0];
+            window.meuApelido = dadosUsuario.apelido || "";
+            window.meuBgTema = dadosUsuario.bgTema || null;
+            window.meuAvatar = dadosUsuario.avatarBase64 || null;
             
-            window.aplicarTema(d.corTema, d.bgTema, d.modoTema, d.opacidadeTema);
-            
-            // Atualiza a barra lateral com o seu Apelido!
-            document.querySelector('.user-email').innerHTML = `<strong>${window.obterNomeExibicao()}</strong><br><span style="font-size:0.65rem; opacity:0.7;">${user.email}</span>`;
-            
-            const sidebarAvatarHtml = d.avatarBase64 
-                ? `<div class="sidebar-avatar"><img src="${d.avatarBase64}"></div>` 
-                : '';
-            
-            document.querySelector('.user-info-sidebar').innerHTML = `
-                ${sidebarAvatarHtml}
-                <div class="user-meta-sidebar">
-                    <strong>${window.obterNomeExibicao()}</strong><br>
-                    <span style="font-size:0.65rem; opacity:0.7;">${user.email}</span>
-                </div>
-            `;
+            window.aplicarTema(dadosUsuario.corTema, dadosUsuario.bgTema, dadosUsuario.modoTema, dadosUsuario.opacidadeTema);
         }
 
-        // 2. Trava de Segurança: Se for um dos donos, força o cargo de admin
-        if (SUPER_ADMINS.includes(user.email.toLowerCase())) {
-            cargoAtual = 'admin';
+        // --- ATUALIZA O AVATAR NO TOPO DO MENU FLUTUANTE ---
+        const sidebarTopAvatar = document.getElementById('sidebar-user-avatar');
+        if (sidebarTopAvatar) {
+            sidebarTopAvatar.innerHTML = window.meuAvatar 
+                ? `<img src="${window.meuAvatar}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">` 
+                : window.obterNomeExibicao().substring(0, 2).toUpperCase();
         }
-        
-        window.userRole = cargoAtual; // Salva globalmente para o resto do código usar
+
+        // --- ATUALIZA O NOME DO USUÁRIO AO LADO DA FOTO ---
+        const sidebarTopName = document.getElementById('sidebar-user-name');
+        if (sidebarTopName) {
+            sidebarTopName.innerText = window.obterNomeExibicao();
+        }
+
+        // Trava de segurança para Admins
+        if (SUPER_ADMINS.includes(user.email.toLowerCase())) cargoAtual = 'admin';
+        window.userRole = cargoAtual;
         window.verificarAgendaDoDia();
 
         // 3. Atualiza os dados no banco (agora salvando o cargo junto)
@@ -119,12 +113,10 @@ onAuthStateChanged(auth, async (user) => {
         window.iniciarEscutaRadioGlobal();
         window.carregarBarraIntegrantes();
 
-        
         if (window.intervaloLembrete) clearInterval(window.intervaloLembrete);
-            window.intervaloLembrete = setInterval(() => {
+        window.intervaloLembrete = setInterval(() => {
             window.verificarLembretesProximos();
         }, 5 * 60 * 1000); // 5 minutos
-
     } else {
         loginScreen.classList.remove('hidden');
         if (window.intervaloLembrete) clearInterval(window.intervaloLembrete);
@@ -187,13 +179,41 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
         const section = document.getElementById(target);
         if (section) section.classList.add('active');
 
-        if (window.innerWidth <= 768) document.querySelector('.menu').classList.remove('active');
+        if (window.innerWidth <= 768) {
+            document.querySelector('.sidebar')?.classList.remove('active');
+            document.getElementById('mobile-sidebar-backdrop')?.classList.remove('active');
+        }
         document.querySelector('.content-area').scrollTop = 0;
     };
 });
 
 const mobileMenuBtn = document.getElementById('mobile-menu-btn');
-if (mobileMenuBtn) mobileMenuBtn.onclick = () => document.querySelector('.menu').classList.toggle('active');
+const mobileSidebarBackdrop = document.getElementById('mobile-sidebar-backdrop');
+const mobileContactsBtn = document.getElementById('mobile-contacts-btn');
+const mobileContactsBackdrop = document.getElementById('mobile-contacts-backdrop');
+if (mobileMenuBtn) mobileMenuBtn.onclick = () => {
+    const sidebar = document.getElementById('main-sidebar');
+    sidebar?.classList.toggle('active');
+    mobileSidebarBackdrop?.classList.toggle('active');
+    document.getElementById('sidebar-integrantes')?.classList.remove('active');
+    mobileContactsBackdrop?.classList.remove('active');
+};
+if (mobileSidebarBackdrop) mobileSidebarBackdrop.onclick = () => {
+    document.getElementById('main-sidebar')?.classList.remove('active');
+    mobileSidebarBackdrop.classList.remove('active');
+};
+
+if (mobileContactsBtn) mobileContactsBtn.onclick = () => {
+    const contacts = document.getElementById('sidebar-integrantes');
+    contacts?.classList.toggle('active');
+    mobileContactsBackdrop?.classList.toggle('active');
+    document.getElementById('main-sidebar')?.classList.remove('active');
+    mobileSidebarBackdrop?.classList.remove('active');
+};
+if (mobileContactsBackdrop) mobileContactsBackdrop.onclick = () => {
+    document.getElementById('sidebar-integrantes')?.classList.remove('active');
+    mobileContactsBackdrop.classList.remove('active');
+};
 
 // --- Lógica de Encolher/Expandir a Sidebar ---
 const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
@@ -5154,8 +5174,10 @@ window.carregarBarraIntegrantes = () => {
 
             return `
                 <div class="member-item" onclick="window.verDetalhesIntegrante('${docSnap.id}')">
-                    <div class="member-avatar-mini">${avatarHtml}</div>
-                    <div class="status-indicator ${isOnline ? 'online' : ''}"></div>
+                    <div class="member-avatar-mini">
+                        ${avatarHtml}
+                        <div class="status-indicator ${isOnline ? 'online' : ''}"></div>
+                    </div>
                     <span class="member-name-tag">${u.apelido || u.nome.split(' ')[0]}</span>
                 </div>
             `;
@@ -5232,4 +5254,25 @@ window.verDetalhesIntegrante = async (uid) => {
     `;
 
     painel.classList.add('active');
+};
+
+window.irParaAba = (targetId) => {
+    // 1. Procura o botão correspondente no menu (se existir) para dar o visual de 'ativo'
+    const btn = document.querySelector(`.nav-btn[data-target="${targetId}"]`);
+    
+    // 2. Remove a classe 'active' de todos os botões e seções
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
+
+    // 3. Ativa a aba alvo
+    const section = document.getElementById(targetId);
+    if (section) {
+        section.classList.add('active');
+    }
+
+    // 4. Se encontrou um botão visível, acende ele. Se não (como no caso do perfil), tudo bem.
+    if (btn) btn.classList.add('active');
+
+    // 5. Rola a tela para o topo
+    document.querySelector('.content-area').scrollTop = 0;
 };

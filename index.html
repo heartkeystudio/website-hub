@@ -24,25 +24,55 @@
         </div>
     </div>
 
-    <aside class="sidebar" id="main-sidebar">
-        <div class="logo">
-            <h2 class="logo-text">HeartKey<span>.</span></h2>
-            <button id="toggle-sidebar-btn" class="icon-btn" data-tooltip="Menu" style="font-size: 1.2rem;">◀</button>
-        </div>
-        <div class="user-info-sidebar">
-            <p class="user-email">user@gmail.com</p>
-        </div>
-        <nav class="menu">
-            <button class="nav-btn active" data-target="dashboard" data-tooltip="Dashboard">📊 <span class="nav-text">Dashboard</span></button>
-            <button class="nav-btn" data-target="projetos" data-tooltip="Projetos">📁 <span class="nav-text">Projetos</span></button>
-            <button class="nav-btn" data-target="incubadora" data-tooltip="Incubadora de Ideias">💡 <span class="nav-text">Incubadora</span></button>
-            <button class="nav-btn" data-target="gamejam" style="color: var(--primary);" data-tooltip="Game Jam">🎮 <span class="nav-text">Game Jam</span></button>
-            <button class="nav-btn" data-target="clientes" data-tooltip="Clientes">🤝 <span class="nav-text">Clientes</span></button>
-            <button class="nav-btn" data-target="cronograma" data-tooltip="Cronograma">📅 <span class="nav-text">Cronograma</span></button>
-            <button class="nav-btn" data-target="financeiro" data-tooltip="Financeiro">💰 <span class="nav-text">Financeiro</span></button>
-            <button class="nav-btn" data-target="reunioes" data-tooltip="Reuniões">🎥 <span class="nav-text">Reuniões</span></button>
-            <button class="nav-btn" data-target="perfil" style="color: #ffc107;" data-tooltip="Perfil & Ranking">🏆 <span class="nav-text">Perfil & Ranking</span></button>
-            <button class="nav-btn" data-target="diario" data-tooltip="Diário Pessoal">📓 <span class="nav-text">Diário Pessoal</span></button>
+    <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Abrir menu">☰</button>
+    <button id="mobile-contacts-btn" class="mobile-contacts-btn" aria-label="Abrir contatos">👥</button>
+    <div id="mobile-sidebar-backdrop" class="mobile-sidebar-backdrop"></div>
+    <div id="mobile-contacts-backdrop" class="mobile-sidebar-backdrop"></div>
+
+        <aside class="sidebar" id="main-sidebar">
+            <div class="logo" onclick="window.irParaAba('perfil')" style="cursor:pointer;">
+                <div id="sidebar-user-avatar" class="nav-icon-ball" style="border: 2px solid var(--primary); z-index: 5;">
+                    </div>
+                <h2 class="logo-text" id="sidebar-user-name">Usuário</h2>
+            </div>
+            
+            <nav class="menu">
+            <button class="nav-btn active" data-target="dashboard" data-tooltip="Dashboard">
+                <div class="nav-icon-ball">📊</div>
+                <span class="nav-text">Dashboard</span>
+            </button>
+
+            <button class="nav-btn" data-target="projetos" data-tooltip="Projetos">
+                <div class="nav-icon-ball">📁</div>
+                <span class="nav-text">Projetos</span>
+            </button>
+
+            <button class="nav-btn" data-target="incubadora" data-tooltip="Incubadora de Ideias">
+                <div class="nav-icon-ball">💡</div>
+                <span class="nav-text">Incubadora</span>
+            </button>
+
+            <button class="nav-btn" data-target="gamejam" data-tooltip="Game Jam">
+                <div class="nav-icon-ball">🎮</div>
+                <span class="nav-text">Game Jam</span>
+            </button>
+
+            <button class="nav-btn" data-target="clientes" data-tooltip="Clientes">
+                <div class="nav-icon-ball">🤝</div>
+                <span class="nav-text">Clientes</span>
+            </button>
+            <button class="nav-btn" data-target="cronograma" data-tooltip="Cronograma">
+                <div class="nav-icon-ball">📅</div>
+                <span class="nav-text">Cronograma</span>        
+            </button>
+            <button class="nav-btn" data-target="financeiro" data-tooltip="Financeiro">
+                <div class="nav-icon-ball">💰</div>
+                <span class="nav-text">Financeiro</span>
+            </button>
+            <button class="nav-btn" data-target="reunioes" data-tooltip="Reuniões">
+                <div class="nav-icon-ball">🎥</div>
+                <span class="nav-text">Reuniões</span>
+            </button>
         </nav>
         <div class="sidebar-footer">
             <button class="logout-btn nav-btn" data-tooltip="Sair" style="color: #ff5252; width: 100%; justify-content: center;">🚪 <span class="nav-text">Sair</span></button>
