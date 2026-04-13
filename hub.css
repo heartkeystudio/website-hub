@@ -3972,3 +3972,90 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
     user-select: none !important; 
     -webkit-user-select: none !important;
 }
+
+/* ==========================================================================
+   WIKI - ZONAS MÁGICAS DE DROP (REORDENAÇÃO MANUAL)
+   ========================================================================== */
+/* Remove a interferência do mouse nos filhos para a matemática de colisão não falhar */
+.wiki-node-item * {
+    pointer-events: none; 
+}
+
+/* Indicadores de onde o arquivo vai cair */
+.wiki-drop-inside {
+    background: rgba(129, 254, 78, 0.15) !important;
+    border-radius: 6px;
+}
+
+.wiki-drop-above {
+    border-top: 2px solid var(--primary) !important;
+    border-radius: 0 !important;
+}
+
+.wiki-drop-below {
+    border-bottom: 2px solid var(--primary) !important;
+    border-radius: 0 !important;
+}
+
+/* O seletor de ordem */
+.wiki-sort-select {
+    width: auto;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #fff;
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    outline: none;
+}
+.wiki-sort-select:focus { border-color: var(--primary); }
+
+/* ==========================================================================
+   MURAL DE HYPE (REDDIT STYLE)
+   ========================================================================== */
+.mural-post {
+    display: flex; 
+    background: var(--bg-card); 
+    border: 1px solid var(--border-color);
+    border-radius: 12px; 
+    padding: 15px; 
+    gap: 15px; 
+    transition: 0.3s;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+}
+.mural-post:hover { border-color: rgba(255,255,255,0.2); transform: translateX(2px); }
+
+.mural-votes {
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: flex-start;
+    gap: 5px; 
+    min-width: 40px;
+    padding-top: 5px;
+}
+
+.vote-arrow {
+    background: transparent; border: none; color: #555; font-size: 1.5rem; 
+    cursor: pointer; transition: 0.2s; line-height: 0.6;
+}
+.vote-arrow:hover { transform: scale(1.3); }
+.vote-arrow.up:hover { color: #ff5252; }
+.vote-arrow.down:hover { color: #00eaff; }
+
+/* Setas acesas quando você votou */
+.vote-arrow.up.active { color: #ff5252; text-shadow: 0 0 10px rgba(255,82,82,0.5); }
+.vote-arrow.down.active { color: #00eaff; text-shadow: 0 0 10px rgba(0,234,255,0.5); }
+
+.vote-score { font-weight: 900; font-size: 1.1rem; color: #fff; }
+
+.mural-content { flex: 1; }
+.mural-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.mural-author { font-weight: 800; color: var(--primary); font-size: 0.9rem; }
+.mural-time { font-size: 0.75rem; color: var(--text-muted); }
+
+.mural-temp-badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; background: rgba(255,255,255,0.05); }
+.temp-hot { color: #ff5252; border: 1px solid rgba(255,82,82,0.3); box-shadow: 0 0 10px rgba(255,82,82,0.2); }
+.temp-cold { color: #00eaff; border: 1px solid rgba(0,234,255,0.3); }
+.temp-dead { color: #666; border: 1px solid rgba(255,255,255,0.1); opacity: 0.6; }

@@ -113,6 +113,7 @@ onAuthStateChanged(auth, async (user) => {
         window.carregarIncubadora();
         window.iniciarEscutaRadioGlobal();
         window.carregarBarraIntegrantes();
+        window.carregarMural();
 
         if (window.intervaloLembrete) clearInterval(window.intervaloLembrete);
         window.intervaloLembrete = setInterval(() => {
@@ -6683,4 +6684,132 @@ window.mudarOrdemWiki = (mode) => {
     window.wikiSortMode = mode;
     localStorage.setItem('hub_wiki_sort', mode);
     window.renderizarWikiTree(); // Redesenha tudo na hora!
+};
+
+/* ==========================================================================
+   MURAL DE MENSAGENS (SISTEMA DE HYPE / REDDIT)
+   ========================================================================== */
+
+window.salvarPostMural = async (e) => {
+    e.preventDefault();
+    const input = document.getElementById('muralTexto');
+    const texto = input.value.trim();
+    if (!texto || !auth.currentUser) return;
+
+    try {
+        await addDoc(collection(db, "mural_mensagens"), {
+            texto: texto,
+            autor: window.obterNomeExibicao(),
+            autorId: auth.currentUser.uid,
+            upvotes: [auth.currentUser.uid], // Quem posta já dá 1 upvote automático
+            downvotes: [],
+            dataCriacao: new Date().toISOString()
+        });
+        
+        // Dá uns pontinhos de XP por interagir com a galera
+        window.pontuarGamificacao('geral', auth.currentUser.uid, 'geral', false);
+        
+        input.value = '';
+        window.closeModal('modalNovoPostMural');
+        window.mostrarToastNotificacao("Mural", "Mensagem lançada na arena!", "geral");
+    } catch(err) { console.error(err); }
+};
+
+window.carregarMural = () => {
+    const feed = document.getElementById('mural-feed');
+    if (!feed || !auth.currentUser) return;
+
+    // Pega todas as mensagens
+    onSnapshot(collection(db, "mural_mensagens"), (snap) => {
+        let posts = snap.docs.map(d => ({id: d.id, ...d.data()}));
+        const agora = new Date().getTime();
+
+        // O ALGORITMO DE TEMPERATURA 🌡️
+        posts.forEach(p => {
+            const upCount = p.upvotes ? p.upvotes.length : 0;
+            const downCount = p.downvotes ? p.downvotes.length : 0;
+            const saldoVotos = upCount - downCount;
+            
+            const criacao = new Date(p.dataCriacao).getTime();
+            const horasVida = (agora - criacao) / (1000 * 60 * 60);
+
+            // Fórmula: Saldo de Votos - (0.5 pontos para cada hora de vida)
+            p.temperatura = saldoVotos - (horasVida * 0.5);
+            
+            // Grava o saldo pra imprimir na tela depois
+            p.saldoExibicao = saldoVotos;
+        });
+
+        // Ordena do mais quente para o mais frio
+        posts.sort((a, b) => b.temperatura - a.temperatura);
+
+        feed.innerHTML = posts.map(p => {
+            const meuUid = auth.currentUser.uid;
+            const upActive = p.upvotes?.includes(meuUid) ? 'active' : '';
+            const downActive = p.downvotes?.includes(meuUid) ? 'active' : '';
+            
+            // Converte Markdown e pinta as Menções (@)
+            let textoMencoes = (p.texto || "").replace(/@([a-zA-Z0-9_À-ÿ]+)/g, '<span class="chat-mention">@$1</span>');
+            const textoHTML = marked.parse(textoMencoes);
+            
+            // Lógica Visual da Temperatura
+            let badgeTemp = "";
+            let opacity = "1";
+            if (p.temperatura >= 3) badgeTemp = '<span class="mural-temp-badge temp-hot">🔥 Em Alta</span>';
+            else if (p.temperatura < -2) { badgeTemp = '<span class="mural-temp-badge temp-dead">💀 Derreteu</span>'; opacity = "0.5"; }
+            else badgeTemp = '<span class="mural-temp-badge temp-cold">🧊 Esfriando</span>';
+
+            const btnLixeira = (p.autorId === meuUid || window.userRole === 'admin') 
+                ? `<button onclick="window.deletarPostMural('${p.id}')" style="background:none; border:none; color:#ff5252; cursor:pointer; font-size:0.8rem; margin-left:auto;">🗑️ Apagar</button>` 
+                : '';
+
+            return `
+                <div class="mural-post" style="opacity: ${opacity};">
+                    <div class="mural-votes">
+                        <button class="vote-arrow up ${upActive}" onclick="window.votarMural('${p.id}', 'up')">▲</button>
+                        <span class="vote-score">${p.saldoExibicao}</span>
+                        <button class="vote-arrow down ${downActive}" onclick="window.votarMural('${p.id}', 'down')">▼</button>
+                    </div>
+                    <div class="mural-content">
+                        <div class="mural-header">
+                            <span class="mural-author">${p.autor}</span>
+                            <span class="mural-time">${new Date(p.dataCriacao).toLocaleDateString()} às ${new Date(p.dataCriacao).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                            ${badgeTemp}
+                            ${btnLixeira}
+                        </div>
+                        <div class="markdown-body" style="background:transparent!important; padding:0!important; border:none!important; box-shadow:none!important; min-height:auto; font-size:0.9rem; color: #e0e0e0;">
+                            ${textoHTML}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('') || '<div style="text-align:center; color:#666; padding: 40px;">O mural está em silêncio. Seja o primeiro a falar!</div>';
+    });
+};
+
+window.votarMural = async (id, tipoVoto) => {
+    const docRef = doc(db, "mural_mensagens", id);
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) return;
+
+    const p = snap.data();
+    const meuUid = auth.currentUser.uid;
+    
+    let ups = p.upvotes || [];
+    let downs = p.downvotes || [];
+
+    // Lógica inteligente de "Toggle" do Reddit
+    if (tipoVoto === 'up') {
+        if (ups.includes(meuUid)) ups = ups.filter(u => u !== meuUid); // Tira o upvote
+        else { ups.push(meuUid); downs = downs.filter(u => u !== meuUid); } // Dá upvote e arranca o downvote se tiver
+    } else {
+        if (downs.includes(meuUid)) downs = downs.filter(u => u !== meuUid); // Tira o downvote
+        else { downs.push(meuUid); ups = ups.filter(u => u !== meuUid); } // Dá downvote e arranca o upvote se tiver
+    }
+
+    await updateDoc(docRef, { upvotes: ups, downvotes: downs });
+};
+
+window.deletarPostMural = async (id) => {
+    if(confirm("Apagar sua mensagem da parede?")) await deleteDoc(doc(db, "mural_mensagens", id));
 };

@@ -42,6 +42,11 @@
                 <span class="nav-text">Dashboard</span>
             </button>
 
+            <button class="nav-btn" data-target="mural" data-tooltip="Mural da Equipe">
+                <div class="nav-icon-ball">🔥</div>
+                <span class="nav-text">Mural</span>
+            </button>
+
             <button class="nav-btn" data-target="projetos" data-tooltip="Projetos">
                 <div class="nav-icon-ball">📁</div>
                 <span class="nav-text">Projetos</span>
@@ -92,6 +97,7 @@
                     <p class="subtitle">Bem-vindo à Central de Comando.</p>
                 </div>
             </div>
+            
             
             <div class="bento-grid">
                 <div class="bento-card highlight-card">
@@ -184,6 +190,19 @@
                 </div>
 
             </div>
+        </section>
+
+        <section id="mural" class="page-section">
+            <div class="section-header">
+                <div>
+                    <h1>🔥 Mural da Equipe</h1>
+                    <p class="subtitle">O que é quente sobe. O que é velho derrete.</p>
+                </div>
+                <button class="btn-primary" onclick="openModal('modalNovoPostMural')">✍️ Novo Post</button>
+            </div>
+            
+            <div id="mural-feed" style="display: flex; flex-direction: column; gap: 15px; max-width: 850px; margin: 0 auto;">
+                </div>
         </section>
 
         <!-- PROJETOS -->
@@ -1285,9 +1304,27 @@
         </div>
     </div>
 
+    <div id="modalNovoPostMural" class="modal-overlay">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>✍️ Escrever no Mural</h2>
+                <button class="close-btn" onclick="closeModal('modalNovoPostMural')">×</button>
+            </div>
+            <form class="hub-form" onsubmit="window.salvarPostMural(event)">
+                <div class="form-group">
+                    <textarea id="muralTexto" rows="4" placeholder="Deixe uma mensagem, um aviso ou um meme para a equipe..." required style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); color: #fff; padding: 15px; border-radius: 12px; width: 100%; resize: none; font-family: inherit;"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn-primary" style="width: 100%;">🔥 Lançar Post</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <button id="floating-comment-btn" class="btn-primary" onclick="window.acionarComentarioFantasma()" style="display: none; position: fixed; z-index: 10000; padding: 6px 12px; border-radius: 8px; font-size: 1.2rem; box-shadow: 0 10px 25px rgba(0,0,0,0.8); cursor: pointer; transition: transform 0.2s ease;">
         💬
     </button>
+    
 
 </div>
 
