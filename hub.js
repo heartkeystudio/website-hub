@@ -859,6 +859,19 @@ window.salvarEdicaoProjeto = async (e) => {
 
         await updateDoc(doc(db, "projetos", window.projetoAtualId), updateData);
         
+        // MÁGICA: Notifica novos colaboradores adicionados ao projeto
+        const snapUsers = await getDocs(collection(db, "usuarios"));
+        const todosUsuarios = snapUsers.docs.map(d => ({ uid: d.data().uid, email: d.data().email }));
+        
+        colaboradores.forEach(email => {
+            if (email !== auth.currentUser.email.toLowerCase()) {
+                const u = todosUsuarios.find(user => user.email === email);
+                if (u) {
+                    window.criarNotificacao(u.uid, 'geral', 'Novo Projeto', `Você foi adicionado à equipe do projeto: ${nome}`, { abaAlvo: 'projetos', projetoId: window.projetoAtualId });
+                }
+            }
+        });
+
         document.getElementById('titulo-workspace').innerText = nome;
         window.projetoAtualRepo = repo;
         window.projetoAtualVersaoAlvo = versao; 
@@ -5251,46 +5264,63 @@ window.iniciarSistemaNotificacoes = () => {
 };
 
 window.atualizarTrilhaNotificacoes = () => {
-    // Limpa tudo antes de redesenhar
-    document.querySelectorAll('.nav-badge, .item-dot').forEach(el => el.remove());
+    // Limpa tudo antes de redesenhar (EXCETO a bolinha do sininho flutuante!)
+    document.querySelectorAll('.nav-badge:not(#notification-center-badge), .item-dot:not(.proj-dot)').forEach(el => el.remove());
 
     let contagemPorAba = {};
 
     window.cacheNotificacoes.forEach(n => {
         // 1. Bolinha no Menu Lateral
-        if (n.abaAlvo) {
-            contagemPorAba[n.abaAlvo] = (contagemPorAba[n.abaAlvo] || 0) + 1;
-        }
+        if (n.abaAlvo) contagemPorAba[n.abaAlvo] = (contagemPorAba[n.abaAlvo] || 0) + 1;
         
-        // 2. Pingo Brilhante no Card do Projeto (na grade inicial)
+        // 2. Pingo Brilhante no Card do Projeto
         if (n.projetoId) {
             const projCard = document.getElementById(`proj-card-${n.projetoId}`);
             if (projCard && !projCard.querySelector('.proj-dot')) {
                 const dot = document.createElement('span');
                 dot.className = 'item-dot proj-dot';
-                dot.style.position = 'absolute';
-                dot.style.top = '15px';
-                dot.style.right = '15px';
-                dot.style.width = '12px';
-                dot.style.height = '12px';
+                dot.style.position = 'absolute'; dot.style.top = '15px'; dot.style.right = '15px';
+                dot.style.width = '12px'; dot.style.height = '12px';
                 dot.style.boxShadow = '0 0 10px var(--primary), 0 0 20px var(--primary)';
                 dot.style.zIndex = '10';
                 projCard.appendChild(dot);
             }
         }
-
-        // 3. Pingo na Sub-aba (ex: Botão "Áudios" dentro do projeto)
+        // 3. Pingo na Sub-aba
         if (window.projetoAtualId && n.projetoId === window.projetoAtualId && n.subAba) {
             window.desenharPingoNaSubAba(n.subAba);
         }
     });
 
-    Object.keys(contagemPorAba).forEach(aba => {
-        window.desenharBadgeNoMenu(aba, contagemPorAba[aba]);
-    });
+    Object.keys(contagemPorAba).forEach(aba => window.desenharBadgeNoMenu(aba, contagemPorAba[aba]));
 
+    // ATUALIZA O SININHO FLUTUANTE MÁGICO
+    const unreadCount = window.cacheNotificacoes.length;
+    const badgeSininho = document.getElementById('notification-center-badge');
+    
+    if (badgeSininho) {
+        badgeSininho.innerText = unreadCount > 9 ? '9+' : unreadCount;
+        
+        // MÁGICA: Agora a bolinha NUNCA some, ela sempre fica visível
+        badgeSininho.style.display = 'inline-flex';
+        
+        if (unreadCount === 0) {
+            // Se não tem nada, aplica a classe cinza apagada
+            badgeSininho.classList.add('empty-badge');
+        } else {
+            // Se tem notificação, arranca a classe cinza e deixa o vermelho brilhar!
+            badgeSininho.classList.remove('empty-badge');
+            
+            // Faz o sininho balançar alertando
+            const btnSininho = document.getElementById('btn-notification-center');
+            btnSininho.style.animation = 'none';
+            setTimeout(() => btnSininho.style.animation = 'pulseRed 0.5s ease 2', 50);
+        }
+    }
+
+    if (window.renderizarCentralNotificacoes) window.renderizarCentralNotificacoes();
     if (window.renderizarWikiTree) window.renderizarWikiTree();
-    if (window.renderizarAudios) window.renderizarAudios(); // Manda os pingos para as músicas!
+    if (window.renderizarAudios) window.renderizarAudios(); 
 };
 
 window.desenharBadgeNoMenu = (target, quantidade) => {
@@ -6793,14 +6823,30 @@ window.salvarPostMural = async (e) => {
             texto: texto,
             autor: window.obterNomeExibicao(),
             autorId: auth.currentUser.uid,
-            upvotes: [auth.currentUser.uid], // Quem posta já dá 1 upvote automático
+            upvotes: [auth.currentUser.uid], 
             downvotes: [],
             dataCriacao: new Date().toISOString()
         });
         
-        // Dá uns pontinhos de XP por interagir com a galera
+        // MÁGICA: Radar de Menções no Mural
+        const mencoes = texto.match(/@([a-zA-Z0-9_À-ÿ]+)/g);
+        if (mencoes && mencoes.length > 0) {
+            const snapUsers = await getDocs(collection(db, "usuarios"));
+            const todosUsuarios = snapUsers.docs.map(d => ({ uid: d.data().uid, nome: d.data().nome || "", apelido: d.data().apelido || "", email: d.data().email }));
+
+            let notificados = new Set(); 
+            mencoes.forEach(mencao => {
+                const nomeMencao = mencao.replace('@', '').toLowerCase();
+                const alvo = todosUsuarios.find(u => (u.apelido.toLowerCase() === nomeMencao) || (u.nome.split(' ')[0].toLowerCase() === nomeMencao));
+                if (alvo && alvo.email !== auth.currentUser.email && !notificados.has(alvo.uid)) {
+                    // Notifica a pessoa e ensina a bolinha a ir para a aba "mural"
+                    window.criarNotificacao(alvo.uid, 'geral', 'Menção no Mural', `${window.obterNomeExibicao()} citou você no Mural da equipe!`, { abaAlvo: 'mural' });
+                    notificados.add(alvo.uid); 
+                }
+            });
+        }
+
         window.pontuarGamificacao('geral', auth.currentUser.uid, 'geral', false);
-        
         input.value = '';
         window.closeModal('modalNovoPostMural');
         window.mostrarToastNotificacao("Mural", "Mensagem lançada na arena!", "geral");
@@ -6904,4 +6950,80 @@ window.votarMural = async (id, tipoVoto) => {
 
 window.deletarPostMural = async (id) => {
     if(confirm("Apagar sua mensagem da parede?")) await deleteDoc(doc(db, "mural_mensagens", id));
+};
+
+/* ==========================================================================
+   CENTRAL DE NOTIFICAÇÕES FLUTUANTE & SMART ROUTER
+   ========================================================================== */
+window.toggleNotificationCenter = () => {
+    document.getElementById('notification-center-panel').classList.toggle('active');
+};
+
+window.renderizarCentralNotificacoes = () => {
+    const list = document.getElementById('notification-center-list');
+    if (!list) return;
+
+    if (window.cacheNotificacoes.length === 0) {
+        list.innerHTML = '<div style="text-align:center; padding:30px; color:#666; font-size:0.85rem;">🎉 Tudo limpo! Nenhuma notificação nova.</div>';
+        return;
+    }
+
+    // Ordena da mais nova para mais velha
+    const ordenadas = [...window.cacheNotificacoes].sort((a,b) => new Date(b.dataCriacao) - new Date(a.dataCriacao));
+
+    list.innerHTML = ordenadas.map(n => {
+        const dataObj = new Date(n.dataCriacao);
+        const dataFormatada = dataObj.toLocaleDateString() === new Date().toLocaleDateString() 
+            ? `Hoje, às ${dataObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}` 
+            : `${dataObj.toLocaleDateString()} às ${dataObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+
+        return `
+            <li class="notif-item" onclick="window.clicarNotificacaoPainel('${n.id}', '${n.abaAlvo}', '${n.projetoId}', '${n.subAba}', '${n.contextId}')">
+                <div class="notif-title">${n.titulo}</div>
+                <div class="notif-msg">${n.mensagem}</div>
+                <span class="notif-time">${dataFormatada}</span>
+            </li>
+        `;
+    }).join('');
+};
+
+window.marcarTodasComoLidas = async () => {
+    if(!confirm("Deseja limpar todas as notificações?")) return;
+    const promessas = window.cacheNotificacoes.map(n => 
+        updateDoc(doc(db, "notificacoes", n.id), { lida: true })
+    );
+    await Promise.all(promessas);
+};
+
+// O MOTORISTA PARTICULAR 2.0 (Te leva exatamente onde a notificação aconteceu)
+window.clicarNotificacaoPainel = async (idNotif, abaAlvo, projetoId, subAba, contextId) => {
+    // 1. Marca a notificação atual como lida
+    await updateDoc(doc(db, "notificacoes", idNotif), { lida: true });
+
+    // 2. Vai para a aba do Menu Principal (Ex: Projetos, Mural, Reuniões)
+    if (abaAlvo && abaAlvo !== 'null') window.irParaAba(abaAlvo);
+
+    // 3. Se for algo de dentro de um Projeto, ele ABRE o projeto!
+    if (projetoId && projetoId !== 'null') {
+        try {
+            const projSnap = await getDoc(doc(db, "projetos", projetoId));
+            if (projSnap.exists()) {
+                const p = projSnap.data();
+                
+                // Abre o projeto (Puxa kanban, wiki, áudios)
+                await window.abrirProjeto(projSnap.id, p.nome, p.githubRepo, p.capaBase64, p.versaoAlvo);
+                
+                // 4. Se tiver uma Sub-aba específica (Ex: Aba de Áudios ou Wiki), ele muda pra lá!
+                if (subAba && subAba !== 'null') {
+                    setTimeout(() => {
+                        const btnTab = document.querySelector(`button[onclick*="${subAba}"]`);
+                        if (btnTab) window.switchProjectTab(subAba, btnTab);
+                    }, 100); // Leve delay para dar tempo do HTML renderizar a troca
+                }
+            }
+        } catch(e) { console.error("Erro no roteamento avançado:", e); }
+    }
+    
+    // 5. Fecha o painel pra tela ficar limpa
+    window.toggleNotificationCenter();
 };
