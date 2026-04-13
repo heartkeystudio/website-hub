@@ -5124,10 +5124,27 @@ window.deletarComentarioAudio = async (id) => {
 
 
 // ==========================================
-// SISTEMA GLOBAL DE NOTIFICAÇÕES (CORRIGIDO E COMPLETO)
+// SISTEMA GLOBAL DE NOTIFICAÇÕES (AGORA COM PUSH NATIVO!)
 // ==========================================
 
-// 1. Cria a notificação aceitando a rota (a "trilha de migalhas")
+// 1. PEDIR PERMISSÃO AO SISTEMA OPERACIONAL
+window.pedirPermissaoNotificacoes = () => {
+    if (!("Notification" in window)) {
+        alert("Seu navegador não suporta notificações de sistema.");
+        return;
+    }
+    
+    Notification.requestPermission().then((permission) => {
+        if (permission === "granted") {
+            window.mostrarToastNotificacao("Sucesso!", "Notificações nativas ativadas.", "geral");
+            document.getElementById('btn-permissao-push').style.display = 'none';
+        } else {
+            alert("Permissão negada. Você não receberá alertas fora do site.");
+        }
+    });
+};
+
+// 2. Cria a notificação aceitando a rota (a "trilha de migalhas")
 window.criarNotificacao = async (userIdAlvo, tipo, titulo, mensagem, rota = {}) => {
     if (!userIdAlvo) return;
     try {
@@ -5152,6 +5169,12 @@ window.notificacoesConhecidas = new Set(); // Evita que o F5 toque as notificaç
 window.iniciarSistemaNotificacoes = () => {
     if(!auth.currentUser) return;
     
+    // Verifica se já temos permissão para esconder o botão do topo do Dashboard
+    if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+        const btnPermissao = document.getElementById('btn-permissao-push');
+        if (btnPermissao) btnPermissao.style.display = 'block';
+    }
+    
     const q = query(
         collection(db, "notificacoes"), 
         where("userId", "==", auth.currentUser.uid), 
@@ -5161,19 +5184,41 @@ window.iniciarSistemaNotificacoes = () => {
     onSnapshot(q, (snap) => {
         window.cacheNotificacoes = snap.docs.map(d => ({id: d.id, ...d.data()}));
         
-        // 1. Dispara Popups (Toasts) apenas para notificações NOVAS
+        // 1. Dispara Popups (Toasts e NATIVOS) apenas para notificações NOVAS
         snap.docChanges().forEach(change => {
             if (change.type === "added") {
                 const n = change.doc.data();
                 const isRecente = (new Date().getTime() - new Date(n.dataCriacao).getTime()) < 10000;
+                
                 if (isRecente && !window.notificacoesConhecidas.has(change.doc.id)) {
+                    // A) Dispara o nosso Toast Interno bonitinho
                     window.mostrarToastNotificacao(n.titulo, n.mensagem, n.tipo);
+                    
+                    // B) O GOLPE FINAL: Dispara o Alerta Nativo do Windows/Mac/Android!
+                    if ("Notification" in window && Notification.permission === "granted") {
+                        // Pode colocar o link da logo do seu estúdio aqui
+                        const iconeUrl = "https://cdn-icons-png.flaticon.com/512/732/732221.png"; 
+                        
+                        const pushNativo = new Notification(n.titulo, {
+                            body: n.mensagem,
+                            icon: iconeUrl,
+                            silent: false // Garante que faz barulho no SO
+                        });
+                        
+                        // Se o usuário clicar na notificação nativa, foca na aba do Hub!
+                        pushNativo.onclick = function(event) {
+                            event.preventDefault();
+                            window.focus(); // Traz o navegador para a frente
+                            this.close(); // Fecha o card nativo
+                        };
+                    }
+
                     window.notificacoesConhecidas.add(change.doc.id);
                 }
             }
         });
 
-        // 2. Atualiza a trilha de bolinhas e pingos
+        // 2. Atualiza a trilha de bolinhas e pingos internos
         window.atualizarTrilhaNotificacoes();
     });
 };
