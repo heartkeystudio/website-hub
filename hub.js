@@ -109,6 +109,7 @@ onAuthStateChanged(auth, async (user) => {
         window.carregarMeuPerfil();
         window.iniciarSistemaNotificacoes();
         window.verificarAgendaDoDia();
+        window.recuperarPomodoroPerdido();
         window.carregarIncubadora();
         window.iniciarEscutaRadioGlobal();
         window.carregarBarraIntegrantes();
@@ -253,14 +254,14 @@ window.registrarAtividade = async (mensagem, tipo, icone) => {
 
 
 // ==========================================
-// 5. DASHBOARD E POMODORO
+// 5. DASHBOARD E POMODORO (COM MEMÓRIA GLOBAL)
 // ==========================================
-window.pomodoroMinutosOriginais = 25;
+// Puxa o tempo salvo da última sessão (ou 25 min como padrão)
+window.pomodoroMinutosOriginais = localStorage.getItem('hub_pomo_minutos') ? parseInt(localStorage.getItem('hub_pomo_minutos')) : 25;
 window.pomodoroTempo = window.pomodoroMinutosOriginais * 60;
 window.pomodoroIntervalo = null;
-window.tarefaEmFocoAtual = null; // Guarda a tarefa selecionada
+window.tarefaEmFocoAtual = null;
 
-// Atualiza o relógio no mini-card e na tela cheia
 window.atualizarDisplayPomodoro = () => {
     const m = Math.floor(window.pomodoroTempo / 60).toString().padStart(2, '0');
     const s = (window.pomodoroTempo % 60).toString().padStart(2, '0');
@@ -268,25 +269,37 @@ window.atualizarDisplayPomodoro = () => {
     
     const miniDisplay = document.getElementById('pomodoro-display');
     const focusDisplay = document.getElementById('focus-time-display');
-    
     if (miniDisplay) miniDisplay.innerText = timeStr;
     if (focusDisplay) focusDisplay.innerText = timeStr;
 };
 
-// Lógica de Contagem
+// O INÍCIO: Salva a hora exata que vai terminar no navegador!
 window.iniciarPomodoro = () => {
     if (window.pomodoroIntervalo) return;
+    
+    // Se não tiver um término salvo, calcula a partir de agora
+    if (!localStorage.getItem('hub_pomo_alvo')) {
+        const horaAlvo = Date.now() + (window.pomodoroTempo * 1000);
+        localStorage.setItem('hub_pomo_alvo', horaAlvo.toString());
+    }
+
     window.pomodoroIntervalo = setInterval(() => {
-        if (window.pomodoroTempo > 0) {
-            window.pomodoroTempo--;
+        // Pega a hora alvo do navegador e vê quanto falta
+        const horaAlvo = parseInt(localStorage.getItem('hub_pomo_alvo'));
+        const faltaMilissegundos = horaAlvo - Date.now();
+        
+        if (faltaMilissegundos > 0) {
+            window.pomodoroTempo = Math.round(faltaMilissegundos / 1000);
             window.atualizarDisplayPomodoro();
         } else {
+            // ACABOU O TEMPO!
             clearInterval(window.pomodoroIntervalo);
             window.pomodoroIntervalo = null;
-            window.pontuarGamificacao('pomodoro');
-            alert("🍅 Tempo de foco concluído! Faça uma pausa.");
+            localStorage.removeItem('hub_pomo_alvo'); // Limpa a memória
             
-            // Reseta pro tempo padrão
+            window.pontuarGamificacao('pomodoro');
+            window.mostrarToastNotificacao("Foco Concluído!", "🍅 Excelente trabalho! Faça uma pausa curta.", "geral");
+            
             window.pomodoroTempo = window.pomodoroMinutosOriginais * 60;
             window.atualizarDisplayPomodoro();
         }
@@ -296,6 +309,8 @@ window.iniciarPomodoro = () => {
 window.pausarPomodoro = () => { 
     clearInterval(window.pomodoroIntervalo); 
     window.pomodoroIntervalo = null; 
+    // Quando pausa, apaga o alvo global, assim quando voltar ele recomeça com o `pomodoroTempo` restante
+    localStorage.removeItem('hub_pomo_alvo'); 
 };
 
 window.resetarPomodoro = () => { 
@@ -304,65 +319,37 @@ window.resetarPomodoro = () => {
     window.atualizarDisplayPomodoro(); 
 };
 
-// Editar Tempo clicando no relógio gigante
 window.editarTempoPomodoro = () => {
-    window.pausarPomodoro(); // Pausa por segurança
+    window.pausarPomodoro(); 
     const novoTempo = prompt("Quantos minutos você quer focar?", window.pomodoroMinutosOriginais);
     if (novoTempo && !isNaN(novoTempo) && parseInt(novoTempo) > 0) {
         window.pomodoroMinutosOriginais = parseInt(novoTempo);
+        // Salva a preferência pra sempre!
+        localStorage.setItem('hub_pomo_minutos', window.pomodoroMinutosOriginais.toString()); 
         window.pomodoroTempo = window.pomodoroMinutosOriginais * 60;
         window.atualizarDisplayPomodoro();
     }
 };
 
-// --- MODO FOCO (TELAS E TAREFAS) ---
-window.abrirFocusMode = () => {
-    document.getElementById('pomodoro-focus-mode').classList.add('active');
-    window.carregarTarefasFocus(); // Carrega as tarefas pra escolher
-};
-
-window.fecharFocusMode = () => {
-    document.getElementById('pomodoro-focus-mode').classList.remove('active');
-    document.getElementById('focus-tasks-panel').classList.remove('open');
-};
-
-window.togglePainelTarefasFoco = () => {
-    document.getElementById('focus-tasks-panel').classList.toggle('open');
-};
-
-window.selecionarTarefaFoco = (id, titulo, tag) => {
-    window.tarefaEmFocoAtual = { id, titulo, tag };
-    const label = document.getElementById('focus-current-task');
-    label.innerHTML = `<span style="color:var(--primary)">🎯 Focando em:</span> ${titulo}`;
-    window.togglePainelTarefasFoco(); // Fecha o painel lateral
-};
-
-window.carregarTarefasFocus = async () => {
-    if (!auth.currentUser) return;
-    const lista = document.getElementById('focus-tasks-list');
-    lista.innerHTML = '<p style="color:#666; text-align:center;">Buscando suas tarefas...</p>';
-    
-    try {
-        const qTsk = query(collection(db, "tarefas"), where("userId", "==", auth.currentUser.uid));
-        const snapTsk = await getDocs(qTsk);
-        let pendentes = [];
-        
-        snapTsk.forEach(d => {
-            if (d.data().status !== 'done') pendentes.push({id: d.id, ...d.data()});
-        });
-
-        if(pendentes.length === 0) {
-            lista.innerHTML = '<p style="color:#4caf50; text-align:center;">Tudo limpo! Nenhuma tarefa pendente.</p>';
-            return;
+// MÁGICA: Função que roda sozinha ao entrar no site para ver se tinha um timer rolando!
+window.recuperarPomodoroPerdido = () => {
+    const horaAlvo = localStorage.getItem('hub_pomo_alvo');
+    if (horaAlvo) {
+        const faltaMilissegundos = parseInt(horaAlvo) - Date.now();
+        if (faltaMilissegundos > 0) {
+            // Tinha timer rodando e ainda não acabou! Retoma de onde parou:
+            window.pomodoroTempo = Math.round(faltaMilissegundos / 1000);
+            window.atualizarDisplayPomodoro();
+            window.iniciarPomodoro(); // Dispara o motor de volta
+        } else {
+            // O tempo acabou enquanto o cara tava fora do site!
+            localStorage.removeItem('hub_pomo_alvo');
+            window.pontuarGamificacao('pomodoro');
+            window.mostrarToastNotificacao("Timer Encerrado", "🍅 O seu pomodoro terminou enquanto você estava fora!", "geral");
+            window.pomodoroTempo = window.pomodoroMinutosOriginais * 60;
+            window.atualizarDisplayPomodoro();
         }
-
-        lista.innerHTML = pendentes.map(t => `
-            <li onclick="selecionarTarefaFoco('${t.id}', '${t.titulo}', '${t.tag}')">
-                <strong>${t.titulo}</strong>
-                <span>Tag: ${t.tag.toUpperCase()}</span>
-            </li>
-        `).join('');
-    } catch(e) { console.error("Erro ao carregar tarefas pro Foco:", e); }
+    }
 };
 
 // ==========================================
@@ -570,7 +557,22 @@ window.salvarProjeto = async (e) => {
         });
 
         if (window.ideiaPromovendoId) {
+            // MÁGICA DA GLÓRIA: Puxa os dados da ideia original para premiar o autor!
+            const ideiaSnap = await getDoc(doc(db, "brainstorm_ideias", window.ideiaPromovendoId));
+            
             if (confirm("Projeto criado! Deseja remover a ideia original da Incubadora?")) {
+                if (ideiaSnap.exists()) {
+                    const autorId = ideiaSnap.data().autorId;
+                    // Dá 50 XP pro autor se a ideia for aprovada!
+                    if (autorId) {
+                        await updateDoc(doc(db, "usuarios", autorId), { xp: increment(50) });
+                        window.criarNotificacao(
+                            autorId, 'geral', '💡 Ideia Aprovada!', 
+                            `+50 XP! A equipe transformou sua ideia "${ideiaSnap.data().titulo}" em um Projeto Oficial.`, 
+                            { abaAlvo: 'projetos' }
+                        );
+                    }
+                }
                 await deleteDoc(doc(db, "brainstorm_ideias", window.ideiaPromovendoId));
             }
             window.ideiaPromovendoId = null; // Reseta o controle
@@ -586,41 +588,67 @@ window.salvarProjeto = async (e) => {
 };
 
 // 2. CARREGAR PROJETOS (A grade inicial)
+window.filtroProjetosAtual = 'todos';
+
+window.aplicarFiltroProjetos = () => {
+    const select = document.getElementById('filter-projetos');
+    if (select) window.filtroProjetosAtual = select.value;
+    window.carregarProjetos();
+};
+
 window.carregarProjetos = async () => {
     const grid = document.getElementById('projects-grid');
-    if (!grid) return;
+    if (!grid || !auth.currentUser) return;
+
+    // INJEÇÃO AUTOMÁTICA DO FILTRO (Para você não precisar mexer no HTML)
+    let filterContainer = document.getElementById('project-filter-container');
+    if (!filterContainer) {
+        filterContainer = document.createElement('div');
+        filterContainer.id = 'project-filter-container';
+        filterContainer.style.marginBottom = '20px';
+        filterContainer.innerHTML = `
+            <select id="filter-projetos" onchange="window.aplicarFiltroProjetos()" style="padding: 8px 15px; border-radius: 8px; background: rgba(0,0,0,0.3); color: #fff; border: 1px solid var(--primary); outline: none; font-weight: bold; cursor: pointer;">
+                <option value="todos">🌍 Mostrar Todos os Projetos</option>
+                <option value="meus">👤 Apenas Meus Projetos Pessoais</option>
+                <option value="outros">🏢 Apenas Projetos Oficiais do Estúdio</option>
+            </select>
+        `;
+        grid.parentNode.insertBefore(filterContainer, grid);
+    }
+
     const q = query(collection(db, "projetos"), where("colaboradores", "array-contains", auth.currentUser.email.toLowerCase()));
     
     onSnapshot(q, (snap) => {
-        grid.innerHTML = snap.docs.map(d => {
-            const p = d.data();
-            const iniciais = p.nome.substring(0,2).toUpperCase();
-            
-            const souDono = p.userId === auth.currentUser.uid;
-            let botoesAcao = '';
+        let projetos = snap.docs.map(d => ({id: d.id, ...d.data()}));
 
-            if (souDono) {
-                botoesAcao = `<button class="icon-btn" onclick="event.stopPropagation(); deletarProjeto('${d.id}')" style="color:#ff5252; background: rgba(0,0,0,0.5); padding: 6px; border-radius: 6px;" data-tooltip="Excluir Projeto">🗑️</button>`;
-            } else {
-                botoesAcao = `<button class="icon-btn" onclick="event.stopPropagation(); sairDoProjeto('${d.id}', '${p.nome}')" style="color:#ffc107; background: rgba(0,0,0,0.5); padding: 6px; border-radius: 6px;" data-tooltip="Sair do Projeto">🚪</button>`;
-            }
+        // A MÁGICA DO FILTRO
+        if (window.filtroProjetosAtual === 'meus') {
+            projetos = projetos.filter(p => p.userId === auth.currentUser.uid);
+        } else if (window.filtroProjetosAtual === 'outros') {
+            projetos = projetos.filter(p => p.userId !== auth.currentUser.uid);
+        }
+
+        grid.innerHTML = projetos.map(p => {
+            const iniciais = p.nome.substring(0,2).toUpperCase();
+            const souDono = p.userId === auth.currentUser.uid;
+            
+            let botoesAcao = souDono 
+                ? `<button class="icon-btn" onclick="event.stopPropagation(); deletarProjeto('${p.id}')" style="color:#ff5252; background: rgba(0,0,0,0.5); padding: 6px; border-radius: 6px;" title="Excluir Projeto">🗑️</button>`
+                : `<button class="icon-btn" onclick="event.stopPropagation(); sairDoProjeto('${p.id}', '${p.nome}')" style="color:#ffc107; background: rgba(0,0,0,0.5); padding: 6px; border-radius: 6px;" title="Sair do Projeto">🚪</button>`;
 
             const bgStyle = p.capaBase64 ? `background: linear-gradient(rgba(15,15,15,0.7), rgba(15,15,15,0.95)), url('${p.capaBase64}') center/cover; border-color: rgba(255,255,255,0.2);` : '';
-            
-            // CORREÇÃO AQUI: Usando p.avatarBase64 (ícone do projeto) ou iniciais
-            const avatarHtml = p.avatarBase64 
-                ? `<img src="${p.avatarBase64}" alt="Logo">` 
-                : iniciais;
+            const avatarHtml = p.avatarBase64 ? `<img src="${p.avatarBase64}">` : iniciais;
             
             return `
-                <div class="client-card" id="proj-card-${d.id}" onclick="window.abrirProjeto('${d.id}', '${p.nome}', '${p.githubRepo}', '${p.capaBase64 || ""}', ${p.versaoAlvo || 1})" style="cursor:pointer; position:relative; ${bgStyle}">
+                <div class="client-card" id="proj-card-${p.id}" onclick="window.abrirProjeto('${p.id}', '${p.nome.replace(/'/g, "\\'")}', '${p.githubRepo}', '${p.capaBase64 || ""}', ${p.versaoAlvo || 1})" style="cursor:pointer; position:relative; ${bgStyle}">
                     <div class="client-header" style="border-bottom-color: rgba(255,255,255,0.1);">
                         <div class="client-avatar" style="padding:0; overflow:hidden;">${avatarHtml}</div>
                         <div class="client-title" style="flex:1;">
                             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                                 <h3 style="margin:0;">${p.nome}</h3>
-                                ${botoesAcao} </div>
-                            <p class="client-role" style="margin-top:5px;">Equipe: ${p.colaboradores.length} membro(s)</p>
+                                ${botoesAcao} 
+                            </div>
+                            <p class="client-role" style="margin-top:5px;">Equipe: ${p.colaboradores.length} membro(s) ${souDono ? '(Criador)' : ''}</p>
                         </div>
                     </div>
                     <div class="client-body">
@@ -628,7 +656,6 @@ window.carregarProjetos = async () => {
                     </div>
                 </div>`;
         }).join('');
-        setTimeout(() => { if(window.atualizarTrilhaNotificacoes) window.atualizarTrilhaNotificacoes(); }, 100);
     });
 };
 
@@ -1049,15 +1076,7 @@ window.renderizarDescricaoTask = (texto) => {
     
     container.innerHTML = htmlGerado;
 
-    // 5. Acorda o Mermaid para desenhar os gráficos (Fluxogramas, Diagramas, etc)
-    try {
-        const graficos = container.querySelectorAll('.language-mermaid');
-        if (graficos.length > 0) {
-            mermaid.run({ nodes: graficos });
-        }
-    } catch(e) {
-        console.log("Erro ao desenhar diagrama do Mermaid na tarefa:", e);
-    }
+    window.desenharGraficosMermaid(container);
 };
 
 // C) Abre o Modal e puxa dados ao vivo do GitHub
@@ -1515,7 +1534,7 @@ window.setWikiMode = (mode) => {
         document.getElementById('btn-wiki-preview')?.classList.add('active');
         document.getElementById('btn-wiki-edit')?.classList.remove('active');
         
-        try { mermaid.run({ nodes: document.querySelectorAll('.language-mermaid') }); } catch(e){}
+        window.desenharGraficosMermaid(prev);
         
         if (prev) {
             const headers = prev.querySelectorAll('h2, h3');
@@ -1880,21 +1899,25 @@ window.renderizarWikiTree = () => {
                 const isSelecionada = (f.id === window.ultimaPastaSelecionada);
                 const classeSelecionada = isSelecionada ? 'selected' : '';
 
-                // VERIFICAÇÃO MULTI-SELEÇÃO DA PASTA
                 const isMultiSelected = window.itensSelecionadosWiki.some(i => i.id === f.id);
                 const classeMulti = isMultiSelected ? 'multi-selected' : '';
+
+                // A ESTRELA AGORA VIVE NO MENU
+                const isFav = window.meusFavoritosWiki.includes(f.id);
+                const textoFav = isFav ? '🌟 Desfavoritar' : '⭐ Favoritar';
+                const corFav = isFav ? 'color: #ffc107;' : '';
 
                 const menuAcoes = inTrash ? '' : `
                     <div class="comment-menu-container wiki-item-actions">
                         <button class="comment-menu-trigger" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')">⋮</button>
                         <div class="dropdown-content">
+                            <button onclick="window.toggleFavoritoWiki(event, '${f.id}')" style="${corFav}">${textoFav}</button>
                             <button onclick="window.renomearPastaWiki(event, '${f.id}', '${f.nome.replace(/'/g, "\\'")}')">✏️ Renomear</button>
                             <button class="del" onclick="window.deletarPastaWiki(event, '${f.id}')">🗑️ Excluir Pasta</button>
                         </div>
                     </div>
                 `;
 
-                // Verifica se a pasta está vazia
                 const temSubpastas = pastasPorPai[f.id] && pastasPorPai[f.id].length > 0;
                 const temArquivos = arquivosPorPasta[f.id] && arquivosPorPasta[f.id].length > 0;
                 let conteudoDaPasta = construirArvore(f.id, inTrash);
@@ -1905,7 +1928,9 @@ window.renderizarWikiTree = () => {
 
                 html += `
                     <div style="margin-top: 5px;" class="${classeLixo}">
-                        <div class="wiki-folder-header ${classeSelecionada} ${classeMulti}" draggable="true" 
+                        <div class="wiki-folder-header ${classeSelecionada} ${classeMulti} wiki-node-item" 
+                             data-node-id="${f.id}" data-node-type="folder"
+                             draggable="true" 
                              ondragstart="window.dragStartWiki(event, '${f.id}', 'folder')" 
                              onclick="window.handleWikiItemClick(event, '${f.id}', 'folder', '${f.nome.replace(/'/g, "\\'")}')" 
                              ondblclick="window.togglePastaWiki(event, '${f.id}')" 
@@ -1933,14 +1958,19 @@ window.renderizarWikiTree = () => {
                 const temNotificacao = window.cacheNotificacoes.some(n => n.contextId === p.id || n.contextId === p.id + '_note');
                 const pingoHtml = temNotificacao ? '<span class="item-dot" style="flex-shrink:0;"></span>' : '';
 
-                // VERIFICAÇÃO MULTI-SELEÇÃO DO ARQUIVO
                 const isMultiSelected = window.itensSelecionadosWiki.some(i => i.id === p.id);
                 const classeMulti = isMultiSelected ? 'multi-selected' : '';
+
+                // A ESTRELA AGORA VIVE NO MENU
+                const isFav = window.meusFavoritosWiki.includes(p.id);
+                const textoFav = isFav ? '🌟 Desfavoritar' : '⭐ Favoritar';
+                const corFav = isFav ? 'color: #ffc107;' : '';
 
                 const menuAcoes = inTrash ? '' : `
                     <div class="comment-menu-container wiki-item-actions">
                         <button class="comment-menu-trigger" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')">⋮</button>
                         <div class="dropdown-content">
+                            <button onclick="window.toggleFavoritoWiki(event, '${p.id}')" style="${corFav}">${textoFav}</button>
                             <button onclick="window.renomearArquivoWikiDireto(event, '${p.id}', '${p.titulo.replace(/'/g, "\\'")}')">✏️ Renomear</button>
                             <button class="del" onclick="window.deletarArquivoWikiDireto(event, '${p.id}')">🗑️ Excluir Arquivo</button>
                         </div>
@@ -1948,7 +1978,9 @@ window.renderizarWikiTree = () => {
                 `;
 
                 html += `
-                    <div class="wiki-file-item ${classeLixo} ${classeAtiva} ${classeMulti}" draggable="true" 
+                    <div class="wiki-file-item ${classeLixo} ${classeAtiva} ${classeMulti} wiki-node-item" 
+                         data-node-id="${p.id}" data-node-type="file"
+                         draggable="true" 
                          ondragstart="window.dragStartWiki(event, '${p.id}', 'file')" 
                          onclick="window.handleWikiItemClick(event, '${p.id}', 'file', '${p.titulo.replace(/'/g, "\\'")}')">
                         <div class="wiki-item-name" title="${p.titulo}">
@@ -2937,26 +2969,64 @@ window.apagarMensagemWar = async (id) => {
 
 // --- 5. O ARSENAL (LINKS) ---
 window.adicionarLinkWarRoom = async () => {
+    if (!auth.currentUser) return;
     const titulo = prompt("Título do Link:");
+    if (!titulo) return;
     const url = prompt("URL (http://...):");
+    
     if (titulo && url) {
-        await addDoc(collection(db, "war_room_links"), { titulo, url });
+        await addDoc(collection(db, "war_room_links"), { 
+            titulo, 
+            url,
+            autorEmail: auth.currentUser.email // MÁGICA 1: Salvando o dono!
+        });
+    }
+};
+
+window.editarLinkWarRoom = async (id, tituloAtual, urlAtual) => {
+    const novoTitulo = prompt("Editar Título:", tituloAtual);
+    if (!novoTitulo || novoTitulo.trim() === "") return;
+    const novaUrl = prompt("Editar URL (http://...):", urlAtual);
+    if (!novaUrl || novaUrl.trim() === "") return;
+
+    try {
+        await updateDoc(doc(db, "war_room_links", id), {
+            titulo: novoTitulo.trim(),
+            url: novaUrl.trim()
+        });
+    } catch(e) { console.error("Erro ao editar link:", e); }
+};
+
+window.deletarLinkWarRoom = async (id) => {
+    if (confirm("Remover este link do arsenal?")) {
+        try { await deleteDoc(doc(db, "war_room_links", id)); } 
+        catch (e) { console.error(e); }
     }
 };
 
 window.iniciarArsenalWarRoom = () => {
     const container = document.getElementById('war-links-container');
     onSnapshot(collection(db, "war_room_links"), (snap) => {
-        if(!container) return;
+        if(!container || !auth.currentUser) return;
         container.innerHTML = "";
+        
         snap.forEach(docSnap => {
             const l = docSnap.data();
             const id = docSnap.id;
             
-            // Só Admin ou Gerente podem ver o X de deletar
-            const btnDelete = (window.userRole === 'admin' || window.userRole === 'gerente') 
-                ? `<button onclick="event.preventDefault(); deletarLinkWarRoom('${id}')" style="background:none; border:none; color:#ff5252; cursor:pointer; padding:5px; font-size:1rem; opacity:0.6; transition:0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">×</button>` 
-                : '';
+            // MÁGICA 2: Verifica se sou o dono ou o Admin para liberar os botões
+            const isDono = l.autorEmail === auth.currentUser.email;
+            const isAdmin = window.userRole === 'admin' || window.userRole === 'gerente';
+            
+            let controlesHtml = '';
+            if (isDono || isAdmin) {
+                controlesHtml = `
+                    <div style="display:flex; gap: 4px;">
+                        <button onclick="event.preventDefault(); editarLinkWarRoom('${id}', '${l.titulo.replace(/'/g, "\\'")}', '${l.url}')" style="background:none; border:none; color:var(--primary); cursor:pointer; padding:5px; font-size:0.9rem; opacity:0.6; transition:0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6" title="Editar">✏️</button>
+                        <button onclick="event.preventDefault(); deletarLinkWarRoom('${id}')" style="background:none; border:none; color:#ff5252; cursor:pointer; padding:5px; font-size:1rem; opacity:0.6; transition:0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6" title="Excluir">×</button>
+                    </div>
+                `;
+            }
 
             container.innerHTML += `
                 <div style="display:flex; align-items:center; gap:5px; width:100%;">
@@ -2964,19 +3034,11 @@ window.iniciarArsenalWarRoom = () => {
                         <span style="font-size: 1.2rem;">🔗</span> 
                         <div><strong>${l.titulo}</strong><br><span style="font-size:0.7rem; color:#888;">Recurso Externo</span></div>
                     </a>
-                    ${btnDelete}
+                    ${controlesHtml}
                 </div>
             `;
         });
     });
-};
-
-window.deletarLinkWarRoom = async (id) => {
-    if (confirm("Remover este link do arsenal?")) {
-        try {
-            await deleteDoc(doc(db, "war_room_links", id));
-        } catch (e) { console.error(e); }
-    }
 };
 
 // --- 6. PROTOCOLO DO ADMINISTRADOR (RESET) ---
@@ -3627,7 +3689,7 @@ window.setDiaryMode = (mode) => {
             prev.innerHTML = marked.parse(edit.value || '*Nada escrito ainda.*');
             edit.style.display = 'none';
             prev.style.display = 'block';
-            try { mermaid.run({ nodes: prev.querySelectorAll('.language-mermaid') }); } catch(e){}
+            window.desenharGraficosMermaid(prev);
         }
         document.getElementById('btn-diary-preview').classList.add('active');
         document.getElementById('btn-diary-edit').classList.remove('active');
@@ -4487,60 +4549,92 @@ window.toggleLoop = (id) => {
     }
 };
 
-// --- LÓGICA DO MASTER PLAYER ---
+// --- LÓGICA DO MASTER PLAYER (UNIFICADO: RÁDIO + PROJETOS) ---
 window.audioIdAtualMestre = null;
+window.fonteMidiaAtual = null; // Sabe se está tocando 'radio' ou 'projeto'
 
-// Esta função atualiza o player flutuante com os dados do áudio clicado
-window.sincronizarComMaster = (id, titulo, subtitulo) => {
+// Atualiza o player flutuante com os dados de qualquer áudio
+window.sincronizarComMaster = (id, titulo, subtitulo, tipo = 'projeto') => {
+    window.fonteMidiaAtual = tipo;
     window.audioIdAtualMestre = id;
+    
     const player = document.getElementById('master-player-float');
     document.getElementById('master-player-title').innerText = titulo;
     document.getElementById('master-player-subtitle').innerText = subtitulo;
     
-    player.classList.add('active'); // Mostra o player flutuante
+    player.classList.add('active'); // Pula na tela
 };
 
-// Sincroniza o Play/Pause do botão flutuante com o áudio da galeria
+// Botão Central de Play/Pause da barra flutuante
 window.togglePlayMaster = () => {
-    if (!window.audioIdAtualMestre) return;
-    window.togglePlayAudio(window.audioIdAtualMestre);
+    if (window.fonteMidiaAtual === 'radio') {
+        const masterBtn = document.getElementById('master-play-icon');
+        if (window.playerRadio.paused) {
+            window.playerRadio.play();
+            masterBtn.innerText = "⏸";
+        } else {
+            window.playerRadio.pause();
+            masterBtn.innerText = "▶";
+        }
+    } else if (window.fonteMidiaAtual === 'projeto' && window.audioIdAtualMestre) {
+        window.togglePlayAudio(window.audioIdAtualMestre);
+    }
 };
 
-// Controla o volume de TODOS os áudios do sistema
+// Controla o volume de TUDO (Rádio e Projetos)
 window.ajustarVolumeMaster = (valor) => {
-    const todosAudios = document.querySelectorAll('audio');
-    todosAudios.forEach(a => a.volume = valor);
-    localStorage.setItem('hub_master_volume', valor); // Salva sua preferência
+    // Abaixa das músicas dos projetos
+    document.querySelectorAll('audio').forEach(a => a.volume = valor);
+    // Abaixa da rádio global
+    if (window.playerRadio) window.playerRadio.volume = valor;
+    // Salva preferência
+    localStorage.setItem('hub_master_volume', valor); 
 };
 
+// Fechar no "X"
 window.fecharPlayerMestre = () => {
-    if (window.audioIdAtualMestre) {
+    if (window.fonteMidiaAtual === 'radio') {
+        window.playerRadio.pause();
+        const status = document.getElementById('radio-status');
+        if(status) status.innerText = 'Offline';
+    } 
+    else if (window.fonteMidiaAtual === 'projeto' && window.audioIdAtualMestre) {
         const audio = document.getElementById(`audio-elemento-${window.audioIdAtualMestre}`);
         if(audio) audio.pause();
+        const btn = document.getElementById(`btn-play-${window.audioIdAtualMestre}`);
+        if(btn) btn.innerText = "▶";
     }
+    
     document.getElementById('master-player-float').classList.remove('active');
+    document.getElementById('master-play-icon').innerText = "▶";
+    window.fonteMidiaAtual = null;
+    window.audioIdAtualMestre = null;
 };
 
 
-// 3. A MÁGICA DO PLAY/PAUSE E BARRA DE PROGRESSO (CORRIGIDO)
+// 3. A MÁGICA DO PLAY/PAUSE DOS PROJETOS (Respeitando a Rádio)
 window.togglePlayAudio = async (id) => {
     const audio = document.getElementById(`audio-elemento-${id}`);
-    const btn = document.getElementById(`btn-play-${id}`); // <--- A LINHA QUE FALTAVA!
+    const btn = document.getElementById(`btn-play-${id}`); 
     const masterBtn = document.getElementById('master-play-icon');
     const card = window.audiosCache.find(a => a.id === id);
     
     if (!audio || !card) return;
 
-    // Antes de rodar a lógica normal, avisa o Master Player
-    window.sincronizarComMaster(id, card.titulo, `${card.tag} | ${card.bpm} BPM`);
-
-    // Trava de segurança 1: Vê se o link tem erro crítico
-    if (audio.networkState === 3) {
-        alert("Ops! O servidor deste link bloqueou a reprodução (Erro de CORS/Permissão).");
-        return;
+    // Se a rádio estiver tocando, dá um "Cala a boca" nela para você poder ouvir o efeito sonoro!
+    if (window.fonteMidiaAtual === 'radio' && !window.playerRadio.paused) {
+        window.playerRadio.pause();
+        const status = document.getElementById('radio-status');
+        if(status) status.innerText = 'Pausado pelo Projeto';
     }
 
-    // Se tiver outro tocando, pausa ele primeiro!
+    // Avisa o Master Player que agora quem manda é a música do projeto
+    window.sincronizarComMaster(id, card.titulo, `${card.tag} | ${card.bpm} BPM`, 'projeto');
+
+    if (audio.networkState === 3) {
+        return alert("Ops! O servidor deste link bloqueou a reprodução (Erro de CORS/Permissão).");
+    }
+
     if (window.audioAtualExecucao && window.audioAtualExecucao !== id) {
         const audioAntigo = document.getElementById(`audio-elemento-${window.audioAtualExecucao}`);
         const btnAntigo = document.getElementById(`btn-play-${window.audioAtualExecucao}`);
@@ -4555,9 +4649,7 @@ window.togglePlayAudio = async (id) => {
             if(masterBtn) masterBtn.innerText = "⏸";
             window.audioAtualExecucao = id;
         } catch (erro) {
-            // Se cair aqui, é porque o navegador bloqueou de VERDADE (ex: autoplay block)
             console.error("Erro real do player:", erro);
-            alert("O navegador bloqueou a reprodução. Clique novamente para tentar.");
         }
     } else {
         audio.pause();
@@ -5577,7 +5669,7 @@ window.carregarIncubadora = () => {
     });
 };
 
-// Função auxiliar para evitar repetição de código HTML
+// --- CARD COM BOTÃO DE LER MAIS ---
 function renderizarCardIdeia(i) {
     const jaVotou = i.votos?.includes(auth.currentUser.uid);
     const isMe = i.autorId === auth.currentUser.uid;
@@ -5592,11 +5684,16 @@ function renderizarCardIdeia(i) {
         </div>` : '';
 
     return `
-        <div class="idea-card ${i.tag}">
+        <div class="idea-card ${i.tag}" style="display: flex; flex-direction: column;">
             ${menuHtml}
             <h4>${i.titulo}</h4>
-            <div class="markdown-body idea-desc">${marked.parse(i.descricao || "")}</div>
-            <div class="idea-footer">
+            <div class="markdown-body idea-desc" style="flex: 1; max-height: 150px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; margin-bottom: 15px;">
+                ${marked.parse(i.descricao || "")}
+            </div>
+            
+            <button class="btn-secondary" style="width: 100%; margin-bottom: 15px; font-size: 0.8rem;" onclick="window.abrirLeituraIdeia('${i.id}')">📖 Ler Ideia Completa</button>
+            
+            <div class="idea-footer" style="margin-top: auto;">
                 <span style="font-size:0.65rem; color:#666;">Por ${i.autor}</span>
                 <button class="vote-btn ${jaVotou ? 'voted' : ''}" onclick="window.votarIdeia('${i.id}', ${jaVotou})">
                     ${jaVotou ? '✅' : '🚀'} ${i.votos?.length || 0}
@@ -5604,6 +5701,59 @@ function renderizarCardIdeia(i) {
             </div>
         </div>`;
 }
+
+// --- POPUP GIGANTE DE LEITURA (Reaproveitando o Modal de Tarefa) ---
+window.abrirLeituraIdeia = async (id) => {
+    const docSnap = await getDoc(doc(db, "brainstorm_ideias", id));
+    if (docSnap.exists()) {
+        const i = docSnap.data();
+        document.getElementById('detalheTaskTitulo').innerText = "💡 " + i.titulo;
+        document.getElementById('detalheTaskDesc').innerHTML = marked.parse(i.descricao);
+        
+        // Esconde as informações de GitHub e Tags para deixar a leitura limpa
+        document.getElementById('detalheTaskTag').style.display = 'none';
+        document.getElementById('detalheTaskGit').style.display = 'none';
+        document.getElementById('btn-abrir-git').style.display = 'none';
+
+        window.openModal('modalDetalhesTarefa');
+    }
+};
+
+// --- XP AO CRIAR IDEIA (+15 XP) ---
+window.salvarIdeiaBrainstorm = async (e) => {
+    e.preventDefault();
+    if (!window.projetoAtualId) return;
+
+    const titulo = document.getElementById('brainTitulo')?.value;
+    const desc = document.getElementById('brainDesc')?.value;
+    const tag = document.getElementById('brainTag')?.value;
+
+    if (!titulo || !desc) return alert("Preencha título e descrição.");
+
+    const dados = {
+        titulo, descricao: desc, tag,
+        projetoId: window.projetoAtualId, autor: window.obterNomeExibicao(), autorId: auth.currentUser.uid, dataAtualizacao: new Date().toISOString()
+    };
+
+    try {
+        if (window.ideiaEditandoId) {
+            await updateDoc(doc(db, "brainstorm_ideias", window.ideiaEditandoId), dados);
+            window.ideiaEditandoId = null;
+        } else {
+            dados.votos = []; dados.dataCriacao = new Date().toISOString();
+            await addDoc(collection(db, "brainstorm_ideias"), dados);
+            
+            // MÁGICA DA GAMIFICAÇÃO: Dar XP por colaborar!
+            await updateDoc(doc(db, "usuarios", auth.currentUser.uid), { xp: increment(15) });
+            window.mostrarToastNotificacao("Gênio da Lâmpada", "+15 XP por adicionar uma ideia nova!", "geral");
+        }
+        
+        window.closeModal('modalNovaIdeia');
+        if (window.projetoAtualId === "global" && window.projetoAtualIdBackup) {
+            window.projetoAtualId = window.projetoAtualIdBackup; window.projetoAtualIdBackup = null;
+        }
+    } catch(err) { console.error(err); }
+};
 
 window.promoverIdeiaParaProjeto = async (id) => {
     const docSnap = await getDoc(doc(db, "brainstorm_ideias", id));
@@ -5631,13 +5781,23 @@ window.abrirEdicaoIdeia = async (id) => {
 
 window.deletarIdeia = async (id) => { if(confirm("Remover permanentemente?")) await deleteDoc(doc(db, "brainstorm_ideias", id)); };
 
+// --- XP AO RECEBER VOTO (+2 XP) ---
 window.votarIdeia = async (id, jaVotou) => {
     const docRef = doc(db, "brainstorm_ideias", id);
     const meuUid = auth.currentUser.uid;
     const snap = await getDoc(docRef);
-    let votos = snap.data().votos || [];
+    const ideia = snap.data();
+    
+    let votos = ideia.votos || [];
     votos = jaVotou ? votos.filter(u => u !== meuUid) : [...votos, meuUid];
     await updateDoc(docRef, { votos });
+
+    // MÁGICA: Se alguém votou na sua ideia, você ganha 2 XP! (E perde 2 XP se tirarem o voto)
+    if (ideia.autorId && ideia.autorId !== meuUid) {
+        const autorRef = doc(db, "usuarios", ideia.autorId);
+        const valorXp = jaVotou ? -2 : 2; 
+        await updateDoc(autorRef, { xp: increment(valorXp) });
+    }
 };
 
 
@@ -5678,12 +5838,21 @@ window.salvarConfigRadioGlobal = async () => {
     } catch (e) { console.error(e); }
 };
 
-// 3. O PLAYER (Lê do objeto global)
-window.iniciarRadioFrequencia = () => {
+// 3. O PLAYER DA RÁDIO (Agora integrado ao Master Player)
+window.iniciarRadioFrequencia = async () => {
     const config = window.radioConfigGlobal;
     
     if (!config.playlist || config.playlist.trim() === "") {
         return alert("O Admin ainda não configurou a playlist global.");
+    }
+
+    // Se tiver um áudio de projeto tocando, a rádio chega e desliga ele educadamente
+    if (window.audioAtualExecucao) {
+        const audioAntigo = document.getElementById(`audio-elemento-${window.audioAtualExecucao}`);
+        if(audioAntigo) audioAntigo.pause();
+        const btnAntigo = document.getElementById(`btn-play-${window.audioAtualExecucao}`);
+        if(btnAntigo) btnAntigo.innerText = "▶";
+        window.audioAtualExecucao = null;
     }
 
     const links = config.playlist.split('\n').filter(l => l.trim() !== "");
@@ -5691,10 +5860,21 @@ window.iniciarRadioFrequencia = () => {
 
     const urlFinal = window.converterLinkDireto(linkSorteado);
     window.playerRadio.src = urlFinal;
-    window.playerRadio.play();
     
-    document.getElementById('radio-status').innerText = `📻 Sintonizado na HeartKey`;
-    document.getElementById('radio-status').style.color = "var(--primary)";
+    try {
+        await window.playerRadio.play();
+        
+        const status = document.getElementById('radio-status');
+        if(status) {
+            status.innerText = `📻 Sintonizado na HeartKey`;
+            status.style.color = "var(--primary)";
+        }
+
+        // Manda os dados para a barra flutuante no rodapé!
+        window.sincronizarComMaster('radio', '📻 Rádio HeartKey', 'Transmissão Global do Estúdio', 'radio');
+        document.getElementById('master-play-icon').innerText = "⏸";
+
+    } catch (e) { console.error("Erro ao tocar rádio:", e); }
 
     window.playerRadio.onended = () => {
         if (!window.radioStatus?.estaTocandoNoticia) window.iniciarRadioFrequencia();
@@ -6062,36 +6242,60 @@ window.deletarArquivoWikiDireto = async (e, id) => {
 };
 
 /* ==========================================================================
-   WIKI - GESTOR DE CLIQUES (SELEÇÃO MÚLTIPLA E TRIPLO CLIQUE)
+   WIKI - GESTOR DE CLIQUES (SHIFT RANGE, CTRL E TRIPLO CLIQUE)
    ========================================================================== */
-window.itensSelecionadosWiki = []; // Memória do que está selecionado
+window.itensSelecionadosWiki = []; 
+window.ultimoClicadoId = null; // A "Âncora" para calcular o meio do caminho
 
 window.handleWikiItemClick = (e, id, tipo, nomeAtual) => {
-    // 1. SELEÇÃO MÚLTIPLA (Ctrl / Cmd / Shift) - Ignora a velocidade do clique!
+    
+    // 1. SELEÇÃO MÚLTIPLA (Shift ou Ctrl)
     if (e.shiftKey || e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        e.stopPropagation(); 
-        
-        const index = window.itensSelecionadosWiki.findIndex(i => i.id === id);
-        if (index > -1) {
-            window.itensSelecionadosWiki.splice(index, 1); // Se já tá selecionado, tira
-        } else {
-            window.itensSelecionadosWiki.push({ id: id, type: tipo }); // Se não tá, adiciona
+        e.preventDefault(); e.stopPropagation(); 
+
+        // LÓGICA DO SHIFT: O Pulo do Gato (Seleção em Fileira)
+        if (e.shiftKey && window.ultimoClicadoId) {
+            // Busca literalmente TODOS os arquivos e pastas que estão pintados na tela do painel
+            const nodes = Array.from(document.querySelectorAll('.wiki-node-item'));
+            
+            const startIndex = nodes.findIndex(n => n.getAttribute('data-node-id') === window.ultimoClicadoId);
+            const endIndex = nodes.findIndex(n => n.getAttribute('data-node-id') === id);
+
+            if (startIndex !== -1 && endIndex !== -1) {
+                const start = Math.min(startIndex, endIndex);
+                const end = Math.max(startIndex, endIndex);
+
+                // Passa o rodo: Adiciona todo mundo que estiver entre o Arquivo A e o Arquivo B
+                for (let i = start; i <= end; i++) {
+                    const nId = nodes[i].getAttribute('data-node-id');
+                    const nType = nodes[i].getAttribute('data-node-type');
+                    if (!window.itensSelecionadosWiki.find(item => item.id === nId)) {
+                        window.itensSelecionadosWiki.push({ id: nId, type: nType });
+                    }
+                }
+                window.renderizarWikiTree();
+                return;
+            }
         }
-        window.renderizarWikiTree(); // Atualiza a cor na tela
-        return; // Interrompe o resto da função!
+
+        // LÓGICA DO CTRL: Liga e desliga a seleção individual (como já era)
+        const index = window.itensSelecionadosWiki.findIndex(i => i.id === id);
+        if (index > -1) window.itensSelecionadosWiki.splice(index, 1);
+        else window.itensSelecionadosWiki.push({ id: id, type: tipo });
+
+        window.ultimoClicadoId = id; // Define este como a nova âncora pro próximo Shift
+        window.renderizarWikiTree();
+        return;
     }
 
     // 2. CLIQUE SIMPLES NORMAL
     if (e.detail === 1) {
-        // Limpa a seleção múltipla e foca só neste item
         window.itensSelecionadosWiki = [{ id: id, type: tipo }];
+        window.ultimoClicadoId = id; // Define a âncora principal!
         
-        if (tipo === 'folder') {
-            window.selecionarPastaWiki(e, id);
-        } else {
-            window.abrirWiki(id);
-        }
+        if (tipo === 'folder') window.selecionarPastaWiki(e, id);
+        else window.abrirWiki(id);
+        
         window.renderizarWikiTree();
     } 
     // 3. TRIPLO CLIQUE (Renomear)
@@ -6137,3 +6341,161 @@ document.addEventListener('keydown', (e) => {
         }
     }
 });
+
+/* ==========================================================================
+   SISTEMA DE FAVORITOS E ATALHOS NO DASHBOARD
+   ========================================================================== */
+window.meusFavoritosWiki = [];
+
+// 1. Escuta silenciosa: Puxa seus favoritos do banco assim que você loga
+setTimeout(() => {
+    if(auth.currentUser) {
+        onSnapshot(doc(db, "usuarios", auth.currentUser.uid), (docSnap) => {
+            if (docSnap.exists()) {
+                window.meusFavoritosWiki = docSnap.data().favoritosWiki || [];
+                if (window.renderizarWikiTree) window.renderizarWikiTree(); // Pinta a árvore
+                window.renderizarFavoritosDashboard(); // Desenha no Dashboard
+            }
+        });
+    }
+}, 2000);
+
+// 2. Ação de Clicar na Estrela (Agora via Menu)
+window.toggleFavoritoWiki = async (e, id) => {
+    e.stopPropagation(); 
+    
+    const userRef = doc(db, "usuarios", auth.currentUser.uid);
+    let favs = [...window.meusFavoritosWiki]; 
+    
+    if (favs.includes(id)) favs = favs.filter(f => f !== id); // Remove
+    else favs.push(id); // Adiciona
+
+    // Atualiza a memória e redesenha a tela na mesma hora
+    window.meusFavoritosWiki = favs;
+    window.renderizarWikiTree(); 
+    window.renderizarFavoritosDashboard(); 
+    
+    // Salva no banco de verdade em segundo plano
+    await updateDoc(userRef, { favoritosWiki: favs });
+};
+
+// 3. Injeção Cirúrgica no Dashboard (Agora puxando direto do Banco)
+window.renderizarFavoritosDashboard = async () => {
+    const pContainer = document.getElementById('dash-priorities'); 
+    if (!pContainer) return;
+
+    let block = document.getElementById('bloco-favoritos-dash');
+    if (!block) {
+        block = document.createElement('div');
+        block.id = 'bloco-favoritos-dash';
+        block.style.marginTop = '25px';
+        pContainer.parentNode.appendChild(block); 
+    }
+
+    if (!window.meusFavoritosWiki || window.meusFavoritosWiki.length === 0) {
+        block.innerHTML = '';
+        return;
+    }
+
+    // A MÁGICA: Busca as informações direto do banco de dados, ignorando a amnésia do F5!
+    let arquivosFavs = [];
+    try {
+        const promessas = window.meusFavoritosWiki.map(id => getDoc(doc(db, "wiki", id)));
+        const snaps = await Promise.all(promessas);
+        snaps.forEach(snap => {
+            if(snap.exists()) arquivosFavs.push({ id: snap.id, ...snap.data() });
+        });
+    } catch(e) { console.error("Erro ao buscar favoritos", e); }
+
+    if(arquivosFavs.length > 0) {
+        block.innerHTML = `
+            <h3 style="font-size: 1rem; color: #fff; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">⭐ Documentos Favoritos</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+                ${arquivosFavs.map(f => `
+                    <div onclick="window.abrirWikiPeloAtalho('${f.id}', '${f.projetoId}')"
+                         style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: 0.2s; border: 1px solid rgba(255,255,255,0.02);"
+                         onmouseover="this.style.background='rgba(255, 235, 59, 0.1)'; this.style.borderColor='rgba(255, 235, 59, 0.3)'" 
+                         onmouseout="this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='rgba(255,255,255,0.02)'">
+                        <span style="font-size: 1.2rem;">📄</span> 
+                        <strong style="font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${f.titulo}">${f.titulo}</strong>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } else {
+        block.innerHTML = '';
+    }
+};
+
+// 4. O "Motorista": Faz a navegação completa para abrir um documento de fora do projeto
+window.abrirWikiPeloAtalho = async (wikiId, projetoId) => {
+    // 1. Vai visualmente para a tela de Projetos
+    window.irParaAba('projetos');
+    
+    // 2. Planta a semente na memória para a Wiki abrir esse arquivo automaticamente quando carregar
+    localStorage.setItem('heartkey_ultima_wiki_id', wikiId);
+    window.wikiAtualId = null; // Limpa a ID atual para forçar a leitura do localStorage
+    
+    try {
+        // 3. Descobre qual projeto é esse lá no banco
+        const projSnap = await getDoc(doc(db, "projetos", projetoId));
+        if (projSnap.exists()) {
+            const p = projSnap.data();
+            
+            // 4. Abre o projeto (isso vai carregar a árvore da Wiki e ler o localStorage acima!)
+            await window.abrirProjeto(projSnap.id, p.nome, p.githubRepo, p.capaBase64, p.versaoAlvo);
+            
+            // 5. Força o Menu do Projeto a pular direto para a aba de Documentação
+            const btnWiki = document.querySelector('button[onclick*="tab-wiki"]');
+            if (btnWiki) {
+                window.switchProjectTab('tab-wiki', btnWiki);
+            }
+        }
+    } catch(e) {
+        console.error("Erro ao fazer roteamento do atalho:", e);
+    }
+};
+
+/* ==========================================================================
+   WIKI - RENDERIZADOR BLINDADO DO MERMAID (ANTI-ERRO SVG E ANTI-INVISIBILIDADE)
+   ========================================================================== */
+window.desenharGraficosMermaid = (container) => {
+    if (!container) return;
+
+    // 1. O Markdown embrulha o código em <pre><code class="language-mermaid">.
+    // Vamos caçar esses embrulhos na tela.
+    const blocosDeCodigo = container.querySelectorAll('.language-mermaid');
+    
+    blocosDeCodigo.forEach(bloco => {
+        const pre = bloco.parentElement;
+        
+        // Se estiver dentro de um <pre>, o Mermaid vai bugar. Vamos tirar ele de lá!
+        if (pre && pre.tagName === 'PRE') {
+            const divLimpa = document.createElement('div');
+            divLimpa.className = 'mermaid-area-pronta';
+            divLimpa.style.textAlign = 'center';
+            divLimpa.style.margin = '25px 0'; // Dá um respiro pro gráfico não grudar no texto
+            
+            // Pega só o texto puro que você digitou
+            divLimpa.textContent = bloco.textContent;
+            
+            // Troca a caixa defeituosa pela nossa caixa limpa!
+            pre.parentNode.replaceChild(divLimpa, pre);
+        }
+    });
+
+    // 2. Agora procuramos as caixas limpas que preparamos
+    const graficosParaDesenhar = container.querySelectorAll('.mermaid-area-pronta');
+    if (graficosParaDesenhar.length === 0) return;
+
+    // 3. Espera o CSS da tela abrir e manda a ordem de desenho
+    setTimeout(() => {
+        if (container.offsetWidth > 50) {
+            mermaid.run({ nodes: graficosParaDesenhar }).catch(() => {});
+        } else {
+            setTimeout(() => {
+                if (container.offsetWidth > 50) mermaid.run({ nodes: graficosParaDesenhar }).catch(() => {});
+            }, 500);
+        }
+    }, 400);
+};

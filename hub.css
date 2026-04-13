@@ -3925,3 +3925,20 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 .wiki-folder-header.multi-selected .wiki-item-text {
     color: #fff !important;
 }
+
+/* ==========================================================================
+   CORREÇÃO DE BUG: BALÕES E MENUS CLIPADOS (GUILHOTINA)
+   ========================================================================== */
+.kanban-card:hover,
+.client-card:hover,
+.idea-card:hover,
+.art-card:hover,
+.moodboard-card:hover {
+    z-index: 100 !important;
+    overflow: visible !important;
+}
+
+/* Garante que os contêineres de rolagem não esmaguem os menus filhos quando em foco */
+.kanban-col, .client-body, .idea-desc {
+    overflow-x: visible !important; 
+}
