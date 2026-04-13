@@ -1736,7 +1736,8 @@ window.novaPaginaWiki = async () => {
             conteudo: "",
             projetoId: window.projetoAtualId,
             pastaId: window.ultimaPastaSelecionada, 
-            dataCriacao: new Date().toISOString()
+            ordem: Date.now(), // <--- ADICIONE ESTA LINHA
+            dataCriacao: new Date().toISOString(),
         });
         
         // 3. Prepara a tela para a digitação
@@ -1762,7 +1763,8 @@ window.novaPastaWiki = async () => {
         await addDoc(collection(db, "wiki_pastas"), {
             nome: nome,
             projetoId: window.projetoAtualId,
-            parentId: window.ultimaPastaSelecionada, // Agora a pasta nasce onde você clicou!
+            parentId: parentIdSeguro, 
+            ordem: Date.now(), // <--- ADICIONE ESTA LINHA
             dataCriacao: new Date().toISOString()
         });
     } catch(e) { console.error(e); }
@@ -1890,6 +1892,26 @@ window.renderizarWikiTree = () => {
     const container = document.getElementById('wiki-tree-container');
     if (!container) return;
 
+    // INJETA O SELETOR DE ORDEM DO LADO DA BARRA DE BUSCA (Se não existir)
+    const searchInput = document.getElementById('wiki-search-input');
+    if (searchInput && !document.getElementById('wiki-sort-select')) {
+        const wrap = document.createElement('div');
+        wrap.style.display = 'flex'; wrap.style.gap = '10px'; wrap.style.marginBottom = '15px';
+        
+        searchInput.style.marginBottom = '0';
+        searchInput.parentNode.insertBefore(wrap, searchInput);
+        
+        const selectHTML = `
+            <select id="wiki-sort-select" class="wiki-sort-select" onchange="window.mudarOrdemWiki(this.value)">
+                <option value="manual" ${window.wikiSortMode === 'manual' ? 'selected' : ''}>✋ Ordem Manual</option>
+                <option value="az" ${window.wikiSortMode === 'az' ? 'selected' : ''}>🔤 A-Z</option>
+                <option value="date" ${window.wikiSortMode === 'date' ? 'selected' : ''}>📅 Mais Recentes</option>
+            </select>
+        `;
+        wrap.appendChild(searchInput);
+        wrap.insertAdjacentHTML('beforeend', selectHTML);
+    }
+
     // 1. Agrupa pastas e arquivos na memória
     const pastasPorPai = { 'root': [], 'trash': [] };
     window.wikiFoldersCache.forEach(f => {
@@ -1904,6 +1926,27 @@ window.renderizarWikiTree = () => {
         if (!arquivosPorPasta[pasta]) arquivosPorPasta[pasta] = [];
         arquivosPorPasta[pasta].push(p);
     });
+
+    // 1.5 O MOTOR DE ORDENAÇÃO APLICADO ÀS MATRIZES
+    const ordenarArray = (arr, isFolder) => {
+        if (!arr) return [];
+        return arr.sort((a, b) => {
+            if (window.wikiSortMode === 'az') {
+                const nomeA = (a.nome || a.titulo).toLowerCase();
+                const nomeB = (b.nome || b.titulo).toLowerCase();
+                return nomeA.localeCompare(nomeB);
+            } else if (window.wikiSortMode === 'date') {
+                return new Date(b.dataCriacao) - new Date(a.dataCriacao);
+            } else {
+                // Ordem Manual (Se não tiver ordem, joga pro fim)
+                return (a.ordem || 9999999999999) - (b.ordem || 9999999999999);
+            }
+        });
+    };
+
+    // Ordena todas as listas antes de desenhar a tela
+    Object.keys(pastasPorPai).forEach(k => pastasPorPai[k] = ordenarArray(pastasPorPai[k], true));
+    Object.keys(arquivosPorPasta).forEach(k => arquivosPorPasta[k] = ordenarArray(arquivosPorPasta[k], false));
 
     // --- MODO DE BUSCA ---
     if (window.termoBuscaWiki && window.termoBuscaWiki.trim() !== "") {
@@ -2143,49 +2186,113 @@ window.dragStartWiki = (e, itemId, type) => {
     e.dataTransfer.setData("items", JSON.stringify(window.itensSelecionadosWiki)); 
 };
 
-window.dragOverWiki = (e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('drag-over'); };
-window.dragLeaveWiki = (e) => { e.stopPropagation(); e.currentTarget.classList.remove('drag-over'); };
-
-window.dropWiki = async (e, folderId) => {
+window.dragOverWiki = (e) => { 
     e.preventDefault(); e.stopPropagation(); 
-    e.currentTarget.classList.remove('drag-over');
+    const target = e.currentTarget;
+    
+    // Limpa os rastros anteriores
+    target.classList.remove('wiki-drop-above', 'wiki-drop-below', 'wiki-drop-inside');
+
+    // Se estivermos no modo A-Z ou Data, bloqueia o reposicionamento manual e só deixa jogar DENTRO
+    if (window.wikiSortMode !== 'manual') {
+        if (target.getAttribute('data-node-type') === 'folder' || target.id === 'folder-root' || target.id === 'folder-trash') {
+            target.classList.add('wiki-drop-inside');
+        }
+        return;
+    }
+
+    // MÁGICA: Calcula onde o mouse está (Top 25% = Cima, Bottom 25% = Baixo, Meio = Dentro)
+    const rect = target.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const height = rect.height;
+
+    // Raiz e Lixeira só aceitam coisas DENTRO delas
+    if (target.id === 'folder-root' || target.id === 'folder-trash') {
+        target.classList.add('wiki-drop-inside');
+        return;
+    }
+
+    const type = target.getAttribute('data-node-type');
+    
+    if (y < height * 0.25) {
+        target.classList.add('wiki-drop-above');
+    } else if (y > height * 0.75) {
+        target.classList.add('wiki-drop-below');
+    } else {
+        // Se mirar no meio, pasta aceita DENTRO. Arquivo não recebe coisas dentro, então empurra pra BAIXO.
+        if (type === 'folder') target.classList.add('wiki-drop-inside');
+        else target.classList.add('wiki-drop-below');
+    }
+};
+
+window.dragLeaveWiki = (e) => { 
+    e.stopPropagation(); 
+    e.currentTarget.classList.remove('wiki-drop-above', 'wiki-drop-below', 'wiki-drop-inside'); 
+};
+
+window.dropWiki = async (e, targetId) => {
+    e.preventDefault(); e.stopPropagation(); 
+    const targetEl = e.currentTarget;
+    
+    // Descobre a intenção baseada na classe CSS que ativou
+    let dropAction = 'inside';
+    if (targetEl.classList.contains('wiki-drop-above')) dropAction = 'above';
+    else if (targetEl.classList.contains('wiki-drop-below')) dropAction = 'below';
+    
+    targetEl.classList.remove('wiki-drop-above', 'wiki-drop-below', 'wiki-drop-inside');
     
     const pacote = e.dataTransfer.getData("items");
     if (!pacote) return;
     const itensArrastados = JSON.parse(pacote);
 
-    let targetFolder = folderId;
-    if (folderId === 'root') targetFolder = null;
-    
     try {
-        // Processa TODOS os arquivos do pacote de uma vez só!
         for (let item of itensArrastados) {
-            if (item.type === 'file') {
-                await updateDoc(doc(db, "wiki", item.id), { pastaId: targetFolder });
-            } 
-            else if (item.type === 'folder') {
-                if (item.id === targetFolder) continue; // Ignora se tentar jogar a pasta nela mesma
+            let collectionName = item.type === 'folder' ? 'wiki_pastas' : 'wiki';
+            let parentField = item.type === 'folder' ? 'parentId' : 'pastaId';
+            
+            let novoParentId = targetId === 'root' ? null : targetId;
+            let novaOrdem = Date.now(); // Padrão se jogar dentro de pasta
+
+            // Se for reordenação manual (Acima ou Abaixo)
+            if (dropAction !== 'inside' && targetId !== 'root' && targetId !== 'trash') {
+                // Descobre quem é o alvo e quem é o pai dele
+                const cacheAlvo = item.type === 'folder' ? window.wikiFoldersCache : window.wikiPagesCache;
+                const dadosAlvo = cacheAlvo.find(i => i.id === targetId);
                 
-                // Trava de Paradoxo (Impede de jogar a pasta pai dentro da pasta filha)
-                let checkId = targetFolder;
+                if (dadosAlvo) {
+                    novoParentId = item.type === 'folder' ? dadosAlvo.parentId : dadosAlvo.pastaId;
+                    
+                    // A MÁGICA DO ALGORITMO: Subtrai ou soma um número quebrado minúsculo para se infiltrar entre os itens sem afetar o resto do banco!
+                    if (dropAction === 'above') {
+                        novaOrdem = (dadosAlvo.ordem || Date.now()) - 0.5;
+                    } else {
+                        novaOrdem = (dadosAlvo.ordem || Date.now()) + 0.5;
+                    }
+                }
+            }
+
+            // Trava contra Paradoxo (Pasta dentro dela mesma)
+            if (item.type === 'folder') {
+                if (item.id === novoParentId) continue;
+                let checkId = novoParentId;
                 let isDescendant = false;
                 while (checkId != null && checkId !== 'trash') {
                     if (checkId === item.id) { isDescendant = true; break; }
                     const parent = window.wikiFoldersCache.find(f => f.id === checkId);
                     checkId = parent ? parent.parentId : null;
                 }
-                if (isDescendant) {
-                    alert("Aviso: Algumas pastas foram ignoradas para evitar o paradoxo de colocar uma pasta pai dentro da própria filha!");
-                    continue;
-                }
-
-                await updateDoc(doc(db, "wiki_pastas", item.id), { parentId: targetFolder });
+                if (isDescendant) continue;
             }
+
+            // Executa a atualização no Firebase!
+            await updateDoc(doc(db, collectionName, item.id), { 
+                [parentField]: novoParentId,
+                ordem: novaOrdem
+            });
         }
         
-        // Limpa a seleção depois de soltar
         window.itensSelecionadosWiki = [];
-        window.renderizarWikiTree();
+        // O onSnapshot do Firebase já vai recarregar a tela instantaneamente
         
     } catch(err) { console.error(err); }
 };
@@ -2222,7 +2329,8 @@ window.novaPaginaWiki = async () => {
             titulo: nomeDoc.trim(),
             conteudo: "",
             projetoId: window.projetoAtualId,
-            pastaId: window.ultimaPastaSelecionada, // Nasce onde você clicou!
+            pastaId: window.ultimaPastaSelecionada, 
+            ordem: Date.now(), // <--- ADICIONE ESTA LINHA
             dataCriacao: new Date().toISOString(),
             autorUltimaModificacao: auth.currentUser.email
         });
@@ -6564,4 +6672,15 @@ window.abrirModalNovaTarefa = () => {
         });
     }
     window.openModal('modalTarefa');
+};
+
+/* ==========================================================================
+   WIKI - MOTOR DE ORDENAÇÃO
+   ========================================================================== */
+window.wikiSortMode = localStorage.getItem('hub_wiki_sort') || 'manual';
+
+window.mudarOrdemWiki = (mode) => {
+    window.wikiSortMode = mode;
+    localStorage.setItem('hub_wiki_sort', mode);
+    window.renderizarWikiTree(); // Redesenha tudo na hora!
 };
