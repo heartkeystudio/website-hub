@@ -660,11 +660,39 @@ window.carregarProjetos = async () => {
 };
 
 // 3. EDITAR PROJETO
-/* ==========================================================================
-   GESTOR DE EQUIPES (TAGS E DROPDOWN)
-   ========================================================================== */
-window.colaboradoresSelecionados = [];
+// --- GESTOR DE TAGS CUSTOMIZADAS ---
+window.projetoTagsCustomizadas = []; // Memória temporária do modal
 
+window.renderizarTagsCustomizadas = () => {
+    const list = document.getElementById('custom-tags-list');
+    if (!list) return;
+    
+    list.innerHTML = window.projetoTagsCustomizadas.map((t, index) => `
+        <div class="user-tag" style="background: ${t.cor}33; color: ${t.cor}; border-color: ${t.cor};">
+            ${t.nome}
+            <button type="button" onclick="window.removerTagCustomizada(${index})" style="color: ${t.cor}; opacity: 0.7;">×</button>
+        </div>
+    `).join('') || '<span style="font-size: 0.75rem; color: #666;">Nenhuma tag extra.</span>';
+};
+
+window.adicionarTagCustomizada = () => {
+    const nome = document.getElementById('new-tag-name').value.trim().toLowerCase();
+    const cor = document.getElementById('new-tag-color').value;
+    
+    if (!nome) return;
+    if (window.projetoTagsCustomizadas.find(t => t.nome === nome)) return alert("Já existe uma tag com este nome!");
+    
+    window.projetoTagsCustomizadas.push({ nome, cor });
+    document.getElementById('new-tag-name').value = '';
+    window.renderizarTagsCustomizadas();
+};
+
+window.removerTagCustomizada = (index) => {
+    window.projetoTagsCustomizadas.splice(index, 1);
+    window.renderizarTagsCustomizadas();
+};
+
+// --- ABRIR MODAL (AGORA LENDO AS TAGS) ---
 window.abrirModalEditarProjeto = async () => {
     if (!window.projetoAtualId) return;
     const docSnap = await getDoc(doc(db, "projetos", window.projetoAtualId));
@@ -676,12 +704,18 @@ window.abrirModalEditarProjeto = async () => {
         document.getElementById('editProjVersao').value = p.versaoAlvo || 1;
         document.getElementById('editProjRepo').value = p.githubRepo || '';
 
+        // Carrega as tags do projeto
+        window.projetoTagsCustomizadas = p.customTags || [];
+        window.renderizarTagsCustomizadas();
+
         // 1. Carrega os membros que já estão no projeto (tirando o próprio dono da lista)
         const colabsSemDono = p.colaboradores.filter(em => em !== auth.currentUser.email.toLowerCase());
         
         // Busca a equipe toda pra pegar os nomes e fotos bonitos
-        const snapUsers = await getDocs(collection(db, "usuarios"));
-        window.todosUsuariosCache = snapUsers.docs.map(d => d.data());
+        if(!window.todosUsuariosCache) {
+            const snapUsers = await getDocs(collection(db, "usuarios"));
+            window.todosUsuariosCache = snapUsers.docs.map(d => d.data());
+        }
         
         window.colaboradoresSelecionados = colabsSemDono.map(email => {
             const u = window.todosUsuariosCache.find(user => user.email === email);
@@ -779,7 +813,7 @@ setTimeout(() => {
     }, 200));
 }, 1500);
 
-// A Nova Função de Salvar (Lendo as Tags em vez do texto com vírgulas)
+// --- SALVAR PROJETO (AGORA SALVANDO AS TAGS) ---
 window.salvarEdicaoProjeto = async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector('button[type="submit"]');
@@ -790,14 +824,22 @@ window.salvarEdicaoProjeto = async (e) => {
     const repo = document.getElementById('editProjRepo').value.trim();
     const versao = parseInt(document.getElementById('editProjVersao').value) || 1; 
     
-    // A MÁGICA: Puxa a equipe direto das Pílulas que criamos
     let colaboradores = [auth.currentUser.email.toLowerCase(), ...window.colaboradoresSelecionados.map(c => c.email)];
-    colaboradores = [...new Set(colaboradores)]; // Remove duplicatas por segurança
+    colaboradores = [...new Set(colaboradores)];
 
     const avatarFile = document.getElementById('editProjAvatar').files[0];
     const capaFile = document.getElementById('editProjCapa').files[0];
 
-    let updateData = { nome, descricao: desc, versaoAlvo: versao, colaboradores, githubRepo: repo, dataAtualizacao: new Date().toISOString() };
+    // MÁGICA: Adiciona o customTags no pacote que vai pro Firebase!
+    let updateData = { 
+        nome, 
+        descricao: desc, 
+        versaoAlvo: versao, 
+        colaboradores, 
+        githubRepo: repo, 
+        customTags: window.projetoTagsCustomizadas, 
+        dataAtualizacao: new Date().toISOString() 
+    };
 
     try {
         if (avatarFile) { updateData.avatarBase64 = await new Promise(r => { const rd = new FileReader(); rd.onloadend = () => r(rd.result); rd.readAsDataURL(avatarFile); }); }
@@ -809,14 +851,16 @@ window.salvarEdicaoProjeto = async (e) => {
         window.projetoAtualRepo = repo;
         window.projetoAtualVersaoAlvo = versao; 
         
+        // Atualiza a variável global ativa para o Kanban saber que as tags mudaram
+        window.tagsAtivasDoProjeto = window.projetoTagsCustomizadas; 
+        
         if (updateData.capaBase64) {
             const bannerDiv = document.getElementById('project-banner');
             if (bannerDiv) bannerDiv.style.backgroundImage = `url('${updateData.capaBase64}')`;
         }
         
         closeModal('modalEditarProjeto');
-        document.getElementById('formEditarProjeto').reset();
-        window.renderizarKanban();
+        window.renderizarKanban(); // Redesenha os cards para aplicar novas cores!
 
     } catch (err) { alert(err.message); }
     btn.disabled = false; btn.innerText = "Salvar Alterações";
@@ -872,6 +916,13 @@ window.abrirProjeto = async (id, nome, repo, capaBase64, versaoAlvo) => {
         // Se for 'geral' ou não tiver cargo, abre o Kanban por padrão
         if (btnKanban) window.switchProjectTab('tab-kanban', btnKanban);
     }
+
+    // No final da função window.abrirProjeto:
+    window.tagsAtivasDoProjeto = [];
+    getDoc(doc(db, "projetos", id)).then(snap => {
+        if(snap.exists()) window.tagsAtivasDoProjeto = snap.data().customTags || [];
+    });
+
     if (esp !== 'geral') {
         window.notificarWorkflow(esp);
     }
@@ -924,46 +975,43 @@ window.renderizarKanban = () => {
     const filtro = window.kanbanFiltroAtual;
 
     window.tarefasProjetoCache.forEach(t => {
-        // Lógica do Novo Filtro: "Sem Responsável"
         if (filtro === 'unassigned' && t.assignedTo) return;
         if (filtro !== 'all' && filtro !== 'unassigned' && t.tag !== filtro) return;
 
         const card = document.createElement('div');
         card.className = 'kanban-card'; card.id = t.id; card.draggable = true;
         card.ondragstart = (ev) => ev.dataTransfer.setData("text", t.id);
-        
-        // Agora só abre detalhes se clicar na área livre (evita conflito com botões internos)
         card.onclick = (e) => { if(!e.target.closest('button')) window.abrirDetalhesTarefa(t.id, t); };
         
+        // A MÁGICA DAS CORES DAS TAGS
         let badgeClass = `badge-${t.tag}`;
-        const ghLink = t.githubIssue ? `<span style="color:var(--primary);" title="GitHub Issue">🔗 #${t.githubIssue}</span>` : '';
+        let tagStyle = "";
+        
+        // Verifica se a tag da tarefa existe nas nossas tags personalizadas
+        const tagCustomizada = (window.tagsAtivasDoProjeto || []).find(ct => ct.nome === t.tag);
+        if (tagCustomizada) {
+            badgeClass = "badge-custom";
+            // 33 no final do Hex significa 20% de opacidade no fundo!
+            tagStyle = `background: ${tagCustomizada.cor}33; color: ${tagCustomizada.cor}; border: 1px solid ${tagCustomizada.cor}80;`;
+        }
 
-        // Dentro de window.renderizarKanban:
+        const ghLink = t.githubIssue ? `<span style="color:var(--primary);" title="GitHub Issue">🔗 #${t.githubIssue}</span>` : '';
 
         let assignedHtml = "";
         if (t.assignedTo) {
             const iniciais = t.assignedName ? t.assignedName.substring(0, 2).toUpperCase() : "??";
-            
-            // MÁGICA: Se houver foto na tarefa, mostra a <img>, senão mostra iniciais
-            const conteúdoAvatar = t.assignedAvatar 
-                ? `<img src="${t.assignedAvatar}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">` 
-                : iniciais;
+            const conteúdoAvatar = t.assignedAvatar ? `<img src="${t.assignedAvatar}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">` : iniciais;
 
             assignedHtml = `
-                <div class="task-owner" 
-                    title="Assumido por ${t.assignedName}. Clique para largar." 
-                    onclick="event.stopPropagation(); window.desassumirTarefa('${t.id}')" 
-                    style="cursor: pointer; background: var(--primary); color: #000; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                <div class="task-owner" title="Assumido por ${t.assignedName}. Clique para largar." onclick="event.stopPropagation(); window.desassumirTarefa('${t.id}')" style="cursor: pointer; background: var(--primary); color: #000; overflow: hidden; display: flex; align-items: center; justify-content: center;">
                     ${conteúdoAvatar}
                 </div>`;
         } else {
             assignedHtml = `<button class="btn-assumir" onclick="event.stopPropagation(); window.assumirTarefa('${t.id}')">Assumir</button>`;
         }
 
-        // --- MENU DE 3 PONTINHOS (Edição e Exclusão) ---
         let btnApagar = '';
-        // Quem assumiu a tarefa ou o Admin podem editar
-        let btnEditar = `<button class="icon-btn" onclick="event.stopPropagation(); window.abrirEdicaoTarefaRapida('${t.id}', '${t.titulo}', '${t.tag}')" style="font-size:0.8rem; text-align:left; width:100%; padding:8px 10px; color:#e0e0e0;">✏️ Editar Nome/Tag</button>`;
+        let btnEditar = `<button class="icon-btn" onclick="event.stopPropagation(); window.abrirEdicaoTarefaRapida('${t.id}', '${t.titulo}', '${t.tag}')" style="font-size:0.8rem; text-align:left; width:100%; padding:8px 10px; color:#e0e0e0;">✏️ Editar Nome</button>`;
 
         if (window.userRole === 'admin') {
             btnApagar = `<button class="icon-btn" onclick="event.stopPropagation(); window.deletarTarefa('${t.id}')" style="color:#ff5252; font-size:0.8rem; text-align:left; width:100%; padding:8px 10px; margin-top:5px; border-top:1px solid rgba(255,255,255,0.1);">🗑️ Excluir</button>`;
@@ -981,7 +1029,7 @@ window.renderizarKanban = () => {
 
         card.innerHTML = `
             <div style="display:flex; justify-content:space-between; margin-bottom:10px; align-items:center;">
-                <span class="badge ${badgeClass}">${t.tag.toUpperCase()}</span>
+                <span class="badge ${badgeClass}" style="${tagStyle}">${t.tag.toUpperCase()}</span>
                 ${menu3Pontos}
             </div>
             <h4>${t.titulo}</h4>
@@ -6498,4 +6546,22 @@ window.desenharGraficosMermaid = (container) => {
             }, 500);
         }
     }, 400);
+};
+
+window.abrirModalNovaTarefa = () => {
+    const select = document.getElementById('taskTag');
+    if(select) {
+        // Zera o select com as opções originais
+        select.innerHTML = `
+            <option value="feature">Feature</option>
+            <option value="bug">Bug</option>
+            <option value="art">Arte</option>
+            <option value="docs">Docs</option>
+        `;
+        // Injeta as tags criadas por você no projeto!
+        (window.tagsAtivasDoProjeto || []).forEach(ct => {
+            select.innerHTML += `<option value="${ct.nome}">📌 ${ct.nome.toUpperCase()}</option>`;
+        });
+    }
+    window.openModal('modalTarefa');
 };

@@ -228,7 +228,7 @@
                 <!-- Kanban -->
                 <div id="tab-kanban" class="project-tab-content active">
                     <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
-                        <button id="btn-nova-tarefa" class="btn-primary" data-tooltip="Adicionar Tarefa" onclick="openModal('modalTarefa')">+</button>
+                        <button id="btn-nova-tarefa" class="btn-primary" data-tooltip="Adicionar Tarefa" onclick="abrirModalNovaTarefa()">+</button>
                         <button class="btn-secondary" data-tooltip="Assinar Token Github" onclick="configurarGitHub()">🔗</button>
                         <button class="btn-secondary" data-tooltip="Sincronizar Issues" onclick="sincronizarGitHub()" style="border-color: var(--primary); color: var(--primary);">🔄</button>
                         
@@ -831,13 +831,25 @@
                         <div id="colabs-badges-area" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
                         <input type="text" id="colabs-search-input" placeholder="Digite o nome do colega..." autocomplete="off">
                     </div>
-                    
                     <ul id="colabs-suggestions" style="display: none; position: absolute; top: 100%; left: 0; background: rgba(15, 15, 18, 0.98); backdrop-filter: blur(10px); border: 1px solid var(--primary); border-radius: 12px; list-style: none; padding: 5px 0; margin-top: 5px; max-height: 180px; overflow-y: auto; width: 100%; z-index: 10000; box-shadow: 0 10px 30px rgba(0,0,0,0.8);"></ul>
                 </div>
+                
                 <div class="form-group">
                     <label>Repositório GitHub</label>
                     <input type="text" id="editProjRepo" placeholder="usuario/repositorio">
                 </div>
+
+                <div class="form-group" style="border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 15px; margin-top: 15px;">
+                    <label>Tags Customizadas do Projeto</label>
+                    <div id="custom-tags-list" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+                        </div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" id="new-tag-name" placeholder="Nome (Ex: URGENTE)" style="margin-bottom: 0; flex: 1;">
+                        <input type="color" id="new-tag-color" value="#ff00ff" style="padding: 0 5px; height: 45px; width: 50px; cursor: pointer; border-radius: 8px; background: transparent; border: 1px solid var(--border-color);">
+                        <button type="button" class="btn-secondary" onclick="window.adicionarTagCustomizada()">+ Add</button>
+                    </div>
+                </div>
+
                 <div class="form-row">
                     <div class="form-group">
                         <label>Avatar / Logo (Máx 800kb)</label>

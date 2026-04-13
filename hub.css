@@ -3942,3 +3942,33 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 .kanban-col, .client-body, .idea-desc {
     overflow-x: visible !important; 
 }
+
+/* ==========================================================================
+   FAVORITOS E BLINDAGEM DE SELEÇÃO DA ÁRVORE
+   ========================================================================== */
+.wiki-favorite-btn {
+    background: none; border: none; font-size: 0.9rem; cursor: pointer; 
+    opacity: 0; /* Esconde a estrela normalmente */
+    transition: 0.2s ease; margin-right: 5px; filter: grayscale(100%);
+}
+
+/* Mostra a estrela apagada quando passa o mouse no item */
+.wiki-file-item:hover .wiki-favorite-btn, 
+.wiki-folder-header:hover .wiki-favorite-btn {
+    opacity: 0.4;
+}
+
+/* Estrela Acesa (Favoritado) - Brilha e fica fixa! */
+.wiki-favorite-btn.is-fav {
+    opacity: 1 !important;
+    filter: grayscale(0%);
+    text-shadow: 0 0 10px rgba(255, 235, 59, 0.5);
+}
+
+.wiki-favorite-btn:hover { transform: scale(1.3); opacity: 1 !important; filter: grayscale(0%); }
+
+/* Blindagem: Impede o texto de ficar azul ao usar o SHIFT */
+.wiki-node-item {
+    user-select: none !important; 
+    -webkit-user-select: none !important;
+}
