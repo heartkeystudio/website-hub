@@ -6,6 +6,17 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChang
 import { getFirestore, collection, addDoc, getDocs, query, where, deleteDoc, doc, updateDoc, setDoc, onSnapshot, orderBy, limit, increment, getDoc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
 // ==========================================
+// PWA - REGISTRO DO SERVICE WORKER
+// ==========================================
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('PWA: Service Worker registrado com sucesso!'))
+            .catch(err => console.error('PWA: Falha ao registrar Service Worker', err));
+    });
+}
+
+// ==========================================
 // 2. CONFIGURAÇÃO E INICIALIZAÇÃO
 // ==========================================
 const firebaseConfig = {
@@ -5208,8 +5219,24 @@ window.iniciarSistemaNotificacoes = () => {
                         // Se o usuário clicar na notificação nativa, foca na aba do Hub!
                         pushNativo.onclick = function(event) {
                             event.preventDefault();
-                            window.focus(); // Traz o navegador para a frente
-                            this.close(); // Fecha o card nativo
+                            
+                            // 1. Traz o navegador e a aba do Hub para a frente
+                            window.focus(); 
+                            
+                            // 2. MÁGICA DO ROTEAMENTO: Navega automaticamente para a aba da notificação!
+                            if (n.abaAlvo) {
+                                window.irParaAba(n.abaAlvo);
+                                
+                                // Se for um aviso de dentro de um projeto, dá uma dica visual
+                                if (n.projetoId) {
+                                    setTimeout(() => {
+                                        window.mostrarToastNotificacao("Atalho Rápido", "Abra o projeto piscando para ver os detalhes.", "geral");
+                                    }, 800);
+                                }
+                            }
+                            
+                            // 3. Fecha o card nativo do Windows/Mac/Android
+                            this.close(); 
                         };
                     }
 
