@@ -5340,7 +5340,7 @@ window.marcarNotificacoesComoLidas = async (abaAlvo) => {
     });
 };
 
-// Construtor do Popup no canto da tela
+// Construtor do Popup no canto da tela (AGORA COM SOM 🔊)
 window.mostrarToastNotificacao = (titulo, msg, tipo) => {
     let container = document.getElementById('toast-container');
     if (!container) {
@@ -5353,14 +5353,34 @@ window.mostrarToastNotificacao = (titulo, msg, tipo) => {
     toast.className = 'system-toast';
     
     let icone = '🔔';
-    if(tipo === 'reuniao') icone = '📅';
-    if(tipo === 'audio') icone = '🎵';
+    let arquivoSom = 'sounds/notify.wav'; // O seu som padrão
+
+    // Você pode até ter sons diferentes dependendo do tipo da notificação!
+    if(tipo === 'reuniao') {
+        icone = '📅';
+        // arquivoSom = 'sounds/reuniao.mp3'; // Exemplo de som diferente
+    }
+    if(tipo === 'audio') {
+        icone = '🎵';
+    }
 
     toast.innerHTML = `
         <div style="font-weight:900; font-size:0.9rem; margin-bottom:5px; color:var(--primary);">${icone} ${titulo}</div>
         <div style="font-size:0.8rem; color:#e0e0e0; line-height: 1.4;">${msg}</div>
     `;
     
+    // 🔊 A MÁGICA DO SOM
+    try {
+        const somNotificacao = new Audio(arquivoSom);
+        somNotificacao.volume = 0.4; // Volume em 40% para não assustar o usuário
+        
+        // O .catch é uma blindagem: Navegadores bloqueiam som se o usuário não tiver clicado 
+        // em nada na tela ainda. Se bloquear, ele engole o erro e não trava o site.
+        somNotificacao.play().catch(() => console.log("Som bloqueado temporariamente pelo navegador."));
+    } catch(e) {
+        console.error("Erro ao tocar som:", e);
+    }
+
     toast.onclick = () => toast.remove();
     container.appendChild(toast);
     setTimeout(() => { if(toast) toast.remove() }, 6000);
