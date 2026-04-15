@@ -1,0 +1,153 @@
+/* ==========================================================================
+   13. REUNIÕES - WAR ROOM / SPRINT (BENTO BOX TÁTICO)
+   ========================================================================== */
+
+/* Cabeçalho da Missão */
+.war-room-header {
+    display: flex; justify-content: space-between; align-items: center;
+    background: linear-gradient(90deg, rgba(20,20,22,1) 0%, rgba(30,30,35,1) 100%);
+    border: 1px solid var(--border-color); border-left: 5px solid #ff5252;
+    padding: 20px 30px; border-radius: 15px; margin-bottom: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.digital-clock {
+    font-family: 'Courier New', Courier, monospace; font-size: 2.2rem;
+    font-weight: 900; color: #ff5252;
+    text-shadow: 0 0 15px rgba(255, 82, 82, 0.6);
+    letter-spacing: 2px; line-height: 1; margin-top: 5px;
+}
+.war-timer-area { text-align: right; display: flex; flex-direction: column; align-items: flex-end;}
+
+/* O Grid Bento */
+.war-bento-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    grid-auto-rows: minmax(200px, auto); gap: 20px; height: 65vh; min-height: 600px;
+}
+.war-card {
+    background: rgba(15, 15, 18, 0.9); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 15px; padding: 20px; display: flex; flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4); backdrop-filter: blur(15px);
+}
+
+/* Mini-Kanban Tático */
+.mini-kanban-board { display: flex; gap: 15px; flex: 1; overflow: hidden; }
+.mini-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: rgba(0,0,0,0.4);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.03);
+    overflow: visible !important; /* MUDAR AQUI: de hidden para visible */
+}
+
+.mini-col-header {
+    padding: 12px; font-size: 0.85rem; font-weight: 900; text-align: center;
+    border-top: 3px solid #8e8e93; background: rgba(255,255,255,0.02);
+    text-transform: uppercase; letter-spacing: 2px;
+}
+.mini-col-body {
+    flex: 1; padding: 12px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 10px;
+}
+
+/* Cards do Mini-Kanban (Mais compactos que os normais) */
+.war-task-card {
+    background: var(--bg-card); border: 1px solid var(--border-color);
+    padding: 12px; border-radius: 8px; font-size: 0.85rem; cursor: grab;
+    transition: 0.2s; border-left: 3px solid #666;
+}
+.war-task-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.2); }
+.war-task-card.feature { border-left-color: #00eaff; }
+.war-task-card.bug { border-left-color: #ff5252; }
+
+/* O Arsenal (Links) */
+.war-links-list { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; flex: 1; padding-right: 5px; }
+.war-link-item {
+    display: flex; align-items: center; gap: 12px; padding: 12px;
+    background: rgba(255,255,255,0.02); border-radius: 8px; text-decoration: none; color: #fff;
+    transition: 0.2s ease; border-left: 3px solid #ffc107; border-right: 1px solid transparent; border-top: 1px solid transparent; border-bottom: 1px solid transparent;
+}
+.war-link-item:hover {
+    background: rgba(255,255,255,0.05); transform: translateX(5px);
+    border-color: rgba(255,255,255,0.1); border-left-color: #ffc107;
+}
+
+/* Terminal de Comunicação */
+.terminal-card { border-color: rgba(129, 254, 78, 0.2); background: rgba(10, 15, 10, 0.9); }
+.terminal-card h3 { color: var(--primary); font-family: 'Courier New', Courier, monospace; margin-bottom: 15px;}
+.war-chat-box {
+    flex: 1; background: #050505; border-radius: 8px; padding: 15px;
+    overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+    font-family: 'Courier New', Courier, monospace; font-size: 0.85rem;
+    border: 1px solid rgba(129, 254, 78, 0.1); margin-bottom: 15px;
+}
+.war-chat-input-area { display: flex; gap: 10px; }
+.war-chat-input-area input {
+    flex: 1; border-radius: 8px; font-family: 'Courier New', Courier, monospace;
+    background: #111; color: var(--primary); border: 1px solid rgba(129, 254, 78, 0.3);
+}
+.war-chat-input-area input:focus { border-color: var(--primary); outline: none; }
+
+.chat-msg { display: flex; flex-direction: column; line-height: 1.4; animation: fadeInDrop 0.2s ease;}
+.chat-msg.bot { color: var(--primary); }
+.chat-msg.user { color: #ddd; }
+.chat-author { font-weight: bold; font-size: 0.75rem; color: #666; margin-bottom: 2px;}
+
+@media (max-width: 1000px) {
+    .war-bento-grid { grid-template-columns: 1fr; height: auto;}
+    .war-room-header { flex-direction: column; text-align: center; gap: 15px; }
+    .war-timer-area { align-items: center; }
+}
+
+/* ==========================================================================
+   20. TERMINAL DE COMUNICAÇÃO (Avançado)
+   ========================================================================== */
+.chat-mention {
+    color: #00eaff;
+    font-weight: bold;
+    background: rgba(0, 234, 255, 0.15);
+    padding: 0 4px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 234, 255, 0.3);
+}
+
+.chat-msg {
+    position: relative; /* Necessário para os botões flutuantes */
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.chat-msg:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+.chat-actions {
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    display: none; /* Escondido por padrão */
+    gap: 8px;
+    background: #050505;
+    padding: 2px 5px;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.8);
+}
+
+.chat-msg:hover .chat-actions {
+    display: flex; /* Aparece no hover */
+}
+
+.chat-action-btn {
+    background: none; border: none; color: #888;
+    cursor: pointer; font-size: 0.8rem; padding: 0;
+}
+.chat-action-btn:hover { color: #fff; transform: scale(1.1); }
+.chat-action-btn.del:hover { color: #ff5252; }
+
+/* Botões do Admin na War Room */
+.admin-war-controls {
+    display: flex; gap: 10px; margin-top: 10px;
+}

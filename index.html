@@ -4,9 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HeartKey Hub | Workspace</title>
-    <link rel="stylesheet" href="hub.css">
+    
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/ui-components.css">
+    
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/mural.css">
+    <link rel="stylesheet" href="css/perfil.css">
+    
+    <link rel="stylesheet" href="css/projects.css"> <link rel="stylesheet" href="css/kanban.css">
+    <link rel="stylesheet" href="css/pomdoro.css">
+    <link rel="stylesheet" href="css/wiki.css">
+    <link rel="stylesheet" href="css/arts.css">
+    <link rel="stylesheet" href="css/audio.css">
+    <link rel="stylesheet" href="css/brainstorm.css">
+    <link rel="stylesheet" href="css/war-room.css">
+    
+    <link rel="stylesheet" href="css/financial.css">
+    <link rel="stylesheet" href="css/agenda.css">
+    <link rel="stylesheet" href="css/clients.css">
+    <link rel="stylesheet" href="css/diary.css">
+    <link rel="stylesheet" href="css/pomodoro.css">
+
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&display=swap">
-    <!-- Bibliotecas para Wiki e Diagramas -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
@@ -179,7 +200,7 @@
                                 <button onclick="pausarPomodoro()" class="icon-btn">⏸</button>
                                 <button onclick="resetarPomodoro()" class="icon-btn">🔄</button>
                             </div>
-                            <button class="btn-primary" style="padding: 5px 10px; font-size: 0.65rem; margin-top: 15px; width: 100%;" onclick="abrirFocusMode()">MODO FOCO</button>
+                            <button class="btn-primary" onclick="window.irParaAba('foco')">IR PARA MODO FOCO</button>
                         </div>
                         
                         <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -228,7 +249,7 @@
                 <div id="project-banner" class="project-banner">
                     <div class="banner-overlay"></div>
                     
-                    <div style="position: absolute; top: 20px; left: 20px; z-index: 2; display: flex; gap: 10px;">
+                    <div class="project-banner-actions">
                         <button class="btn-secondary" data-tooltip="Voltar para Projetos" onclick="voltarParaProjetos()">&larr;</button>
                         <button class="icon-btn" data-tooltip="Configurações do Projeto" onclick="abrirModalEditarProjeto()">⚙️</button>
                     </div>
@@ -291,7 +312,7 @@
 
                 <div id="tab-artes" class="project-tab-content" style="display: none;">
                     <div class="art-layout">
-                        <aside class="art-sidebar dash-panel">
+                        <aside id="painel-style-guide" class="art-sidebar dash-panel">
                             <h3>🎨 Style Guide</h3>
                             <div id="palette-container" class="palette-grid">
                                 </div>
@@ -311,7 +332,7 @@
                                 </div>
 
                                 <div id="btn-group-galeria">
-                                    <button class="btn-primary" onclick="openModal('modalNovaArte')">+ Novo Asset</button>
+                                    <button class="btn-primary" onclick="window.abrirModalNovaArte()">+ Novo Asset</button>
                                 </div>
                                 <div id="btn-group-referencias" style="display: none;">
                                     <button class="btn-secondary" onclick="openModal('modalNovaReferenciaArt')">+ Link de Referência</button>
@@ -319,27 +340,43 @@
                             </div>
 
                             <div id="view-galeria" class="art-view-content">
-                                <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
-                                    <label style="color: var(--text-muted); font-size: 0.85rem;">Filtrar Galeria:</label>
+                                <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                    <label style="color: var(--text-muted); font-size: 0.85rem;">Filtros:</label>
+                                    
                                     <select id="art-filter" onchange="window.aplicarFiltroArtes()" style="width: auto; margin-bottom: 0; padding: 8px 12px; background: rgba(255,255,255,0.05);">
-                                        <option value="all">Todos os Assets</option>
+                                        <option value="all">Todas as Categorias</option>
                                         <option value="concept">🎨 Concept Art</option>
                                         <option value="ui">🖱️ UI / Interface</option>
                                         <option value="sprite">👾 Sprite / 2D</option>
                                         <option value="model">🧊 3D Model</option>
                                         <option value="env">🌲 Environment</option>
                                     </select>
+
+                                    <select id="art-status-filter" onchange="window.aplicarFiltroArtes()" style="width: auto; margin-bottom: 0; padding: 8px 12px; background: rgba(255,255,255,0.05);">
+                                        <option value="all">Todos os Status</option>
+                                        <option value="done">✅ Finalizados</option>
+                                        <option value="review">👁️ Em Revisão</option>
+                                        <option value="wip">⏳ Em Progresso (WIP)</option>
+                                    </select>
                                 </div>
                                 <div id="art-gallery-grid" class="art-grid"></div>
                             </div>
 
                             <div id="view-ref-visual" class="art-view-content" style="display: none;">
-                                <div id="art-ref-grid" class="art-grid moodboard-columns">
-                                    </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                    <span style="color: #888; font-size: 0.8rem;">💡 <strong style="color: #ffc107;">Guia:</strong> Scroll (clique) para Mover. <strong>Del</strong> para apagar. <strong>F</strong> ou Clique Duplo para focar.</span>
+                                    
+                                    <button class="btn-secondary" onclick="window.recentralizarCanvas()" style="padding: 5px 12px; font-size: 0.75rem;">🎯 Centralizar Origem</button>
+                                </div>
+                                
+                                <div id="heartref-viewport" tabindex="0">
+                                    <div id="heartref-world"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
 
                 <div id="tab-brainstorm" class="project-tab-content" style="display: none;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
@@ -400,7 +437,7 @@
                     <div id="view-moodboard" class="audio-view-content" style="display: none;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 15px; align-items: center;">
                             <h3 style="color: #ffc107; font-size: 1.1rem; border: none; padding: 0;">Referências de Inspiração</h3>
-                            <button class="btn-secondary" onclick="openModal('modalNovaReferencia')">+ Link de Referência</button>
+                            <button class="btn-secondary" onclick="window.abrirModalNovaReferencia()">+ Link de Referência</button>
                         </div>
                         <div id="moodboard-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;"></div>
                     </div>
@@ -434,6 +471,7 @@
                                     <button class="itab-btn active" id="btn-wiki-edit" data-tooltip="Escrever" onclick="setWikiMode('edit')">✍️</button>
                                     <button class="itab-btn" id="btn-wiki-preview" data-tooltip="Leitura" onclick="setWikiMode('preview')">👁️</button>
                                     <button class="itab-btn" id="btn-wiki-comments" data-tooltip="Notas e Alterações" onclick="window.abrirFeedbackWiki()" style="position: relative;">💬</button>
+                                    <button class="itab-btn" id="btn-wiki-history" data-tooltip="Histórico de Versões" onclick="window.abrirHistoricoWiki()">⏳</button>
                                     <button class="itab-btn" id="btn-wiki-fullscreen" data-tooltip="Tela Cheia" onclick="toggleFullscreenWiki()">⛶</button>
                                 </div>
                             </div>
@@ -446,6 +484,81 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </section>
+
+        <section id="foco" class="page-section">
+            <div class="focus-layout-grid">
+                
+                <div class="focus-main-card dash-panel">
+                    <div id="foco-v3-display" class="timer-giant">25:00</div>
+                    <div class="focus-current-mission">
+                        <span id="foco-current-task">🎯 SELECIONE UMA MISSÃO NO PAINEL AO LADO</span>
+                    </div>
+                    <div class="focus-controls-compact">
+                        <button class="btn-primary" onclick="window.iniciarFocoV3()">▶ INICIAR</button>
+                        <button class="btn-secondary" onclick="window.pausarFocoV3()">⏸ PAUSAR</button>
+                        <button class="btn-secondary" onclick="window.resetarFocoV3()">🔄 RESET</button>
+                    </div>
+                </div>
+
+                <div class="focus-sidebar-area">
+                    <div class="dash-panel compact-panel">
+                        <h3>📋 Próximas Tarefas</h3>
+                        <ul id="foco-tasks-list" class="focus-tasks-mini-list"></ul>
+                    </div>
+                    
+                    <div class="dash-panel compact-panel">
+                        <h3>🎧 Som e Tempo</h3>
+                        <div class="focus-mini-settings">
+                            <select id="foco-v3-style" onchange="window.mudarEstiloTimer()">
+                                <option value="classic">⭕ Círculo Neon</option>
+                                <option value="minimal">📟 Digital Clean</option>
+                                <option value="terminal">💻 Terminal Hacker</option>
+                            </select>
+
+                            <select id="foco-v3-sound" onchange="window.trocarSomFocoV3()">
+                                <option value="none">🔇 Silêncio</option>
+                                <option value="rain">🌧️ Chuva</option>
+                                <option value="fire">🔥 Fogueira</option>
+                                <option value="lofi">📻 Lofi</option>
+                            </select>
+                            
+                            <input type="number" id="foco-v3-minutos" value="25" min="1" max="60" onchange="window.resetarFocoV3()">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="focus-cornell-area dash-panel">
+                    <div class="cornell-top-bar">
+                        <input type="text" id="cornell-title" placeholder="Título da Sessão (Ex: Refatoração de Física)" oninput="window.autoSaveCornell()">
+                        <div class="cornell-actions" style="display: flex; gap: 10px;">
+                            <input type="file" id="cornell-import-file" accept=".txt" style="display: none;" onchange="window.processarImportacaoCornell(event)">
+                            
+                            <button class="icon-btn" onclick="document.getElementById('cornell-import-file').click()" data-tooltip="Importar .TXT">📂</button>
+                            
+                            <button class="icon-btn" onclick="window.exportarCornellTXT()" data-tooltip="Baixar .TXT">📥</button>
+                            
+                            <button class="btn-primary" onclick="window.exportarCornellParaDevLog()" style="background:#ffc107; color:#000; font-size:0.7rem; padding: 5px 12px;">💾 SALVAR NO DEVLOG</button>
+                        </div>
+                    </div>
+
+                    <div class="cornell-grid-main">
+                        <div class="cornell-column cues">
+                            <label>📌 Tópicos / Dúvidas</label>
+                            <textarea id="cornell-cues-text" oninput="window.autoSaveCornell()" placeholder="Palavras-chave..."></textarea>
+                        </div>
+                        <div class="cornell-column notes">
+                            <label>📝 Anotações Principais</label>
+                            <textarea id="cornell-notes-text" oninput="window.autoSaveCornell()" placeholder="Desenvolva o raciocínio aqui..."></textarea>
+                        </div>
+                    </div>
+                    <div class="cornell-summary-row">
+                        <label>💡 Conclusão / Resumo</label>
+                        <textarea id="cornell-summary-text" oninput="window.autoSaveCornell()" rows="2" placeholder="O que foi aprendido ou decidido?"></textarea>
+                    </div>
+                </div>
+
             </div>
         </section>
 
@@ -675,31 +788,77 @@
     </main>
 
     <div id="pomodoro-focus-mode" class="focus-overlay">
-        <button class="close-focus-btn" onclick="fecharFocusMode()">✕</button>
+        <button class="close-focus-btn" onclick="document.getElementById('pomodoro-focus-mode').classList.remove('active')">✕</button>
         
-        <div class="focus-container">
-            <div class="focus-task-selector" onclick="togglePainelTarefasFoco()">
-                <span id="focus-current-task">⭕ Nenhuma tarefa selecionada (Clique para escolher)</span>
-            </div>
-
-            <div class="focus-timer-circle">
-                <h1 id="focus-time-display" onclick="editarTempoPomodoro()" title="Clique para editar o tempo">25:00</h1>
-            </div>
-
-            <div class="focus-controls">
-                <button class="focus-btn play" onclick="iniciarPomodoro()">▶ Começar Foco</button>
-                <button class="focus-btn pause" onclick="pausarPomodoro()">⏸ Pausar</button>
-                <button class="focus-btn reset" onclick="resetarPomodoro()" title="Resetar Timer">🔄</button>
-            </div>
-        </div>
-
-        <div id="focus-tasks-panel" class="focus-side-panel">
-            <button class="close-panel-btn" onclick="togglePainelTarefasFoco()">✕</button>
+        <div class="focus-layout-grid">
             
-            <h3>Suas Tarefas Pendentes</h3>
-            <p style="font-size: 0.8rem; color: #888; margin-bottom: 20px;">Escolha no que você vai focar agora.</p>
-            <ul id="focus-tasks-list" class="focus-tasks-list">
-                </ul>
+            <div class="dash-panel focus-main-card style-classic">
+                <div style="width: 100%; display: flex; justify-content: space-between; margin-bottom: 20px;">
+                    <select id="foco-v3-style" onchange="window.mudarEstiloTimer()" style="background: rgba(0,0,0,0.5); border: none; color: #888; font-size: 0.8rem; cursor: pointer; outline: none;">
+                        <option value="classic">Estilo: Neon Arc</option>
+                        <option value="minimal">Estilo: Minimalista</option>
+                        <option value="terminal">Estilo: Cyber Terminal</option>
+                    </select>
+                    <select id="foco-v3-sound" onchange="window.trocarSomFocoV3()" style="background: rgba(0,0,0,0.5); border: none; color: #888; font-size: 0.8rem; cursor: pointer; outline: none;">
+                        <option value="none">🔇 Sem Som de Fundo</option>
+                        <option value="rain">🌧️ Chuva Forte</option>
+                        <option value="fire">🔥 Fogueira</option>
+                        <option value="lofi">🎧 Lofi Chill</option>
+                    </select>
+                </div>
+
+                <h1 id="foco-v3-display" class="timer-giant" onclick="window.editarTempoPomodoro()" title="Clique para editar o tempo">25:00</h1>
+                
+                <div id="foco-current-task" class="focus-current-mission">
+                    ⭕ Nenhuma tarefa selecionada (Escolha na lista ao lado)
+                </div>
+
+                <div class="focus-controls-compact">
+                    <button class="btn-primary" onclick="window.iniciarFocoV3()" style="padding: 12px 25px; font-size: 1rem;">▶ Iniciar Foco</button>
+                    <button class="btn-secondary" onclick="window.pausarFocoV3()">⏸ Pausar</button>
+                    <button class="btn-secondary" onclick="window.resetarFocoV3()" style="border-color: #ff5252; color: #ff5252;">🔄 Resetar</button>
+                </div>
+            </div>
+
+            <div class="focus-sidebar-area">
+                <div class="dash-panel compact-panel" style="flex: 1; display: flex; flex-direction: column;">
+                    <h3 style="font-size: 0.9rem; margin-bottom: 10px; color: var(--primary);">🎯 Alvos da Missão</h3>
+                    <ul id="foco-tasks-list" class="focus-tasks-mini-list">
+                        </ul>
+                </div>
+                
+                <div class="dash-panel compact-panel">
+                    <h3 style="font-size: 0.9rem; margin-bottom: 10px;">💾 Operações</h3>
+                    <button class="btn-secondary" style="width: 100%; font-size: 0.75rem; margin-bottom: 8px;" onclick="window.exportarCornellTXT()">📄 Exportar Anotações (.txt)</button>
+                    <input type="file" id="import-cornell-file" accept=".txt" style="display: none;" onchange="window.processarImportacaoCornell(event)">
+                    <button class="btn-secondary" style="width: 100%; font-size: 0.75rem; margin-bottom: 8px;" onclick="document.getElementById('import-cornell-file').click()">📂 Importar (.txt)</button>
+                    <button class="btn-primary" style="width: 100%; font-size: 0.75rem;" onclick="window.exportarCornellParaDevLog()">📓 Enviar pro DevLog</button>
+                </div>
+            </div>
+
+            <div class="dash-panel focus-cornell-area">
+                <div class="cornell-top-bar">
+                    <input type="text" id="cornell-title" placeholder="Título da Sessão de Foco..." oninput="window.autoSaveCornell()">
+                    <span id="cornell-save-status" style="font-size: 0.7rem; color: #888;">Sincronizado no Navegador</span>
+                </div>
+
+                <div class="cornell-grid-main">
+                    <div class="cornell-column">
+                        <label>Palavras-Chave / Tópicos</label>
+                        <textarea id="cornell-cues-text" placeholder="Anotações curtas, dúvidas rápidas..." oninput="window.autoSaveCornell()"></textarea>
+                    </div>
+                    <div class="cornell-column">
+                        <label>Anotações Gerais</label>
+                        <textarea id="cornell-notes-text" placeholder="Desenvolva os pensamentos técnicos aqui durante o foco..." oninput="window.autoSaveCornell()"></textarea>
+                    </div>
+                </div>
+
+                <div class="cornell-summary-row">
+                    <label>Resumo Pós-Sessão</label>
+                    <textarea id="cornell-summary-text" placeholder="O que eu aprendi ou concluí nesta sessão de foco? (Preencha nos 5 min de descanso)" oninput="window.autoSaveCornell()"></textarea>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -979,45 +1138,62 @@
     </div>
 
     <div id="modalNovoAudio" class="modal-overlay">
-        <div class="modal-content" style="max-width: 400px;">
-            <div class="modal-header">
-                <h2>Adicionar Novo Áudio</h2>
-                <button class="close-btn" onclick="closeModal('modalNovoAudio')">×</button>
-            </div>
-            <form class="hub-form" id="formNovoAudio" onsubmit="salvarAudio(event)">
-                <div class="form-group">
-                    <label>Título da Obra</label>
-                    <input type="text" id="audioTitulo" placeholder="Ex: Boss_Battle_Final" required>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Categoria</label>
-                        <select id="audioTag" required>
-                            <option value="SFX">💥 SFX (Efeito)</option>
-                            <option value="BGM" selected>🎵 BGM (Trilha)</option>
-                            <option value="VO">🎙️ VO (Voz)</option>
-                            <option value="UI">🖱️ UI (Interface)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>BPM (Opcional)</label>
-                        <input type="number" id="audioBpm" placeholder="120">
-                    </div>
-                    <div class="form-group">
-                        <label>Tom / Key (Opcional)</label>
-                        <input type="text" id="audioKey" placeholder="Am, C#, F...">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Link do Arquivo (Drive, Dropbox, Catbox...)</label>
-                    <input type="url" id="audioUrl" placeholder="https://..." required>
-                </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn-primary" style="width: 100%;">🚀 Lançar na Central de Áudio</button>
-                </div>
-            </form>
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h2>🎵 Lançar Novo Áudio (Game Ready)</h2>
+            <button class="close-btn" onclick="closeModal('modalNovoAudio')">×</button>
         </div>
+        <form class="hub-form" id="formNovoAudio" onsubmit="window.salvarAudio(event)">
+            <div class="form-group">
+                <label>Título da Obra</label>
+                <input type="text" id="audioTitulo" placeholder="Ex: Boss_Battle_Final" required>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Categoria</label>
+                    <select id="audioTag" required>
+                        <option value="SFX">💥 SFX (Efeito)</option>
+                        <option value="BGM" selected>🎵 BGM (Trilha)</option>
+                        <option value="VO">🎙️ VO (Voz)</option>
+                        <option value="UI">🖱️ UI (Interface)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>BPM (Opcional)</label>
+                    <input type="number" id="audioBpm" placeholder="120">
+                </div>
+            </div>
+            
+            <div class="form-row" style="margin-bottom: 10px;">
+                <div class="form-group"><label>Sample Rate</label><input type="text" id="audioSampleRate" placeholder="44.1kHz"></div>
+                <div class="form-group"><label>LUFS</label><input type="text" id="audioLufs" placeholder="-14"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label>Loop Start (s)</label><input type="number" step="0.01" id="audioLoopStart" placeholder="0.00"></div>
+                <div class="form-group"><label>Loop End (s)</label><input type="number" step="0.01" id="audioLoopEnd" placeholder="120.00"></div>
+            </div>
+
+            <div style="border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 15px; margin-top: 10px;">
+                <label style="color: var(--primary); font-weight: bold;">🎛️ Camadas de Áudio (Stems)</label>
+                <p style="font-size: 0.7rem; color: #888; margin-bottom: 10px;">Preencha a C1 para áudio simples. Preencha as outras para criar um áudio dinâmico (FMOD Style).</p>
+                <input type="url" id="audioUrl1" placeholder="Link da Camada 1 (Base/Principal) *" required style="margin-bottom: 8px;">
+                <input type="url" id="audioUrl2" placeholder="Link da Camada 2 (Ex: Bateria)" style="margin-bottom: 8px;">
+                <input type="url" id="audioUrl3" placeholder="Link da Camada 3 (Ex: Synths)" style="margin-bottom: 8px;">
+                <input type="url" id="audioUrl4" placeholder="Link da Camada 4 (Ex: Tensão Máxima)" style="margin-bottom: 8px;">
+                <input type="url" id="audioUrl5" placeholder="Link da Camada 5 (Opcional)" style="margin-bottom: 15px;">
+            </div>
+
+            <div class="form-group">
+                <label>Link para Baixar Assets/Fontes (Pasta do Drive/Dropbox)</label>
+                <input type="url" id="audioAssetsUrl" placeholder="https://...">
+            </div>
+
+            <div class="modal-footer">
+                <button type="submit" class="btn-primary" style="width: 100%;">🚀 Lançar para a Engine</button>
+            </div>
+        </form>
     </div>
+</div>
 
     <div id="modalNovaReferencia" class="modal-overlay">
         <div class="modal-content" style="max-width: 400px;">
@@ -1133,6 +1309,19 @@
                 <h2>⚙️ Configurações da Conta</h2>
                 <button class="close-btn" onclick="closeModal('modalConfigPerfil')">&times;</button>
             </div>
+
+            <div id="admin-backup-panel" class="dash-panel" style="display: none; border-color: #ff5252; margin-top: 25px;">
+                <h3 style="color: #ff5252;">⚙️ Zona do Administrador</h3>
+                <p style="font-size: 0.8rem; color: #888; margin-bottom: 15px;">Baixe uma cópia JSON de todos os dados do estúdio ou restaure um backup antigo (CUIDADO: Isso sobrescreve os dados atuais!).</p>
+                
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn-primary" style="background: transparent; color: #ffc107; border: 1px solid #ffc107;" onclick="window.fazerBackupBanco()">💾 Exportar Banco (Download)</button>
+
+                    <input type="file" id="json-upload" accept=".json" style="display: none;" onchange="window.restaurarBackupBanco(event)">
+                    <button class="btn-primary" style="background: transparent; color: #ff5252; border: 1px solid #ff5252;" onclick="document.getElementById('json-upload').click()">⚠️ Restaurar Backup (Upload)</button>
+                </div>
+            </div>
+
             <form class="hub-form" onsubmit="salvarPreferencias(event)">
                 <div class="form-row">
                     <div class="form-group">
@@ -1350,6 +1539,76 @@
         </div>
     </div>
 
+    <div id="modalHistoricoWiki" class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>⏳ Histórico de Versões</h2>
+                <button class="close-btn" onclick="closeModal('modalHistoricoWiki')">&times;</button>
+            </div>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">Aqui ficam gravadas as edições antigas caso alguém apague algo por acidente.</p>
+            <ul id="lista-historico-wiki" style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto;">
+                </ul>
+        </div>
+    </div>
+
+    <div id="modalAtelieArte" class="modal-overlay">
+        <div class="modal-content atelie-container" id="atelieContainer" style="max-width: 100vw; width: 100vw; height: 100vh; padding: 0; border-radius: 0; border: none; background: #0a0a0c;">
+            
+            <div class="atelie-toolbar top-toolbar">
+                <button class="atelie-btn" onclick="window.fecharAtelieArte()" style="background: rgba(255,82,82,0.2); color: #ff5252;">⬅ Voltar</button>
+                <span style="color: #fff; font-weight: bold; margin: 0 15px;">Ateliê de Revisão</span>
+                <button class="atelie-btn" onclick="window.mudarZoomAtelie(0.2)">🔍 +</button>
+                <button class="atelie-btn" onclick="window.mudarZoomAtelie(-0.2)">🔍 -</button>
+                <span id="atelieZoomText" style="color: #888; font-size: 0.8rem; min-width: 40px; text-align: center;">100%</span>
+                <button class="atelie-btn" onclick="window.resetarAtelie()">⟲ Reset</button>
+            </div>
+
+            <div class="atelie-canvas" id="atelieCanvas" oncontextmenu="window.adicionarPinoArte(event); return false;">
+                <div id="atelieImagemWrapper" style="position: relative; transform-origin: center center; transition: transform 0.1s ease-out;">
+                    <img id="atelieImagemPrincipal" src="" draggable="false">
+                    <div id="atelieGrid" class="atelie-grid-overlay"></div>
+                    <div id="ateliePinosContainer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></div>
+                </div>
+            </div>
+
+            <div class="atelie-toolbar bottom-toolbar">
+                <button class="atelie-btn" onclick="window.toggleLightroom('grayscale')">🌗 Preto e Branco</button>
+                <button class="atelie-btn" onclick="window.toggleLightroom('flip')">🪞 Espelhar</button>
+                <button class="atelie-btn" onclick="window.toggleLightroom('grid')">📏 Regra dos Terços</button>
+                <button class="atelie-btn" style="background: var(--primary); color: #000;" onclick="window.extrairCoresDaArte()">🧬 Extrair DNA Visual</button>
+            </div>
+
+            <div class="atelie-sidebar">
+                <h3 style="color: #fff; margin-bottom: 5px; font-size: 1rem;">Feedbacks (<span id="contadorPinos">0</span>)</h3>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 15px;">Clique com o botão direito na imagem para fixar um novo comentário no local exato.</p>
+                <ul id="listaPinosArte" style="list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow-y: auto;">
+                </ul>
+            </div>
+        </div>
+        <div id="modalLeituraNota" class="modal-overlay">
+            <div class="modal-content" style="max-width: 700px;">
+                <div class="modal-header" style="border-bottom: 1px dashed rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 15px; align-items: flex-start;">
+                    <div style="flex: 1;">
+                        <h2 id="noteReadTitle" style="margin-bottom: 8px; font-size: 1.4rem; color: var(--primary);">Título da Nota</h2>
+                        <div style="display: flex; gap: 10px; font-size: 0.8rem; color: #888; flex-wrap: wrap;">
+                            <span id="noteReadDate">📅 00/00/0000</span>
+                            <span id="noteReadTag" class="badge" style="padding: 3px 8px; background: rgba(255,255,255,0.1);">Tag</span>
+                            <span id="noteReadMood" class="badge" style="padding: 3px 8px; background: rgba(255,255,255,0.1);">Humor</span>
+                        </div>
+                    </div>
+                    <button class="close-btn" onclick="window.closeModal('modalLeituraNota')">&times;</button>
+                </div>
+                
+                <div id="noteReadContent" class="markdown-body" style="background: rgba(0,0,0,0.3) !important; padding: 25px !important; border-radius: 12px; min-height: 150px; font-size: 0.95rem; border: 1px solid rgba(255,255,255,0.05);">
+                </div>
+                
+                <div class="modal-footer" style="margin-top: 20px; display: flex; justify-content: flex-end;">
+                    <button class="btn-secondary" onclick="window.closeModal('modalLeituraNota')">Fechar Diário</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <button id="floating-comment-btn" class="btn-primary" onclick="window.acionarComentarioFantasma()" style="display: none; position: fixed; z-index: 10000; padding: 6px 12px; border-radius: 8px; font-size: 1.2rem; box-shadow: 0 10px 25px rgba(0,0,0,0.8); cursor: pointer; transition: transform 0.2s ease;">
         💬
     </button>
@@ -1359,6 +1618,6 @@
 
 
 
-    <script type="module" src="hub.js"></script>
+    <script type="module" src="./js/main.js"></script>
 </body>
 </html>

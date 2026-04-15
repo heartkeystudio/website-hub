@@ -1,0 +1,214 @@
+:root {
+    --primary: #81fe4e;
+    --primary-glow: rgba(129, 254, 78, 0.3);
+    --bg-dark: #050505;
+    --bg-panel: rgba(15, 15, 15, 0.7); /* Efeito Vidro */
+    --bg-card: #141414;
+    --text-main: #f5f5f5;
+    --text-muted: #8e8e93;
+    --border-color: rgba(255, 255, 255, 0.08);
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body.light-theme {
+    --bg-dark: #f0f2f5;
+    --bg-panel: rgba(255, 255, 255, 0.8);
+    --bg-card: #ffffff;
+    --text-main: #1c1c1e;
+    --text-muted: #636366;
+    --border-color: rgba(0, 0, 0, 0.08);
+}
+
+/* ==========================================================================
+   1. RESET E ESTRUTURA GLOBAL (BLINDADO)
+   ========================================================================== */
+* { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+    -webkit-font-smoothing: antialiased;
+}
+
+html {
+    width: 100%;
+    overflow-x: hidden;
+}
+body { 
+    font-family: "JetBrains Mono", monospace; 
+    background: var(--bg-dark); 
+    color: var(--text-main); 
+    display: flex; 
+    min-height: 100vh; 
+    width: 100%;
+    overflow: hidden; /* Trava o scroll global para não sobrepor */
+    transition: background 0.3s ease;
+}
+
+/* Barra de rolagem elegante */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+
+
+/* ==========================================================================
+   SUPER PACK DE CORREÇÕES VISUAIS (INTERFACE & BUGS)
+   ========================================================================== */
+
+
+/* --- 4. BLINDAGEM CONTRA CORTES (Imagens 1 e 2) --- */
+/* Força visibilidade em todos os containers de cards e listas */
+.badges-grid, 
+.badge-medal, 
+.stat-box, 
+.bento-card, 
+.dash-panel, 
+.client-card, 
+.kanban-card {
+    overflow: visible !important;
+}
+
+/* Ajuste específico para a Estante de Conquistas */
+.badges-container {
+    padding-bottom: 20px; /* Dá um respiro embaixo para o balão não sumir */
+}
+
+.badge-medal {
+    position: relative !important; /* Garante que o balão saiba de onde "nascer" */
+}
+
+/* Se o balão estiver muito na beirada direita da tela (últimas medalhas),
+   ele se alinha para a esquerda para não sumir */
+.badge-medal:nth-last-child(-n+2) [data-tooltip]::after {
+    left: auto;
+    right: 0;
+    transform: translateX(0);
+}
+
+/* ==========================================================================
+   SISTEMA DE NOTIFICAÇÃO (WORKFLOW TOAST)
+   ========================================================================== */
+.workflow-toast {
+    position: fixed;
+    top: -100px; /* Começa fora da tela */
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(26, 26, 29, 0.95);
+    border: 1px solid var(--primary);
+    border-radius: 30px;
+    padding: 10px 25px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    z-index: 9999;
+    transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    backdrop-filter: blur(10px);
+}
+
+.workflow-toast.show {
+    top: 30px; /* Desce para a posição visível */
+}
+
+.workflow-toast .icon {
+    font-size: 1.2rem;
+    background: var(--primary);
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #000;
+}
+
+.workflow-toast .text {
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+
+/* ==========================================================================
+   SISTEMA DE NOTIFICAÇÕES (TOAST E BADGES)
+   ========================================================================== */
+
+/* Container que segura os popups no canto da tela */
+#toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Design do Card do Popup */
+.system-toast {
+    background: rgba(26, 26, 29, 0.95);
+    backdrop-filter: blur(10px);
+    border-left: 4px solid var(--primary);
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+    color: #fff;
+    width: 320px;
+    cursor: pointer;
+    animation: slideInToast 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    transition: 0.3s;
+}
+
+.system-toast:hover {
+    transform: scale(1.02);
+}
+
+@keyframes slideInToast {
+    from { transform: translateX(120%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* A bolinha vermelha estilo Discord/Instagram */
+.nav-badge {
+    background: #ff5252;
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 900;
+    border-radius: 50%;
+    min-width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 5px;
+    right: 15px;
+    pointer-events: none;
+    box-shadow: 0 0 8px rgba(255, 82, 82, 0.6);
+}
+
+/* Pingo de notificação para itens de lista */
+.item-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--primary);
+    border-radius: 50%;
+    display: inline-block;
+    margin-left: 8px;
+    box-shadow: 0 0 10px var(--primary);
+}
+
+/* Garante que o item pai tenha posição relativa para o pingo flutuar */
+.wiki-file-item, .audio-card, .itab-btn {
+    position: relative;
+}
+
+/* BLINDAGEM DE TODOS OS MODAIS DO SISTEMA */
+.modal-overlay.active {
+    display: flex !important;
+    z-index: 2147483647 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}

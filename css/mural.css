@@ -1,0 +1,171 @@
+/* ==========================================================================
+   MURAL DE HYPE - DESIGN COMPACTO PROFISSIONAL
+   ========================================================================== */
+.mural-post {
+    display: flex;
+    background: rgba(20, 20, 20, 0.6); /* Mais escuro e elegante */
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-left: 3px solid var(--primary); /* Linha lateral fina */
+    border-radius: 8px;
+    padding: 10px 14px; /* Padding reduzido drasticamente */
+    gap: 12px;
+    margin-bottom: 8px; /* Posts mais próximos uns dos outros */
+    transition: 0.2s ease-in-out;
+    height: 150px;
+}
+
+.mural-post:hover {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(129, 254, 78, 0.2);
+}
+
+/* Sistema de Votos Compacto */
+.mural-votes {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+}
+
+.vote-arrow {
+    background: transparent; border: none; color: #444; font-size: 1rem;
+    cursor: pointer; line-height: 1;
+}
+
+.vote-score { font-weight: 800; font-size: 0.85rem; color: #fff; margin: 2px 0; }
+
+/* Conteúdo do Post */
+.mural-content { flex: 1; min-width: 0; }
+
+.mural-header { 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    margin-bottom: 2px;
+}
+
+.mural-author { font-weight: 800; color: var(--primary); font-size: 0.75rem; }
+.mural-time { font-size: 0.65rem; color: #666; }
+
+/* Título e Texto discretos */
+.mural-content h3 {
+    margin: 0 !important;
+    font-size: 0.95rem !important;
+    color: #fff;
+    border: none !important;
+    font-weight: 700;
+}
+
+.mural-content .markdown-body {
+    font-size: 0.8rem !important;
+    color: #999 !important;
+    line-height: 1.4;
+    max-height: 80px; /* Impede posts gigantes */
+    overflow-y: auto;
+}
+
+/* Badge de Temperatura menor */
+.mural-temp-badge { font-size: 0.6rem; padding: 1px 4px; border-radius: 3px; }
+
+/* GARANTIA DE EXIBIÇÃO DO MODAL DO MURAL */
+#modalNovoMural.active {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    z-index: 999999 !important; /* Força para frente de todas as camadas */
+}
+
+#modalNovoMural .modal-content {
+    background: #141414 !important; /* Cor sólida para garantir visibilidade */
+    border: 1px solid var(--primary);
+    box-shadow: 0 0 50px rgba(0,0,0,0.9);
+}
+
+/* ==========================================================================
+   FORÇA DE EXIBIÇÃO DO MODAL (NÃO MEXE NOS POSTS)
+   ========================================================================== */
+
+/* 1. Força o overlay a aparecer quando tiver a classe .active */
+#modalNovoMural.active {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 999999 !important; /* Fica na frente de tudo */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85); /* Fundo escurecido */
+    align-items: center;
+    justify-content: center;
+}
+
+/* 2. Garante que o conteúdo do modal tenha cor e tamanho */
+#modalNovoMural .modal-content {
+    background: #141414 !important;
+    border: 1px solid var(--primary);
+    padding: 30px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 550px;
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+    display: block !important;
+}
+
+/* Isso garante que o modal injetado pelo JS apareça por cima de tudo */
+.modal-overlay.active {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    position: fixed !important;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 2147483647 !important; /* Valor máximo de z-index */
+    align-items: center;
+    justify-content: center;
+}
+
+/* ==========================================================================
+   FORÇA BRUTA: TORNAR O MODAL VISÍVEL E SÓLIDO
+   ========================================================================== */
+
+#modalNovoMural.active {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    background: rgba(0, 0, 0, 0.9) !important; /* Fundo bem escuro para contraste */
+    z-index: 2147483647 !important;
+}
+
+#modalNovoMural .modal-content {
+    background: #1a1a1a !important; /* Cinza muito escuro, quase preto */
+    border: 2px solid var(--primary) !important; /* Borda neon para destacar */
+    padding: 30px !important;
+    border-radius: 15px !important;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 1) !important;
+    color: #fff !important;
+    display: block !important;
+}
+
+/* Garante que os inputs dentro do modal apareçam */
+#modalNovoMural input, 
+#modalNovoMural textarea, 
+#modalNovoMural select {
+    background: #222 !important;
+    border: 1px solid #444 !important;
+    color: #fff !important;
+    padding: 12px !important;
+    margin-bottom: 15px !important;
+    display: block !important;
+    width: 100% !important;
+    opacity: 1 !important;
+}
+
+#modalNovoMural label {
+    color: var(--primary) !important;
+    display: block !important;
+    margin-bottom: 5px !important;
+    font-weight: bold !important;
+}

@@ -1,0 +1,200 @@
+/* ==========================================================================
+   7. PROJETOS (VISÃO DO PROJETO - BANNER, XP E TABS INTERNAS)
+   ========================================================================== */
+
+/* --- BANNER DO PROJETO --- */
+.project-banner {
+    width: 100%;
+    height: 220px;
+    background-color: #1e1e1e;
+    background-size: cover;
+    background-position: center;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+}
+
+/* Garante que o fade cubra 100% da área sem folgas e não intercepte cliques */
+.banner-overlay {
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%;
+    background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0) 100%);
+    pointer-events: none !important; /* MÁGICA: O clique atravessa o fade e atinge o botão */
+    z-index: 1;
+}
+
+/* Seletor específico para o grupo de botões superiores */
+.project-banner-actions {
+    position: absolute !important;
+    top: 20px !important;
+    left: 20px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    z-index: 10 !important; /* Fica acima do fade */
+}
+
+.project-banner h2 {
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    font-size: 2.5rem;
+    color: #fff;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+#titulo-workspace {
+    margin-top: 60px !important;
+    font-size: 2.2rem !important;
+}
+
+/* --- BARRA DE EXP DO PROJETO --- */
+.project-exp-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.exp-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.9);
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+}
+
+.exp-bar-bg {
+    width: 100%; height: 10px; background: rgba(0, 0, 0, 0.6);
+    border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.1);
+    overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.exp-bar-fill {
+    height: 100%; width: 0%; background: var(--primary);
+    box-shadow: 0 0 12px var(--primary-glow); border-radius: 4px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* --- TABS INTERNAS (ABAS DO KANBAN, WIKI, ÁUDIO) --- */
+.internal-tabs {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 25px;
+    padding-top: 10px;
+    gap: 15px;
+}
+
+.itab-btn {
+    background: transparent;
+    color: var(--text-main);
+    border: none;
+    padding: 12px 30px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    border-radius: 12px 12px 0 0;
+    margin-bottom: -1px;
+    border-bottom: 4px solid transparent;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    position: relative; /* Para a bolinha de notificação grudar nele */
+}
+
+.itab-btn:hover {
+    background: rgba(255, 255, 255, 0.03);
+    color: #fff;
+}
+
+.itab-btn.active {
+    background: var(--bg-card);
+    color: var(--primary);
+    font-weight: 800;
+    border-bottom: 4px solid var(--primary);
+    border-top: 1px solid var(--border-color);
+    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+}
+
+/* ==========================================================================
+   QA & PLAYTEST AREA
+   ========================================================================== */
+.qa-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 20px;
+    height: calc(100vh - 450px);
+}
+
+.build-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 12px;
+    transition: 0.2s;
+}
+
+.build-card:hover { border-color: var(--primary); background: rgba(129, 254, 78, 0.05); }
+
+.build-tag {
+    font-size: 0.6rem;
+    font-weight: 900;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--primary);
+    color: #000;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: inline-block;
+}
+
+.build-info h4 { font-size: 0.9rem; color: #fff; margin-bottom: 5px; }
+.build-info p { font-size: 0.75rem; color: #888; }
+
+.btn-download-build {
+    display: block;
+    width: 100%;
+    text-align: center;
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+    text-decoration: none;
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin-top: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.btn-download-build:hover { background: var(--primary); color: #000; }
+
+
+@media (max-height: 700px) {
+    .project-banner { height: 150px; }
+}
+
+@media (max-width: 900px) {
+    .project-banner { padding: 30px 20px 20px; }
+    .project-banner h2 { font-size: 1.6rem; }
+    .project-exp-container { gap: 10px; }
+}

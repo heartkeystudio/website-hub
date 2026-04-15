@@ -1,0 +1,20 @@
+/* ==========================================================================
+   16. CLIENTES & CONTATOS
+   ========================================================================== */
+.client-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; }
+
+.client-card { background: var(--bg-card); border: 1px solid var(--border-color); padding: 25px; border-radius: 16px; transition: var(--transition); display: flex; flex-direction: column; }
+.client-card:hover { border-color: var(--primary); transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
+
+.client-header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color); }
+.client-avatar { width: 55px; height: 55px; background: rgba(129, 254, 78, 0.1); color: var(--primary); border: 1px solid var(--primary); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.3rem; flex-shrink: 0; }
+.client-title h3 { font-size: 1.15rem; color: #fff; margin-bottom: 4px; border:none; padding:0; }
+.client-role { font-size: 0.85rem; color: var(--text-muted); }
+.client-body p { font-size: 0.9rem; color: #aaa; margin-bottom: 10px; display: flex; justify-content: space-between; }
+.client-body strong { color: #fff; font-weight: normal; }
+.client-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 12px; /* Acompanha o arredondamento da caixinha */
+}

@@ -1,0 +1,142 @@
+/* ==========================================================================
+   12. BRAINSTORM (SUBSEÇÃO DE BRAINSTORM - IDEIA CARDS)
+   ========================================================================== */
+.brain-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    align-items: start;
+}
+
+.idea-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 20px;
+    position: relative;
+    transition: 0.3s;
+    border-top: 5px solid #555; /* Cor padrão */
+}
+
+.idea-card:hover {
+    transform: translateY(-5px) rotate(1deg);
+    border-color: rgba(255,255,255,0.2);
+}
+
+/* Cores por Tag */
+.idea-card.mechanic { border-top-color: #00eaff; }
+.idea-card.story { border-top-color: #e040fb; }
+.idea-card.marketing { border-top-color: #ffc107; }
+.idea-card.polish { border-top-color: var(--primary); }
+
+.idea-card h4 {
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+    color: #fff;
+    padding-right: 25px;
+}
+
+.idea-card p {
+    font-size: 0.9rem;
+    color: #bbb;
+    line-height: 1.5;
+    margin-bottom: 20px;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.idea-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    padding-top: 15px;
+}
+
+.vote-btn {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border-color);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: 0.2s;
+}
+
+.vote-btn:hover { background: rgba(129, 254, 78, 0.1); border-color: var(--primary); }
+.vote-btn.voted { background: var(--primary); color: #000; font-weight: bold; }
+
+.idea-card {
+    /* ... mantenha o que já enviamos ... */
+    box-shadow: 5px 5px 15px rgba(0,0,0,0.3);
+}
+
+/* Faz as ideias "vibrarem" com cores de papel levemente diferentes */
+.idea-card:nth-child(2n) { transform: rotate(-1deg); }
+.idea-card:nth-child(3n) { transform: rotate(1.5deg); }
+.idea-card:hover { transform: scale(1.05) rotate(0deg) !important; z-index: 5; }
+
+/* --- BRAINSTORM: AJUSTE MARKDOWN E MENU --- */
+
+.idea-desc {
+    background: transparent !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    min-height: auto !important;
+    max-height: 250px;
+    overflow-y: auto;
+    font-size: 0.85rem;
+    color: #bbb;
+    margin-bottom: 15px;
+}
+
+/* Garante que imagens postadas via Markdown caibam no post-it */
+.idea-desc img {
+    max-width: 100%;
+    border-radius: 8px;
+    margin: 10px 0;
+}
+
+/* Menu de 3 pontinhos na Ideia (Escondido por padrão) */
+.idea-card .comment-menu-trigger {
+    opacity: 0;
+    transition: 0.2s;
+    color: var(--text-muted);
+}
+
+.idea-card:hover .comment-menu-trigger {
+    opacity: 1;
+}
+
+/* Estilo do Dropdown no mural de ideias */
+.idea-card .dropdown-content {
+    background: #111;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    z-index: 100;
+}
+
+.idea-card .dropdown-content button.del {
+    color: #ff5252;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.idea-card .idea-desc {
+    max-height: 150px;
+    overflow-y: auto;
+    mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+    margin-bottom: 10px;
+}
+
+.idea-card .idea-desc:hover {
+    mask-image: none;
+    -webkit-mask-image: none;
+}

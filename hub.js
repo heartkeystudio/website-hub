@@ -135,13 +135,17 @@ onAuthStateChanged(auth, async (user) => {
         if (window.intervaloLembrete) clearInterval(window.intervaloLembrete);
     }
 
+    // ATUALIZAÇÃO INTELIGENTE DO STATUS ONLINE (ECONOMIA DE BATERIA E FIREBASE)
     setInterval(async () => {
-        if (auth.currentUser) {
-            await updateDoc(doc(db, "usuarios", auth.currentUser.uid), {
-                ultimoVisto: new Date().toISOString()
-            });
+        // Só avisa o banco que está online se a pessoa REALMENTE estiver olhando pra aba do Hub
+        if (auth.currentUser && document.visibilityState === 'visible') {
+            try {
+                await updateDoc(doc(db, "usuarios", auth.currentUser.uid), {
+                    ultimoVisto: new Date().toISOString()
+                });
+            } catch(e) {}
         }
-    }, 120000);
+    }, 600000); // Mudamos de 2 minutos para 10 minutos (600.000ms)
 });
 
 // FUNÇÃO QUE ESCONDE/MOSTRA AS COISAS BASEADO NO CARGO
@@ -157,6 +161,9 @@ window.aplicarPermissoes = (cargo) => {
     const podeCriar = (cargo === 'admin' || cargo === 'gerente');
     if (btnNovoProj) btnNovoProj.style.display = podeCriar ? "block" : "none";
     if (btnNovaTask) btnNovaTask.style.display = podeCriar ? "block" : "none";
+
+    const painelBackup = document.getElementById('admin-backup-panel');
+    if (painelBackup) painelBackup.style.display = (cargo === 'admin') ? "block" : "none";
 
     const btnCfgRadio = document.getElementById('btn-config-radio');
     if (btnCfgRadio) {
@@ -362,169 +369,6 @@ window.recuperarPomodoroPerdido = () => {
             window.atualizarDisplayPomodoro();
         }
     }
-};
-
-// ==========================================
-// 5. DASHBOARD INTELIGENTE (VISÃO CEO)
-// ==========================================
-window.custoMensalEstimado = 3000; // Padrão R$ 3.000/mês, o usuário pode mudar
-
-window.configurarBurnRate = () => {
-    const novoValor = prompt("Qual o custo fixo mensal estimado do estúdio? (Apenas números, ex: 3500)", window.custoMensalEstimado);
-    if (novoValor && !isNaN(novoValor)) {
-        window.custoMensalEstimado = parseFloat(novoValor);
-        window.carregarDashboard(); // Recalcula na hora!
-    }
-};
-
-window.carregarDashboard = async () => {
-    if (!auth.currentUser) return;
-    const formatador = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-    
-    try {
-        // 1. BUSCA DE DADOS (Agora com filtros para não travar nas regras de segurança)
-        // Buscamos o que é MEU e o que é da EMPRESA separadamente para garantir o acesso
-        const qPessoal = query(collection(db, "lancamentos"), where("userId", "==", auth.currentUser.uid));
-        const qEmpresa = query(collection(db, "lancamentos"), where("escopo", "==", "empresa"));
-        
-        const [snapPessoal, snapEmpresa] = await Promise.all([getDocs(qPessoal), getDocs(qEmpresa)]);
-        
-        let rec = 0, cus = 0;
-        const processarDoc = (d) => {
-            const ld = d.data();
-            if (ld.tipo === 'receita') rec += ld.valor; else cus += ld.valor;
-        };
-
-        snapPessoal.forEach(processarDoc);
-        snapEmpresa.forEach(d => {
-            // Evita duplicar se o meu lançamento também for marcado como empresa
-            if (d.data().userId !== auth.currentUser.uid) processarDoc(d);
-        });
-
-        const saldoFinal = rec - cus;
-        const dashSaldo = document.getElementById('dash-saldo-runway');
-        const dashMeses = document.getElementById('dash-meses-vida');
-        const barFill = document.getElementById('runway-bar-fill');
-
-        if (dashSaldo) {
-            dashSaldo.innerText = formatador.format(saldoFinal);
-            
-            // Lógica de Runway (Gasto Mensal)
-            const gastoMensal = window.custoMensalEstimado || 3000;
-            if (saldoFinal <= 0) {
-                dashSaldo.style.color = '#ff5252';
-                if(dashMeses) dashMeses.innerText = "Cofre Zerado";
-                if(barFill) { barFill.style.width = '0%'; barFill.style.background = '#ff5252'; }
-            } else {
-                dashSaldo.style.color = 'var(--primary)';
-                const mesesDeVida = (saldoFinal / gastoMensal).toFixed(1);
-                if(dashMeses) dashMeses.innerText = `Sobrevivência: ~${mesesDeVida} meses`;
-                
-                const porcentagem = Math.min(100, (mesesDeVida / 12) * 100);
-                if(barFill) {
-                    barFill.style.width = `${porcentagem}%`;
-                    barFill.style.background = mesesDeVida < 3 ? '#ffc107' : 'var(--primary)';
-                }
-            }
-        }
-
-        // 2. PRÓXIMO MARCO
-        const qEvP = query(collection(db, "eventos"), where("userId", "==", auth.currentUser.uid));
-        const qEvE = query(collection(db, "eventos"), where("escopo", "==", "empresa"));
-        const [snapEvP, snapEvE] = await Promise.all([getDocs(qEvP), getDocs(qEvE)]);
-
-        let eventos = [];
-        const hojeDate = new Date();
-        hojeDate.setHours(0,0,0,0);
-
-        const filtrarEventos = (docSnap) => {
-            const e = docSnap.data();
-            const dataEv = new Date(e.data + "T00:00:00");
-            if (dataEv >= hojeDate) eventos.push({id: docSnap.id, ...e});
-        };
-
-        snapEvP.forEach(filtrarEventos);
-        snapEvE.forEach(d => { if(d.data().userId !== auth.currentUser.uid) filtrarEventos(d); });
-        
-        eventos.sort((a,b) => new Date(a.data) - new Date(b.data));
-        
-        const dashEvento = document.getElementById('dash-evento-destaque');
-        const dashDias = document.getElementById('dash-dias-restantes');
-        
-        if (dashEvento && dashDias) {
-            if (eventos.length > 0) {
-                const prox = eventos[0]; 
-                const dataEv = new Date(prox.data + "T00:00:00");
-                const diasRestantes = Math.ceil((dataEv - hojeDate) / (1000 * 3600 * 24));
-                
-                dashEvento.innerHTML = prox.escopo === 'empresa' 
-                    ? `<span style="color:var(--primary)">🏢 ${prox.titulo}</span>` 
-                    : prox.titulo;
-
-                dashDias.innerText = diasRestantes === 0 ? "É HOJE!" : `Faltam ${diasRestantes} dias`;
-            } else {
-                dashEvento.innerText = "Sem eventos próximos";
-                dashDias.innerText = "--";
-            }
-        }
-
-        // 3. TAREFAS EM FOCO (Sem alterações, já estava correto)
-        const qTsk = query(collection(db, "tarefas"), where("userId", "==", auth.currentUser.uid));
-        const snapTsk = await getDocs(qTsk);
-        let pendentes = [];
-        snapTsk.forEach(d => {
-            if (d.data().status !== 'done') pendentes.push({id: d.id, ...d.data()});
-        });
-        
-        const priorities = document.getElementById('dash-priorities');
-        if (priorities) {
-            priorities.innerHTML = pendentes.slice(0,3).map(t => `
-                <div class="priority-item" style="padding: 10px 15px; border-radius: 8px;">
-                    <input type="checkbox" onclick="concluirTarefaDash('${t.id}')" style="accent-color: var(--primary); width:18px; height:18px; cursor:pointer;">
-                    <label style="color: #fff; font-size: 0.9rem;"><strong>${t.titulo}</strong> <span class="badge badge-${t.tag}" style="font-size:0.6rem; margin-left:8px;">${t.tag}</span></label>
-                </div>
-            `).join('') || '<p style="color:#666; font-style:italic;">Você não tem tarefas pendentes.</p>';
-        }
-
-        // 4. RADAR DO ESTÚDIO (Simplificado para evitar loops de snapshot)
-        const radarFeed = document.getElementById('activity-feed');
-        if (radarFeed && !window.radarAtivo) {
-            window.radarAtivo = true; // Impede criar múltiplos listeners
-            const qRadar = query(collection(db, "registro_atividades"), orderBy("dataCriacao", "desc"), limit(8));
-            onSnapshot(qRadar, (snapRadar) => {
-                radarFeed.innerHTML = snapRadar.docs.map(d => {
-                    const a = d.data();
-                    const hora = new Date(a.dataCriacao).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                    return `
-                        <li class="activity-item">
-                            <span class="activity-time">${hora}</span>
-                            <span>${a.icone}</span>
-                            <span style="color: #ddd;"><strong>${a.autor}</strong> ${a.mensagem}</span>
-                        </li>`;
-                }).join('') || '<li>Silêncio no estúdio...</li>';
-            });
-        }
-
-    } catch(e) { 
-        console.error("Erro no Dashboard:", e);
-        // Se der erro, desliga os esqueletos de carregamento
-        document.getElementById('dash-saldo-runway').innerText = "Erro ao carregar";
-    }
-};
-
-window.concluirTarefaDash = async (id) => {
-    // Busca o nome da tarefa rapidinho para avisar no Radar
-    const tSnap = await getDoc(doc(db, "tarefas", id));
-    if(tSnap.exists()) {
-        window.registrarAtividade(`concluiu a tarefa rápida "${tSnap.data().titulo}"`, 'tarefa', '⚡');
-    }
-    
-    await updateDoc(doc(db, "tarefas", id), { status: 'done' });
-    window.pontuarGamificacao('tarefa');
-    setTimeout(() => {
-        window.carregarDashboard();
-        if(window.projetoAtualId) window.carregarTarefasDoProjeto(window.projetoAtualId);
-    }, 500);
 };
 
 // ==========================================
@@ -1586,18 +1430,55 @@ window.setWikiMode = (mode) => {
     const edit = document.getElementById('wiki-conteudo');
     const prev = document.getElementById('wiki-preview-area');
     const toc = document.getElementById('wiki-toc');
+    const metaPanel = document.getElementById('wiki-metadata'); // Adicionamos o painel aqui
 
     if (mode === 'preview') {
         if (edit && prev) {
             let textoBruto = edit.value;
-            const textoConvertido = textoBruto.replace(/https?:\/\/(www\.)?dropbox\.com\/[^\s)]+/g, (match) => {
+            
+            // 1. MÁGICA DO FRONTMATTER (OBSIDIAN PROPERTIES)
+            let htmlMetadados = '';
+            if (textoBruto.startsWith('---\n')) {
+                const partes = textoBruto.split('\n---\n');
+                if (partes.length >= 2) {
+                    const yaml = partes[0].replace('---\n', '');
+                    textoBruto = partes.slice(1).join('\n---\n'); // O resto é o texto real
+                    
+                    const linhasYaml = yaml.split('\n');
+                    htmlMetadados = '<div class="wiki-frontmatter">';
+                    linhasYaml.forEach(l => {
+                        if(l.includes(':')) {
+                            const [key, ...rest] = l.split(':');
+                            htmlMetadados += `<div class="wiki-meta-row"><span class="wiki-meta-key">${key.trim()}</span><span class="wiki-meta-value">${rest.join(':').trim()}</span></div>`;
+                        }
+                    });
+                    htmlMetadados += '</div>';
+                }
+            }
+
+            // Injeta o HTML dos metadados no topo da folha de Preview
+            if (metaPanel) {
+                metaPanel.innerHTML = htmlMetadados;
+                metaPanel.style.display = htmlMetadados ? 'block' : 'none';
+            }
+
+            // 2. MÁGICA DOS CALLOUTS (Antes do Markdown processar)
+            // Transforma "> [!info] Titulo \n> texto" em divs HTML
+            let textoComCallouts = textoBruto.replace(/^> \[!(info|warning|danger|success|tip)\](.*?)\n((?:>.*\n?)*)/gim, (match, tipo, titulo, conteudo) => {
+                const limpo = conteudo.replace(/^>\s?/gm, ''); // Limpa as setas das linhas seguintes
+                const icones = { info: 'ℹ️', warning: '⚠️', danger: '🚨', success: '✅', tip: '💡' };
+                const t = tipo.toLowerCase();
+                return `<div class="wiki-callout callout-${t}"><div class="wiki-callout-title">${icones[t] || '📌'} ${titulo.trim() || t.toUpperCase()}</div><div class="wiki-callout-content">\n\n${limpo}\n\n</div></div>`;
+            });
+
+            // 3. Conversor de Links e Markdown
+            const textoConvertido = textoComCallouts.replace(/https?:\/\/(www\.)?dropbox\.com\/[^\s)]+/g, (match) => {
                 return window.converterLinkDireto(match);
             });
             
             let htmlGerado = marked.parse(textoConvertido);
             prev.innerHTML = window.processarTagsCustomizadas(htmlGerado);
             
-            // MÁGICA 1: Salva o HTML original limpo na memória da folha
             prev.dataset.originalHtml = prev.innerHTML;
 
             edit.style.setProperty('display', 'none', 'important');
@@ -1609,6 +1490,7 @@ window.setWikiMode = (mode) => {
         
         window.desenharGraficosMermaid(prev);
         
+        // ... (O resto do código do TOC e Comentários continua igual)
         if (prev) {
             const headers = prev.querySelectorAll('h2, h3');
             if (headers.length > 0 && toc) {
@@ -1625,12 +1507,12 @@ window.setWikiMode = (mode) => {
             }
         }
 
-        // MÁGICA 2: Avisa o banco para puxar os comentários e pintar a tela!
         if (window.wikiAtualId) window.carregarComentariosWiki(window.wikiAtualId);
 
     } else {
         edit.style.setProperty('display', 'block', 'important');
         prev.style.setProperty('display', 'none', 'important');
+        if (metaPanel) metaPanel.style.display = 'none'; // Esconde na edição
         document.getElementById('btn-wiki-edit')?.classList.add('active');
         document.getElementById('btn-wiki-preview')?.classList.remove('active');
         if (toc) toc.classList.remove('active');
@@ -1725,14 +1607,16 @@ window.processarTagsCustomizadas = (html) => {
     return processado;
 };
 
-// --- MODO TELA CHEIA DA WIKI ---
+// --- MODO TELA CHEIA DA WIKI (ESTILO IDE) ---
 window.toggleFullscreenWiki = () => {
-    // AGORA ELE PEGA O LAYOUT INTEIRO (Arquivos + Editor)
     const layout = document.querySelector('.wiki-layout');
     const btn = document.getElementById('btn-wiki-fullscreen');
     
     if (layout) {
         layout.classList.toggle('fullscreen');
+        
+        // A MÁGICA: Avisa o "body" do site para esconder os menus laterais!
+        document.body.classList.toggle('wiki-fullscreen-active');
         
         if (layout.classList.contains('fullscreen')) {
             btn.innerText = "🗗"; 
@@ -1805,21 +1689,38 @@ window.selecionarRaizWiki = () => {
 window.isSavingWiki = false;
 
 window.salvarPaginaWiki = async (isAutoSave = false) => {
-    // Só salva se houver um documento aberto
     if (window.isSavingWiki || !window.wikiAtualId) return; 
 
     const conteudoTexto = document.getElementById('wiki-conteudo').value;
     window.isSavingWiki = true;
 
     try {
-        // Atualiza apenas o conteúdo e a data
-        await updateDoc(doc(db, "wiki", window.wikiAtualId), {
+        // 1. ANTES de salvar, vamos ver se o texto mudou de verdade
+        const docRef = doc(db, "wiki", window.wikiAtualId);
+        const snapAtual = await getDoc(docRef);
+        
+        if (snapAtual.exists()) {
+            const dadosAtuais = snapAtual.data();
+            
+            // Se o texto mudou e tem mais de 10 caracteres diferentes (evita spam de log por 1 letra)
+            if (Math.abs(dadosAtuais.conteudo.length - conteudoTexto.length) > 10) {
+                // Salva a versão ANTIGA no histórico antes de sobrescrever
+                await addDoc(collection(db, "wiki_historico"), {
+                    wikiId: window.wikiAtualId,
+                    conteudo: dadosAtuais.conteudo,
+                    autor: dadosAtuais.autorUltimaModificacao || 'Desconhecido',
+                    dataSalvo: new Date().toISOString()
+                });
+            }
+        }
+
+        // 2. Agora sim, salva a versão nova
+        await updateDoc(docRef, {
             conteudo: conteudoTexto,
             autorUltimaModificacao: auth.currentUser.email,
             dataAtualizacao: new Date().toISOString()
         });
         
-        // Feedback visual do "✓ Salvo"
         if (isAutoSave) {
             const indicador = document.getElementById('wiki-autosave-indicator');
             if (indicador) {
@@ -1829,10 +1730,58 @@ window.salvarPaginaWiki = async (isAutoSave = false) => {
                 setTimeout(() => indicador.style.opacity = '0', 2000); 
             }
         }
-    } catch(e) { 
-        console.error("Erro ao salvar:", e); 
-    } finally {
-        window.isSavingWiki = false;
+    } catch(e) { console.error("Erro ao salvar:", e); } 
+    finally { window.isSavingWiki = false; }
+};
+
+// --- GESTOR DE HISTÓRICO ---
+window.abrirHistoricoWiki = () => {
+    if (!window.wikiAtualId) return alert("Abra um documento primeiro.");
+    const lista = document.getElementById('lista-historico-wiki');
+    lista.innerHTML = '<li style="text-align:center; color:#888;">Buscando registros na máquina do tempo... ⏳</li>';
+    window.openModal('modalHistoricoWiki');
+
+    const q = query(collection(db, "wiki_historico"), where("wikiId", "==", window.wikiAtualId), orderBy("dataSalvo", "desc"), limit(20));
+    
+    onSnapshot(q, (snap) => {
+        if (snap.empty) {
+            lista.innerHTML = '<li style="text-align:center; color:#888; padding: 20px;">Nenhum histórico antigo encontrado para este documento.</li>';
+            return;
+        }
+
+        lista.innerHTML = snap.docs.map(d => {
+            const h = d.data();
+            const dataF = new Date(h.dataSalvo).toLocaleString();
+            // Escapa as aspas pra não quebrar o HTML
+            const txtSeguro = h.conteudo.replace(/'/g, "&apos;").replace(/"/g, "&quot;").replace(/\n/g, "\\n");
+            
+            return `
+                <li style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 8px; border-left: 3px solid var(--primary);">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 10px;">
+                        <div>
+                            <strong style="color:var(--primary); font-size: 0.9rem;">${dataF}</strong><br>
+                            <span style="font-size: 0.75rem; color: #888;">Salvo por ${h.autor.split('@')[0]}</span>
+                        </div>
+                        <button class="btn-secondary" onclick="window.restaurarHistoricoWiki('${txtSeguro}')" style="font-size: 0.75rem; padding: 4px 8px;">🔄 Restaurar</button>
+                    </div>
+                    <div style="font-size: 0.75rem; color: #aaa; background: #000; padding: 10px; border-radius: 4px; max-height: 80px; overflow-y: hidden; mask-image: linear-gradient(to bottom, black 50%, transparent 100%);">
+                        ${h.conteudo.substring(0, 150)}...
+                    </div>
+                </li>
+            `;
+        }).join('');
+    });
+};
+
+window.restaurarHistoricoWiki = (textoRecuperado) => {
+    if (confirm("ATENÇÃO: Isso vai substituir TODO o texto atual da tela por esta versão antiga. Tem certeza?")) {
+        const input = document.getElementById('wiki-conteudo');
+        // Transforma as quebras de linha blindadas de volta pro normal
+        input.value = textoRecuperado.replace(/\\n/g, '\n'); 
+        window.setWikiMode('edit');
+        window.salvarPaginaWiki(true); // Força o salvamento
+        window.closeModal('modalHistoricoWiki');
+        window.mostrarToastNotificacao('Máquina do Tempo', 'Documento restaurado com sucesso!', 'geral');
     }
 };
 
@@ -1894,16 +1843,19 @@ window.triggerAutoSave = () => {
     if (indicador) {
         indicador.style.opacity = '1';
         indicador.style.color = 'var(--text-muted)';
-        indicador.innerText = '⏳ Salvando...';
+        indicador.innerText = '⏳ Pendente...'; // Muda o texto para mostrar que está aguardando
     }
     
-    // A MÁGICA: Estica a folha em tempo real enquanto você digita!
+    // Estica a folha em tempo real enquanto digita
     window.atualizarLayoutFolha();
     
+    // Cancela o timer antigo se a pessoa voltar a digitar antes do tempo acabar
     clearTimeout(window.wikiTimeout);
+    
+    // MÁGICA DA ECONOMIA: Espera 30 SEGUNDOS de inatividade total para salvar no banco
     window.wikiTimeout = setTimeout(() => {
         window.salvarPaginaWiki(true);
-    }, 1500);
+    }, 30000); 
 };
 
 window.termoBuscaWiki = "";
@@ -2045,13 +1997,14 @@ window.renderizarWikiTree = () => {
                 html += `
                     <div style="margin-top: 5px;" class="${classeLixo}">
                         <div class="wiki-folder-header ${classeSelecionada} ${classeMulti} wiki-node-item" 
+                             title="${f.nome.replace(/"/g, '&quot;')}" 
                              data-node-id="${f.id}" data-node-type="folder"
                              draggable="true" 
                              ondragstart="window.dragStartWiki(event, '${f.id}', 'folder')" 
                              onclick="window.handleWikiItemClick(event, '${f.id}', 'folder', '${f.nome.replace(/'/g, "\\'")}')" 
                              ondblclick="window.togglePastaWiki(event, '${f.id}')" 
                              ondragover="window.dragOverWiki(event)" ondragleave="window.dragLeaveWiki(event)" ondrop="window.dropWiki(event, '${f.id}')">
-                            <div class="wiki-item-name" title="${f.nome}">
+                            <div class="wiki-item-name">
                                 <span class="folder-toggle-icon" onclick="window.togglePastaWiki(event, '${f.id}')">${seta}</span>
                                 <span>📁</span>
                                 <span class="wiki-item-text">${f.nome}</span>
@@ -2095,11 +2048,12 @@ window.renderizarWikiTree = () => {
 
                 html += `
                     <div class="wiki-file-item ${classeLixo} ${classeAtiva} ${classeMulti} wiki-node-item" 
+                         title="${p.titulo.replace(/"/g, '&quot;')}" 
                          data-node-id="${p.id}" data-node-type="file"
                          draggable="true" 
                          ondragstart="window.dragStartWiki(event, '${p.id}', 'file')" 
                          onclick="window.handleWikiItemClick(event, '${p.id}', 'file', '${p.titulo.replace(/'/g, "\\'")}')">
-                        <div class="wiki-item-name" title="${p.titulo}">
+                        <div class="wiki-item-name">
                             <span>📄</span> 
                             <span class="wiki-item-text">${p.titulo}</span>
                             ${pingoHtml}
@@ -2728,7 +2682,6 @@ window.salvarComentarioWiki = async (e, tipo = 'nota') => {
     let textoAntigo = "";
     let textoNovo = textoRaw;
 
-    // A MÁGICA: Se for uma Sugestão, ele "fatia" o texto para descobrir o que sai e o que entra
     if (tipo === 'sugestao') {
         const match = textoRaw.match(/^>\s*"([^"]+)"/);
         if (match) {
@@ -2743,24 +2696,28 @@ window.salvarComentarioWiki = async (e, tipo = 'nota') => {
     try {
         await addDoc(collection(db, "comentarios_wiki"), {
             wikiId: window.wikiAtualId,
-            texto: textoRaw, // O texto cru (Markdown original)
-            textoAntigo: textoAntigo, // A frase que vai sumir
-            textoNovo: textoNovo, // A frase que vai entrar
-            tipo: tipo, // 'nota' ou 'sugestao'
+            texto: textoRaw,
+            textoAntigo: textoAntigo,
+            textoNovo: textoNovo,
+            tipo: tipo,
             autor: window.obterNomeExibicao(),
             autorEmail: auth.currentUser.email,
             status: 'open', 
             dataCriacao: new Date().toISOString()
         });
 
-        // (MANTÉM O SISTEMA DE MENÇÕES @ INTÁCTO)
+        // MÁGICA: Radar de Menções na Wiki corrigido
         const mencoes = textoRaw.match(/@([a-zA-Z0-9_À-ÿ]+)/g);
-        let notificados = new Set(); 
+        let notificados = new Set();
 
         if (mencoes && mencoes.length > 0) {
-            const snapUsers = await getDocs(collection(db, "usuarios"));
-            const todosUsuarios = snapUsers.docs.map(d => ({ uid: d.data().uid, nome: d.data().nome || "", apelido: d.data().apelido || "", email: d.data().email }));
-
+            if (!window.todosUsuariosCache) {
+                const snapUsers = await getDocs(collection(db, "usuarios"));
+                window.todosUsuariosCache = snapUsers.docs.map(d => ({ uid: d.data().uid, nome: d.data().nome || "", apelido: d.data().apelido || "", email: d.data().email }));
+            }
+            
+            const todosUsuarios = window.todosUsuariosCache;
+            
             mencoes.forEach(mencao => {
                 const nomeMencao = mencao.replace('@', '').toLowerCase();
                 const alvo = todosUsuarios.find(u => (u.apelido.toLowerCase() === nomeMencao) || (u.nome.split(' ')[0].toLowerCase() === nomeMencao));
@@ -6601,10 +6558,27 @@ window.toggleLixeiraWiki = (e) => {
    WIKI - ATALHOS DE TECLADO (PRO FLOW)
    ========================================================================== */
 document.addEventListener('keydown', (e) => {
-    // 1. Ignora se a pessoa estiver digitando dentro de um input ou na folha da Wiki
+    
+    // 1. ATALHO: Ctrl + S ou Cmd + S (Salvar Wiki Manualmente)
+    // Tem que vir ANTES da trava abaixo, pois o usuário aperta enquanto digita!
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        // Só tenta salvar se estiver com um documento aberto
+        if (window.wikiAtualId) {
+            e.preventDefault(); // MÁGICA: Impede o Chrome de abrir a janela de "Baixar Página Web"
+            
+            clearTimeout(window.wikiTimeout); // Cancela o auto-save automático pra não salvar em dobro
+            window.salvarPaginaWiki(true); // Força o Firebase a gravar AGORA
+            
+            // Dá um feedback visual extra só pra dar aquela satisfação de salvamento
+            window.mostrarToastNotificacao('Wiki', 'Documento salvo manualmente!', 'geral');
+            return; // Interrompe o evento
+        }
+    }
+
+    // 2. Ignora os próximos atalhos se a pessoa estiver digitando dentro de um input ou na folha
     if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
 
-    // 2. ATALHO: F2 para Renomear
+    // 3. ATALHO: F2 para Renomear
     if (e.key === 'F2') {
         e.preventDefault(); // Impede o navegador de tentar fazer outra coisa
         
@@ -6831,10 +6805,15 @@ window.salvarPostMural = async (e) => {
         // MÁGICA: Radar de Menções no Mural
         const mencoes = texto.match(/@([a-zA-Z0-9_À-ÿ]+)/g);
         if (mencoes && mencoes.length > 0) {
-            const snapUsers = await getDocs(collection(db, "usuarios"));
-            const todosUsuarios = snapUsers.docs.map(d => ({ uid: d.data().uid, nome: d.data().nome || "", apelido: d.data().apelido || "", email: d.data().email }));
-
-            let notificados = new Set(); 
+            
+            // Só vai no Firebase se a memória estiver vazia
+            if (!window.todosUsuariosCache) {
+                const snapUsers = await getDocs(collection(db, "usuarios"));
+                window.todosUsuariosCache = snapUsers.docs.map(d => ({ uid: d.data().uid, nome: d.data().nome || "", apelido: d.data().apelido || "", email: d.data().email }));
+            }
+            
+            const todosUsuarios = window.todosUsuariosCache;
+            let notificados = new Set();
             mencoes.forEach(mencao => {
                 const nomeMencao = mencao.replace('@', '').toLowerCase();
                 const alvo = todosUsuarios.find(u => (u.apelido.toLowerCase() === nomeMencao) || (u.nome.split(' ')[0].toLowerCase() === nomeMencao));
@@ -6857,8 +6836,10 @@ window.carregarMural = () => {
     const feed = document.getElementById('mural-feed');
     if (!feed || !auth.currentUser) return;
 
-    // Pega todas as mensagens
-    onSnapshot(collection(db, "mural_mensagens"), (snap) => {
+    const qMural = query(collection(db, "mural_mensagens"), orderBy("dataCriacao", "desc"), limit(50));
+
+    // Pega as mensagens com a trava
+    onSnapshot(qMural, (snap) => {
         let posts = snap.docs.map(d => ({id: d.id, ...d.data()}));
         const agora = new Date().getTime();
 
@@ -7026,4 +7007,119 @@ window.clicarNotificacaoPainel = async (idNotif, abaAlvo, projetoId, subAba, con
     
     // 5. Fecha o painel pra tela ficar limpa
     window.toggleNotificationCenter();
+};
+
+window.fazerBackupBanco = async () => {
+    if (window.userRole !== 'admin') return alert("Acesso negado.");
+    
+    const btn = document.querySelector('button[onclick="window.fazerBackupBanco()"]');
+    const txtOriginal = btn.innerText;
+    btn.innerText = "Empacotando dados... ⏳";
+    btn.disabled = true;
+
+    try {
+        // Listamos as coleções que importam pro estúdio
+        const colecoes = ["projetos", "tarefas", "wiki", "wiki_pastas", "artes", "audios", "lancamentos", "reunioes", "eventos", "brainstorm_ideias", "usuarios"];
+        let backup = { data_exportacao: new Date().toISOString(), dados: {} };
+
+        for (let colName of colecoes) {
+            const snap = await getDocs(collection(db, colName));
+            backup.dados[colName] = [];
+            snap.forEach(d => backup.dados[colName].push({ id: d.id, ...d.data() }));
+        }
+
+        // Transforma o objeto num texto formatado bonitinho
+        const jsonString = JSON.stringify(backup, null, 2);
+        
+        // Cria um "Arquivo Virtual" no navegador
+        const blob = new Blob([jsonString], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        
+        // Simula um clique pra forçar o download
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `HeartKey_Backup_${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a);
+        a.click();
+        
+        // Faxina
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        window.mostrarToastNotificacao("Backup Concluído", "Cópia do banco salva no seu PC.", "geral");
+    } catch (e) {
+        console.error("Erro no Backup:", e);
+        alert("Falha ao gerar o arquivo. Veja o console (F12).");
+    }
+
+    btn.innerText = txtOriginal;
+    btn.disabled = false;
+};
+
+/* ==========================================================================
+   MÁQUINA DO TEMPO: RESTAURAÇÃO DE BACKUP (NÚCLEO ADMIN)
+   ========================================================================== */
+window.restaurarBackupBanco = async (e) => {
+    if (window.userRole !== 'admin') return alert("Acesso negado.");
+
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // 1. A TRAVA NUCLEAR DE SEGURANÇA
+    const confirmacao = prompt("☢️ ALERTA NUCLEAR ☢️\nIsso vai SOBRESCREVER o banco de dados atual com os dados deste arquivo. Tudo o que a equipe fez depois desse backup será PERDIDO.\n\nDigite 'CONFIRMAR' (tudo maiúsculo) para prosseguir:");
+
+    if (confirmacao !== "CONFIRMAR") {
+        e.target.value = ""; // Reseta o seletor de arquivo
+        return alert("Restauração cancelada por segurança. Ufa! 😅");
+    }
+
+    const btn = document.querySelector('button[onclick="document.getElementById(\'json-upload\').click()"]');
+    const txtOriginal = btn.innerText;
+    btn.innerText = "Injetando dados... Não feche a aba! ⏳";
+    btn.disabled = true;
+
+    // 2. LÊ O ARQUIVO JSON
+    const leitor = new FileReader();
+    leitor.onload = async (evento) => {
+        try {
+            const jsonTexto = evento.target.result;
+            const backup = JSON.parse(jsonTexto);
+
+            if (!backup.dados) throw new Error("Arquivo JSON inválido ou de outro sistema.");
+
+            const colecoes = Object.keys(backup.dados);
+
+            // 3. INJETA COLEÇÃO POR COLEÇÃO, DOCUMENTO POR DOCUMENTO
+            for (let colName of colecoes) {
+                const documentos = backup.dados[colName];
+
+                for (let docData of documentos) {
+                    const idOriginal = docData.id;
+                    
+                    // Cria uma cópia limpando o campo "id" de dentro dos dados para não sujar o Firebase
+                    const dadosParaSalvar = { ...docData };
+                    delete dadosParaSalvar.id;
+
+                    // O PULO DO GATO: setDoc força a criação do documento usando EXATAMENTE o mesmo ID que ele tinha antes!
+                    await setDoc(doc(db, colName, idOriginal), dadosParaSalvar);
+                }
+            }
+
+            window.mostrarToastNotificacao("Restauração Concluída", "A linha do tempo foi reescrita com sucesso!", "geral");
+            
+            // Força a página a recarregar após 2 segundos para puxar os dados novos limpos
+            setTimeout(() => window.location.reload(), 2000); 
+
+        } catch (erro) {
+            console.error("Erro fatal na restauração:", erro);
+            alert("Erro ao ler o arquivo. Verifique se é o JSON original do backup.");
+        } finally {
+            btn.innerText = txtOriginal;
+            btn.disabled = false;
+            e.target.value = ""; 
+        }
+    };
+
+    // Aciona a leitura do arquivo
+    leitor.readAsText(file);
 };

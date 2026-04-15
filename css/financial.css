@@ -1,0 +1,31 @@
+/* ==========================================================================
+   14. FINANCEIRO - COFRE PESSOAL E METAS DO ESTÚDIO
+   ========================================================================== */
+.summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 25px; margin-bottom: 35px; }
+
+.card {
+    background: var(--bg-card); border: 1px solid var(--border-color); padding: 30px;
+    border-radius: 20px; transition: var(--transition); box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    display: flex; flex-direction: column; justify-content: center;
+}
+.card:hover { transform: translateY(-5px); border-color: rgba(255,255,255,0.2); }
+.card h3 { font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; border:none; padding:0;}
+.card .valor { font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; }
+.card.highlight { background: linear-gradient(135deg, rgba(129, 254, 78, 0.05) 0%, transparent 100%); border-color: var(--primary); box-shadow: 0 10px 30px var(--primary-glow); }
+
+.text-green { color: #4caf50; }
+.text-red { color: #ff5252; }
+.text-neon { color: var(--primary); text-shadow: 0 0 15px var(--primary-glow); }
+
+.table-container { background: var(--bg-panel); border: 1px solid var(--border-color); border-radius: 16px; overflow-x: auto; backdrop-filter: blur(15px); }
+.data-table { width: 100%; border-collapse: collapse; text-align: left; }
+.data-table th, .data-table td { padding: 18px 25px; border-bottom: 1px solid var(--border-color); }
+.data-table th { color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+.data-table tbody tr { transition: var(--transition); }
+.data-table tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table td { position: relative; }
+#graficoFinanceiro {
+    max-height: 120px !important;
+    width: 100% !important;
+}

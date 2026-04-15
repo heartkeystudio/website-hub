@@ -1,0 +1,506 @@
+
+/* ==========================================================================
+   3. UI-COMPONENTS (COMPONENTES E UTILITÁRIOS)
+   ========================================================================== */
+.moodboard-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.moodboard-card iframe {
+    width: 100%;
+    border-radius: 8px;
+    border: none;
+}
+
+.comment-item {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.timestamp-btn {
+    background: rgba(129, 254, 78, 0.15);
+    color: var(--primary);
+    border: 1px solid rgba(129, 254, 78, 0.3);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-weight: 800;
+    font-size: 0.8rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: 0.2s;
+}
+
+.timestamp-btn:hover {
+    background: var(--primary);
+    color: #000;
+}
+
+/* ==========================================================================
+   BOTÕES, INPUTS E BADGES (UI PREMIUM)
+   ========================================================================== */
+.btn-primary, .btn-secondary {
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    padding: 12px 24px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: var(--transition);
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center;
+    gap: 8px;
+    width: max-content;
+}
+
+.btn-primary { background: var(--primary); color: #000; border: none; }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px var(--primary-glow); background: #fff; }
+
+.btn-secondary { background: transparent; color: #fff; border: 1px solid var(--border-color); }
+.btn-secondary:hover { border-color: #fff; background: rgba(255,255,255,0.05); }
+
+input[type="text"], input[type="email"], input[type="number"], input[type="date"], input[type="url"], input[type="time"], select, textarea { 
+    width: 100%; 
+    background: rgba(255, 255, 255, 0.02); 
+    border: 1px solid var(--border-color); 
+    color: #fff; 
+    border-radius: 10px; 
+    padding: 14px 16px;
+    font-family: inherit;
+    transition: var(--transition);
+    margin-bottom: 15px;
+}
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); background: rgba(255, 255, 255, 0.05); }
+
+.icon-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1rem; transition: 0.2s;}
+.icon-btn:hover { color: var(--primary); transform: scale(1.1); }
+
+.badge { padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block;}
+.badge-receita { background: rgba(76, 175, 80, 0.15); color: #4caf50; border: 1px solid rgba(76, 175, 80, 0.3); }
+.badge-custo { background: rgba(255, 82, 82, 0.15); color: #ff5252; border: 1px solid rgba(255, 82, 82, 0.3); }
+.badge-meeting { background: rgba(0, 234, 255, 0.15); color: #00eaff; border: 1px solid rgba(0, 234, 255, 0.3); }
+.badge-deadline { background: rgba(255, 82, 82, 0.15); color: #ff5252; border: 1px solid rgba(255, 82, 82, 0.3); }
+.badge-release { background: rgba(129, 254, 78, 0.15); color: var(--primary); border: 1px solid rgba(129, 254, 78, 0.3); }
+.badge-docs { background: rgba(158, 158, 158, 0.15); color: #9e9e9e; border: 1px solid rgba(158, 158, 158, 0.3); }
+.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+.status-dot.green { background: #4caf50; }
+
+/* ==========================================================================
+   MODAIS E OVERLAYS
+   ========================================================================== */
+.login-overlay, .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center; z-index: 9999;
+    opacity: 1; visibility: visible; transition: opacity 0.4s, visibility 0.4s;
+}
+.login-overlay.hidden, .modal-overlay:not(.active) { opacity: 0; visibility: hidden; pointer-events: none; }
+
+.login-box, .modal-content {
+    background: var(--bg-panel); border: 1px solid var(--border-color);
+    padding: 40px; border-radius: 24px; width: 90%; max-width: 500px;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.5); transform: translateY(20px); transition: transform 0.4s ease;
+}
+.login-overlay:not(.hidden) .login-box, .modal-overlay.active .modal-content { transform: translateY(0); }
+
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+.modal-header h2 { font-size: 1.4rem; }
+.close-btn { background: none; border: none; color: #fff; font-size: 2rem; cursor: pointer; transition: 0.2s;}
+.close-btn:hover { color: #ff5252; transform: scale(1.1);}
+
+.close-panel-btn {
+    position: absolute; 
+    top: 25px; 
+    right: 25px;
+    background: transparent; 
+    border: none; 
+    color: #fff;
+    font-size: 1.5rem; 
+    cursor: pointer; 
+    opacity: 0.5; 
+    transition: 0.3s;
+}
+
+.close-panel-btn:hover {
+    opacity: 1; 
+    color: #ff5252; 
+    transform: scale(1.1);
+}
+
+.hub-form .form-group { display: flex; flex-direction: column; margin-bottom: 0; }
+.hub-form .form-row { display: flex; gap: 15px; width: 100%; margin-bottom: 0;}
+.hub-form .form-row .form-group { flex: 1; }
+.hub-form label { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 15px; margin-top: 20px; }
+
+/* ==========================================================================
+   POMODORO FOCUS MODE
+   ========================================================================== */
+.focus-overlay {
+    position: fixed; inset: 0;
+    background: radial-gradient(circle at center, #1a1a1d 0%, #000000 100%);
+    z-index: 10000;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; visibility: hidden;
+    transition: opacity 0.4s ease, visibility 0.4s ease;
+    backdrop-filter: blur(20px);
+}
+
+.focus-overlay.active {
+    opacity: 1; visibility: visible;
+}
+
+.close-focus-btn {
+    position: absolute; top: 30px; right: 40px;
+    background: none; border: none; color: #fff;
+    font-size: 2rem; cursor: pointer; opacity: 0.5; transition: 0.3s;
+}
+.close-focus-btn:hover { opacity: 1; transform: scale(1.1); color: #ff5252; }
+
+.focus-container {
+    display: flex; flex-direction: column; align-items: center; gap: 40px;
+}
+
+/* Seletor de Tarefa estilo Focus To-Do */
+.focus-task-selector {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 12px 25px; border-radius: 30px;
+    color: #fff; font-size: 1.1rem; cursor: pointer;
+    transition: all 0.3s ease;
+}
+.focus-task-selector:hover { background: rgba(255, 255, 255, 0.1); border-color: var(--primary); }
+
+/* Relógio Gigante */
+.focus-timer-circle {
+    width: 350px; height: 350px;
+    border-radius: 50%;
+    border: 4px dashed rgba(129, 254, 78, 0.2); /* Aro tracejado */
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 60px rgba(0,0,0,0.5);
+    transition: 0.3s;
+}
+.focus-timer-circle:hover { border-color: rgba(129, 254, 78, 0.5); }
+
+#focus-time-display {
+    font-size: 6rem; font-weight: 300; letter-spacing: -2px; color: #fff;
+    cursor: pointer; /* Indica que é editável */
+    user-select: none;
+}
+#focus-time-display:hover { color: var(--primary); text-shadow: 0 0 20px rgba(129, 254, 78, 0.5); }
+
+/* Controles */
+.focus-controls { display: flex; gap: 15px; }
+
+.focus-btn {
+    padding: 15px 30px; border-radius: 30px; font-family: inherit; font-weight: bold;
+    font-size: 1rem; cursor: pointer; transition: 0.3s; border: none; display: flex; align-items: center; gap: 8px;
+}
+.focus-btn.play { background: #fff; color: #000; }
+.focus-btn.play:hover { background: var(--primary); box-shadow: 0 0 20px rgba(129, 254, 78, 0.4); }
+.focus-btn.pause, .focus-btn.reset { background: rgba(255,255,255,0.1); color: #fff; }
+.focus-btn.pause:hover, .focus-btn.reset:hover { background: rgba(255,255,255,0.2); }
+
+/* Painel Lateral de Tarefas */
+.focus-side-panel {
+    position: absolute; right: -400px; top: 0;
+    width: 400px; height: 100%;
+    background: rgba(15, 15, 15, 0.95);
+    border-left: 1px solid var(--border-color);
+    padding: 40px; box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+    transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+}
+.focus-side-panel.open { right: 0; }
+
+.focus-tasks-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.focus-tasks-list li {
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+    padding: 15px; border-radius: 12px; cursor: pointer; transition: 0.2s;
+}
+.focus-tasks-list li:hover { background: rgba(129, 254, 78, 0.1); border-color: var(--primary); }
+.focus-tasks-list li strong { display: block; color: #fff; font-size: 0.95rem; margin-bottom: 5px; }
+.focus-tasks-list li span { font-size: 0.75rem; color: #888; background: rgba(0,0,0,0.5); padding: 3px 8px; border-radius: 4px; }
+
+/* ==========================================================================
+   TOOLTIPS PROFISSIONAIS
+   ========================================================================== */
+[data-tooltip] {
+    position: relative !important;
+    overflow: visible !important;
+}
+
+[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    /* Posição padrão: Acima */
+    bottom: 140%;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    
+    /* Estilo */
+    background: #000000 !important;
+    color: #ffffff !important;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    z-index: 999999 !important;
+    border: 1px solid var(--primary);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    
+    /* Animação */
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+}
+
+[data-tooltip]:hover::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* ==========================================================================
+   SISTEMA DE NOTIFICAÇÃO (WORKFLOW TOAST)
+   ========================================================================== */
+.workflow-toast {
+    position: fixed;
+    top: -100px; /* Começa fora da tela */
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(26, 26, 29, 0.95);
+    border: 1px solid var(--primary);
+    border-radius: 30px;
+    padding: 10px 25px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    z-index: 9999;
+    transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    backdrop-filter: blur(10px);
+}
+
+.workflow-toast.show {
+    top: 30px; /* Desce para a posição visível */
+}
+
+.workflow-toast .icon {
+    font-size: 1.2rem;
+    background: var(--primary);
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #000;
+}
+
+.workflow-toast .text {
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* ==========================================================================
+   SISTEMA DE NOTIFICAÇÕES (TOAST E BADGES)
+   ========================================================================== */
+
+/* Container que segura os popups no canto da tela */
+#toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Design do Card do Popup */
+.system-toast {
+    background: rgba(26, 26, 29, 0.95);
+    backdrop-filter: blur(10px);
+    border-left: 4px solid var(--primary);
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+    color: #fff;
+    width: 320px;
+    cursor: pointer;
+    animation: slideInToast 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    transition: 0.3s;
+}
+
+.system-toast:hover {
+    transform: scale(1.02);
+}
+
+@keyframes slideInToast {
+    from { transform: translateX(120%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* A bolinha vermelha estilo Discord/Instagram */
+.nav-badge {
+    background: #ff5252;
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 900;
+    border-radius: 50%;
+    min-width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 5px;
+    right: 15px;
+    pointer-events: none;
+    box-shadow: 0 0 8px rgba(255, 82, 82, 0.6);
+}
+
+/* Pingo de notificação para itens de lista */
+.item-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--primary);
+    border-radius: 50%;
+    display: inline-block;
+    margin-left: 8px;
+    box-shadow: 0 0 10px var(--primary);
+}
+
+/* Garante que o item pai tenha posição relativa para o pingo flutuar */
+.wiki-file-item, .audio-card, .itab-btn {
+    position: relative;
+}
+
+/* ==========================================================================
+   CENTRAL DE NOTIFICAÇÕES (SININHO FLUTUANTE)
+   ========================================================================== */
+.floating-bell-btn {
+    position: fixed;
+    top: 25px;
+    right: 110px; /* Fica ao lado da barra de integrantes */
+    width: 46px; 
+    height: 46px;
+    border-radius: 50%;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    color: #fff; 
+    font-size: 1.3rem;
+    cursor: pointer; 
+    z-index: 10000;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex; align-items: center; justify-content: center;
+}
+
+.floating-bell-btn:hover { 
+    transform: scale(1.1); 
+    border-color: var(--primary);
+    box-shadow: 0 0 15px var(--primary-glow);
+}
+
+/* O Painel que desliza para baixo */
+.notification-panel {
+    position: fixed; 
+    top: 85px; 
+    right: 110px; 
+    width: 350px; 
+    max-height: 70vh;
+    background: rgba(15, 15, 18, 0.95); 
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--primary); 
+    border-radius: 16px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.8); 
+    z-index: 10000;
+    display: flex; flex-direction: column;
+    
+    opacity: 0; visibility: hidden; transform: translateY(-15px);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.notification-panel.active { 
+    opacity: 1; visibility: visible; transform: translateY(0); 
+}
+
+.notif-header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid var(--border-color); }
+.notif-header h3 { font-size: 1rem; color: #fff; margin: 0; border: none; padding: 0; }
+.notif-list { list-style: none; overflow-y: auto; padding: 15px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+
+.notif-item { 
+    padding: 15px; 
+    background: rgba(255,255,255,0.03); 
+    border-radius: 10px; 
+    cursor: pointer; 
+    transition: 0.2s; 
+    border-left: 3px solid var(--primary); 
+}
+.notif-item:hover { background: rgba(255,255,255,0.08); transform: translateX(-3px); }
+.notif-item.lida { opacity: 0.6; border-left-color: #666; }
+
+.notif-title { font-size: 0.85rem; font-weight: 900; color: var(--primary); margin-bottom: 6px; }
+.notif-msg { font-size: 0.8rem; color: #ddd; line-height: 1.4; }
+.notif-time { font-size: 0.65rem; color: #888; margin-top: 8px; text-align: right; display: block;}
+
+/* Responsividade Mobile */
+@media(max-width: 768px) {
+    .floating-bell-btn { top: 22px; right: 75px; } /* Ao lado do botão de contatos */
+    .notification-panel { top: 75px; right: 15px; width: calc(100% - 30px); }
+}
+
+/* Estado da bolinha de notificação zerada (Inbox Zero) */
+.nav-badge.empty-badge {
+    background: #333 !important;
+    color: #888 !important;
+    box-shadow: none !important;
+}
+
+/* ==========================================================================
+   ESTILIZAÇÃO GLOBAL DE SELECTS (DROPDOWNS)
+   ========================================================================== */
+select {
+    background-color: rgba(15, 15, 18, 0.95) !important;
+    color: #fff !important;
+    border: 1px solid var(--border-color) !important;
+    padding: 10px;
+    border-radius: 8px;
+    outline: none;
+    cursor: pointer;
+    font-family: inherit;
+    /* Adiciona uma setinha customizada opcional para ficar mais elegante */
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+    background-repeat: no-repeat;
+    background-position: right 15px top 50%;
+    background-size: 12px auto;
+    padding-right: 40px; /* Espaço para a setinha */
+}
+
+/* O fundo da lista que se abre quando você clica */
+select option {
+    background-color: #1a1a1f; 
+    color: #fff;
+    padding: 10px;
+}
+
+select:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 10px rgba(129, 254, 78, 0.2);
+}
