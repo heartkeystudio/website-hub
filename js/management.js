@@ -771,7 +771,7 @@ window.abrirLeituraNota = async (id) => {
         container.innerHTML = marked.parse(textoFinal);
 
         // 4. Abre o modal correto
-        window.openModal('modalLeituraNota');
+        window.openModal('modalLerNota');
     }
 };
 
