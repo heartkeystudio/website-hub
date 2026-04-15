@@ -926,8 +926,134 @@
 
 
 
-    <div id="modalTarefa" class="modal-overlay"><div class="modal-content"><div class="modal-header"><h2>Nova Tarefa</h2><button class="close-btn" onclick="closeModal('modalTarefa')">&times;</button></div><form onsubmit="salvarTarefa(event)" class="hub-form"><input type="text" id="taskTitle" placeholder="Título" required><select id="taskTag"><option value="feature">Feature</option><option value="bug">Bug</option><option value="art">Arte</option><option value="docs">Docs</option></select><button type="submit" class="btn-primary">Criar</button></form></div></div>
-    
+<div id="modalTarefa" class="modal-overlay">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>📋 Nova Tarefa</h2>
+                <button class="close-btn" onclick="closeModal('modalTarefa')">&times;</button>
+            </div>
+            <form onsubmit="window.salvarTarefa(event)" class="hub-form">
+                <div class="form-group">
+                    <label>Título da Tarefa</label>
+                    <input type="text" id="taskTitle" placeholder="Ex: Desenvolver sistema de pulo duplo" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Setor / Tag</label>
+                        <select id="taskTag">
+                            <option value="feature">💻 Dev / Feature</option>
+                            <option value="bug">🐛 Bug / Correção</option>
+                            <option value="art">🎨 Arte / Áudio</option>
+                            <option value="docs">📖 Design / Docs</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Prioridade</label>
+                        <select id="taskPriority">
+                            <option value="1">🚩 1 - Alta / Urgente</option>
+                            <option value="2">🟡 2 - Média / Importante</option>
+                            <option value="3" selected>🟢 3 - Baixa / Normal</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Dificuldade (XP)</label>
+                        <select id="taskDifficulty">
+                            <option value="0.5">Fácil (0.5x)</option>
+                            <option value="1" selected>Normal (1x)</option>
+                            <option value="1.5">Difícil (1.5x)</option>
+                            <option value="2">Épico (2x)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Descrição (Suporta formatação da Wiki, Imagens e Vídeos)</label>
+                    <textarea id="taskDesc" rows="4" placeholder="Escreva os detalhes, regras ou mecânicas aqui usando Markdown..."></textarea>
+                </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ffc107; font-size: 0.85rem; font-weight: bold;">
+                        <input type="checkbox" id="taskAdminReq" style="width: 16px; height: 16px; accent-color: #ffc107;"> 
+                        ⚠️ Exige aprovação de um Administrador para ser concluída (Fechada)
+                    </label>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn-primary" style="width: 100%;">Criar Tarefa</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="modalDetalhesTarefa" class="modal-overlay">
+        <div class="modal-content" style="max-width: 950px; width: 95%; height: 90vh; display: flex; flex-direction: column;">
+            
+            <div class="modal-header" style="align-items: flex-start; padding-bottom: 20px;">
+                <div style="flex: 1;">
+                    <<div id="task-view-header">
+                        <h2 id="detalheTaskTitulo" style="margin-bottom: 8px; font-size: 1.8rem;">Título da Tarefa</h2>
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span id="detalheTaskTag" class="badge">TAG</span>
+                            <span id="detalheTaskPrioBadge" class="badge" style="display: none;">PRIORIDADE</span>
+                            <span id="detalheTaskDiffBadge" class="badge" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff;">XP: 1x</span>
+                            <span id="detalheTaskAdminReqBadge" class="badge" style="background: rgba(255, 193, 7, 0.2); color: #ffc107; border: 1px solid #ffc107; display: none;">⚠️ REVISÃO OBRIGATÓRIA</span>
+                        </div>
+                    </div>
+                    
+                    <div id="task-edit-header" style="display: none; gap: 15px; flex-direction: column;">
+                        <input type="text" id="editTaskInputTitulo" style="font-size: 1.5rem; font-weight: bold; background: rgba(255,255,255,0.05); border: 1px solid var(--primary); color: #fff; width: 100%; padding: 10px;">
+                        <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                            <select id="editTaskInputTag" style="width: auto; margin: 0; padding: 5px 15px; background: #222; border-color: var(--primary);">
+                                <option value="feature">💻 Dev / Feature</option>
+                                <option value="bug">🐛 Bug / Correção</option>
+                                <option value="art">🎨 Arte / Áudio</option>
+                                <option value="docs">📖 Design / Docs</option>
+                            </select>
+                            <select id="editTaskInputPriority" style="width: auto; margin: 0; padding: 5px 15px; background: #222; border-color: var(--primary);">
+                                <option value="1">🚩 1 - Alta / Urgente</option>
+                                <option value="2">🟡 2 - Média</option>
+                                <option value="3">🟢 3 - Baixa / Normal</option>
+                            </select>
+                            <select id="editTaskInputDifficulty" style="width: auto; margin: 0; padding: 5px 15px; background: #222; border-color: var(--primary);">
+                                <option value="0.5">Fácil (0.5x)</option>
+                                <option value="1">Normal (1x)</option>
+                                <option value="1.5">Difícil (1.5x)</option>
+                                <option value="2">Épico (2x)</option>
+                            </select>
+
+                            <label style="display: flex; align-items: center; gap: 8px; color: #ffc107; cursor: pointer; font-size: 0.85rem;">
+                                <input type="checkbox" id="editTaskInputAdminReq" style="width: 18px; height: 18px; accent-color: #ffc107;"> 
+                                Exigir Aprovação Admin
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button id="btn-entrar-edicao" class="icon-btn" onclick="window.ativarModoEdicaoFull()" style="font-size: 1.1rem;" data-tooltip="Editar Tarefa">✏️</button>
+                    <button class="close-btn" onclick="closeModal('modalDetalhesTarefa')">&times;</button>
+                </div>
+            </div>
+            
+            <div class="dash-panel" style="flex: 1; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 30px; border: none; margin-top: 10px;">
+                <div id="detalheTaskDesc" class="markdown-body" style="background: transparent!important; padding: 0!important;"></div>
+                
+                <textarea id="editTaskInputDesc" style="display: none; width: 100%; height: 100%; background: transparent; color: #ccc; border: none; outline: none; font-family: 'JetBrains Mono', monospace; font-size: 1rem; resize: none;" placeholder="Escreva os detalhes da missão aqui..."></textarea>
+            </div>
+            
+            <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05);">
+                <div style="display: flex; gap: 10px;">
+                    <a id="btn-abrir-git" href="#" target="_blank" class="btn-primary" style="display: none; text-decoration: none; padding: 10px 20px; background: #24292e;">🐙 GitHub</a>
+                    <button id="btn-admin-approve-task" class="btn-primary" onclick="window.aprovarTarefaAdmin()" style="display: none; background: transparent; color: #ffc107; border: 1px solid #ffc107;">🛡️ Aprovar & Concluir</button>
+                </div>
+
+                <div id="edit-actions-footer" style="display: none; gap: 10px;">
+                    <button class="btn-secondary" onclick="window.cancelarEdicaoFull()">Cancelar</button>
+                    <button class="btn-primary" onclick="window.salvarEdicaoFull()">💾 Salvar Alterações</button>
+                </div>
+                
+                <button id="btn-fechar-detalhes" class="btn-secondary" onclick="closeModal('modalDetalhesTarefa')">Fechar Janela</button>
+            </div>
+        </div>
+    </div>
+
     <div id="modalCliente" class="modal-overlay">
         <div class="modal-content">
             <div class="modal-header">
@@ -1079,26 +1205,6 @@
         </div>
     </div>
 
-    <div id="modalDetalhesTarefa" class="modal-overlay">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="detalheTaskTitulo">Título da Tarefa</h2>
-                <button class="close-btn" onclick="closeModal('modalDetalhesTarefa')">&times;</button>
-            </div>
-            <div style="margin-bottom: 20px;">
-                <span id="detalheTaskTag" class="badge">TAG</span>
-                <span id="detalheTaskGit" style="margin-left: 10px; font-size: 0.8rem; color: var(--text-muted);"></span>
-            </div>
-            <div class="dash-panel" style="background: rgba(0,0,0,0.2); padding: 20px;">
-                <div id="detalheTaskDesc" class="checklist-container">Sem descrição.</div>
-            </div>
-            <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
-                <a id="btn-abrir-git" href="#" target="_blank" class="btn-primary" style="display: none; text-decoration: none; padding: 10px 20px; font-size: 0.9rem; background: #24292e; border-color: #24292e; color: #fff;">🐙 Abrir no GitHub</a>
-                
-                <button class="btn-secondary" onclick="closeModal('modalDetalhesTarefa')">Fechar</button>
-            </div>
-        </div>
-    </div>
 
     <div id="modalConfigWarRoom" class="modal-overlay">
         <div class="modal-content">

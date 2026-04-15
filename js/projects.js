@@ -591,44 +591,196 @@ window.abrirModalNovaTarefa = () => {
 };
 
 window.abrirEdicaoTarefaCompleta = async (id) => {
+    // 1. Fecha o menu de 3 pontinhos se estiver aberto
     document.querySelectorAll('.dropdown-content.show').forEach(el => el.classList.remove('show'));
-    const tarefa = window.tarefasProjetoCache.find(t => t.id === id);
-    if(!tarefa) return;
-    
-    const novoTitulo = prompt("Editar título da tarefa:", tarefa.titulo);
-    if (!novoTitulo || novoTitulo.trim() === "" || novoTitulo === tarefa.titulo) return;
 
-    try {
-        await updateDoc(doc(db, "tarefas", id), { titulo: novoTitulo.trim() });
-    } catch(e) { console.error(e); alert("Erro ao editar."); }
+    // 2. Busca a tarefa no cache
+    const tarefa = window.tarefasProjetoCache.find(t => t.id === id);
+    if (!tarefa) return;
+
+    // 3. Prepara o Modal de Tarefa para "Modo Edição"
+    window.tarefaEditandoId = id;
+    const modal = document.getElementById('modalTarefa');
+    
+    // Muda os textos do modal para o usuário saber que está editando
+    modal.querySelector('h2').innerText = "✏️ Editar Tarefa";
+    modal.querySelector('button[type="submit"]').innerText = "Salvar Alterações";
+
+    // 4. Preenche os campos com os dados atuais
+    document.getElementById('taskTitle').value = tarefa.titulo || "";
+    document.getElementById('taskTag').value = tarefa.tag || "feature";
+    document.getElementById('taskDesc').value = tarefa.descricao || "";
+    
+    // O PULO DO GATO: Carrega o estado do checkbox de aprovação
+    const checkAdmin = document.getElementById('taskAdminReq');
+    if (checkAdmin) {
+        checkAdmin.checked = tarefa.exigeAprovacao || false;
+    }
+
+    // 5. Abre o modal
+    window.openModal('modalTarefa');
 };
 
 window.setTaskMode = (modo) => {
     // Caso você implemente uma troca de abas dentro do modal futuramente
 };
 
+window.taskAtualEditando = { id: null, rawBody: "", githubIssue: null };
+
+window.taskAbertaAtual = null;
+
+// 1. ABRIR OS DETALHES (Sempre começa no modo visualização)
 window.abrirDetalhesTarefa = async (id, data) => {
+    window.taskAbertaAtual = { id: id, ...data };
+
+    // Preenche o Modo Visualização
     document.getElementById('detalheTaskTitulo').innerText = data.titulo;
     document.getElementById('detalheTaskTag').innerText = data.tag.toUpperCase();
     document.getElementById('detalheTaskTag').className = `badge badge-${data.tag}`;
     
-    const textoGit = document.getElementById('detalheTaskGit');
-    const btnGit = document.getElementById('btn-abrir-git');
+    // Badge de Admin
+    const badgeReq = document.getElementById('detalheTaskAdminReqBadge');
+    if (badgeReq) badgeReq.style.display = data.exigeAprovacao ? 'inline-block' : 'none';
 
-    window.taskAtualEditando = { id: id, rawBody: data.descricao || "", githubIssue: data.githubIssue };
-
-    window.renderizarDescricaoTask(window.taskAtualEditando.rawBody);
-    
-    if (data.githubIssue && data.githubUrl) {
-        textoGit.innerText = `Issue #${data.githubIssue}`;
-        btnGit.href = data.githubUrl;
-        btnGit.style.display = 'block';
-    } else {
-        textoGit.innerText = "Tarefa apenas no Hub";
-        btnGit.style.display = 'none';
+    // Botão de Aprovação (Só para Admin)
+    const btnApprove = document.getElementById('btn-admin-approve-task');
+    if (btnApprove) {
+        btnApprove.style.display = (data.exigeAprovacao && window.userRole === 'admin' && data.status !== 'done') ? 'inline-block' : 'none';
     }
 
+    // Configura Badge de Prioridade
+    const prioBadge = document.getElementById('detalheTaskPrioBadge');
+    if (prioBadge) {
+        if (data.prioridade === 1) { prioBadge.innerText = '🚩 ALTA'; prioBadge.style.background = 'rgba(255,82,82,0.2)'; prioBadge.style.color = '#ff5252'; prioBadge.style.display = 'inline-block'; }
+        else if (data.prioridade === 2) { prioBadge.innerText = '🟡 MÉDIA'; prioBadge.style.background = 'rgba(255,193,7,0.2)'; prioBadge.style.color = '#ffc107'; prioBadge.style.display = 'inline-block'; }
+        else { prioBadge.style.display = 'none'; } // Baixa não precisa de badge
+    }
+
+    // Configura Badge de Dificuldade
+    const diffBadge = document.getElementById('detalheTaskDiffBadge');
+    if (diffBadge) diffBadge.innerText = `XP: ${data.dificuldade || 1}x`;
+
+    // GitHub
+    const btnGit = document.getElementById('btn-abrir-git');
+    if (data.githubIssue && btnGit) {
+        btnGit.href = data.githubUrl; btnGit.style.display = 'block';
+    } else if (btnGit) { btnGit.style.display = 'none'; }
+
+    // Renderiza o Markdown
+    window.renderizarDescricaoTask(data.descricao || "");
+
+    // Reseta para Modo Visualização (Garante que os inputs fiquem escondidos)
+    window.cancelarEdicaoFull();
+
     window.openModal('modalDetalhesTarefa');
+};
+
+// 2. ATIVAR MODO EDIÇÃO (Transforma a tela no Editor)
+window.ativarModoEdicaoFull = () => {
+    const t = window.taskAbertaAtual;
+    if (!t) return;
+
+    // Esconde Visualização / Mostra Edição
+    document.getElementById('task-view-header').style.display = 'none';
+    document.getElementById('task-edit-header').style.display = 'flex';
+    document.getElementById('detalheTaskDesc').style.display = 'none';
+    document.getElementById('editTaskInputDesc').style.display = 'block';
+    document.getElementById('edit-actions-footer').style.display = 'flex';
+    document.getElementById('btn-entrar-edicao').style.display = 'none';
+    document.getElementById('btn-fechar-detalhes').style.display = 'none';
+
+    // Preenche os Inputs com os dados atuais
+    document.getElementById('editTaskInputTitulo').value = t.titulo;
+    document.getElementById('editTaskInputTag').value = t.tag;
+    document.getElementById('editTaskInputPriority').value = t.prioridade || 3;
+    document.getElementById('editTaskInputDifficulty').value = t.dificuldade || 1;
+    document.getElementById('editTaskInputDesc').value = t.descricao || "";
+    document.getElementById('editTaskInputAdminReq').checked = t.exigeAprovacao || false;
+
+    document.getElementById('editTaskInputDesc').focus();
+};
+
+// 3. CANCELAR EDIÇÃO (Volta para Visualização)
+window.cancelarEdicaoFull = () => {
+    document.getElementById('task-view-header').style.display = 'block';
+    document.getElementById('task-edit-header').style.display = 'none';
+    document.getElementById('detalheTaskDesc').style.display = 'block';
+    document.getElementById('editTaskInputDesc').style.display = 'none';
+    document.getElementById('edit-actions-footer').style.display = 'none';
+    document.getElementById('btn-entrar-edicao').style.display = 'block';
+    document.getElementById('btn-fechar-detalhes').style.display = 'block';
+};
+
+// 4. SALVAR TUDO
+window.salvarEdicaoFull = async () => {
+    if (!window.taskAbertaAtual) return;
+    
+    const id = window.taskAbertaAtual.id;
+    const novoTitulo = document.getElementById('editTaskInputTitulo').value;
+    const novaTag = document.getElementById('editTaskInputTag').value;
+    const novaDesc = document.getElementById('editTaskInputDesc').value;
+    const novoAdminReq = document.getElementById('editTaskInputAdminReq').checked;
+    const novaPrio = parseInt(document.getElementById('editTaskInputPriority').value) || 3;
+    const novaDiff = parseFloat(document.getElementById('editTaskInputDifficulty').value) || 1;
+
+
+    try {
+        await updateDoc(doc(db, "tarefas", id), {
+            titulo: novoTitulo,
+            tag: novaTag,
+            prioridade: novaPrio,
+            dificuldade: novaDiff,
+            descricao: novaDesc,
+            exigeAprovacao: novoAdminReq
+        });
+
+        // Atualiza o cache pra mudar de tela sem recarregar a página
+        window.taskAbertaAtual.prioridade = novaPrio;
+        window.taskAbertaAtual.dificuldade = novaDiff;
+        window.taskAbertaAtual.titulo = novoTitulo;
+        window.taskAbertaAtual.tag = novaTag;
+        window.taskAbertaAtual.descricao = novaDesc;
+        window.taskAbertaAtual.exigeAprovacao = novoAdminReq;
+
+        // Atualiza os textos da visualização
+        document.getElementById('detalheTaskTitulo').innerText = novoTitulo;
+        document.getElementById('detalheTaskTag').innerText = novaTag.toUpperCase();
+        document.getElementById('detalheTaskTag').className = `badge badge-${novaTag}`;
+        document.getElementById('detalheTaskAdminReqBadge').style.display = novoAdminReq ? 'inline-block' : 'none';
+        
+        window.renderizarDescricaoTask(novaDesc);
+        window.cancelarEdicaoFull();
+        window.mostrarToastNotificacao("Kanban", "Missão atualizada!", "geral");
+        
+    } catch(err) { console.error(err); }
+};
+
+// --- NOVAS FUNÇÕES PARA EDITAR A DESCRIÇÃO E APROVAR ---
+window.editarDescricaoTarefa = () => {
+    document.getElementById('detalheTaskDesc').style.display = 'none';
+    document.getElementById('detalheTaskEditArea').style.display = 'flex';
+};
+
+window.salvarEdicaoTarefa = async () => {
+    if (!window.taskAtualEditando.id) return;
+    const novaDescricao = document.getElementById('detalheTaskInput').value;
+    try {
+        await updateDoc(doc(db, "tarefas", window.taskAtualEditando.id), { descricao: novaDescricao });
+        window.taskAtualEditando.rawBody = novaDescricao;
+        window.renderizarDescricaoTask(novaDescricao);
+        
+        document.getElementById('detalheTaskEditArea').style.display = 'none';
+        document.getElementById('detalheTaskDesc').style.display = 'block';
+    } catch(err) { console.error(err); }
+};
+
+window.aprovarTarefaAdmin = async () => {
+    if (!window.taskAtualEditando.id || window.userRole !== 'admin') return;
+    try {
+        await updateDoc(doc(db, "tarefas", window.taskAtualEditando.id), { status: 'done' });
+        window.closeModal('modalDetalhesTarefa');
+        window.renderizarKanban(); // Atualiza a tela
+    } catch(err) { console.error(err); }
 };
 
 window.salvarTarefa = async (e) => {
@@ -643,11 +795,19 @@ window.salvarTarefa = async (e) => {
         const tag = document.getElementById('taskTag')?.value || "feature";
         const desc = document.getElementById('taskDesc')?.value || ""; 
         const prioridade = document.getElementById('taskPriority')?.value || "3";
+        const adminReq = document.getElementById('taskAdminReq')?.checked || false;
         
         if (window.tarefaEditandoId) {
+            const adminReq = document.getElementById('taskAdminReq')?.checked || false; // Pega o novo valor
+
             await updateDoc(doc(db, "tarefas", window.tarefaEditandoId), {
-                titulo: titulo, tag: tag, descricao: desc, prioridade: parseInt(prioridade)
+                titulo: titulo, 
+                tag: tag, 
+                descricao: desc, 
+                prioridade: parseInt(prioridade),
+                exigeAprovacao: adminReq
             });
+
             window.mostrarToastNotificacao("Kanban", "Tarefa atualizada!", "geral");
         } 
         else {
@@ -672,7 +832,7 @@ window.salvarTarefa = async (e) => {
             const dificuldade = parseFloat(document.getElementById('taskDifficulty')?.value) || 1;
 
             await addDoc(collection(db, "tarefas"), {
-                titulo: titulo, tag: tag, descricao: desc, prioridade: parseInt(prioridade), 
+                titulo: titulo, tag: tag, descricao: desc, prioridade: parseInt(prioridade), exigeAprovacao: adminReq, // AQUI!
                 dificuldade: dificuldade, projetoId: window.projetoAtualId, status: 'todo', 
                 githubIssue: issueNumber, githubUrl: issueUrl, userId: auth.currentUser.uid, 
                 dataCriacao: new Date().toISOString()
@@ -794,9 +954,10 @@ window.drop = async (e) => {
 
             if (statusAntigo === novoStatus) return;
 
+            // 🛡️ O ESCUDO DO ADMIN NO DRAG & DROP
             if (novoStatus === 'done' && t.exigeAprovacao && window.userRole !== 'admin') {
-                window.mostrarToastNotificacao('Acesso Restrito', '🔒 Esta tarefa exige revisão! Apenas um Administrador pode movê-la para Feito.', 'geral');
-                return; 
+                window.mostrarToastNotificacao('Acesso Restrito', '🔒 Esta tarefa exige revisão! Deixe-a em "Fazendo" para um Diretor verificar.', 'geral');
+                return; // Morre aqui! A tarefa volta pra coluna antiga.
             }
 
             if (t.assignedTo && t.assignedTo !== auth.currentUser.uid && window.userRole !== 'admin') {
