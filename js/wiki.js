@@ -22,10 +22,13 @@ window.wikiSortMode = localStorage.getItem('hub_wiki_sort') || 'manual';
 window.processarTagsCustomizadas = (html) => {
     let processado = html;
 
-    processado = processado.replace(/\{cor:(.*?)\}([\s\S]*?)\{\/cor\}/g, '<span style="color: $1;">$2</span>');
-    processado = processado.replace(/\{font:(.*?)\}([\s\S]*?)\{\/font\}/g, '<span style="font-family: \'$1\';">$2</span>');
-    processado = processado.replace(/\{center\}([\s\S]*?)\{\/center\}/g, '<div class="wiki-center">$1</div>');
+    // 1. Resolve a guerra do Markdown com o {center} blindando contra a tag <p>
+    processado = processado.replace(/<p>\s*\{center\}\s*<\/p>/gi, '<div class="wiki-center">');
+    processado = processado.replace(/<p>\s*\{\/center\}\s*<\/p>/gi, '</div>');
+    processado = processado.replace(/\{center\}/gi, '<div class="wiki-center">');
+    processado = processado.replace(/\{\/center\}/gi, '</div>');
 
+    // 2. Links Internos
     processado = processado.replace(/\[\[(.*?)\]\]/g, (match, conteudo) => {
         let partes = conteudo.split('#');
         let titulo = partes[0].trim();
@@ -36,6 +39,7 @@ window.processarTagsCustomizadas = (html) => {
         return `<a class="wiki-internal-link" onclick="abrirWikiPorTitulo(event, '${tituloSafe}', '${ancoraSafe}')">${textoLink}</a>`;
     });
 
+    // 3. Mídia e Imagens
     processado = processado.replace(/\{video:(.*?)\}/g, (match, url) => {
         let link = url.replace(/<[^>]+>/g, '').trim(); 
         if (link.includes('youtube.com/watch?v=')) {
@@ -63,9 +67,6 @@ window.processarTagsCustomizadas = (html) => {
         let sizeStyle = tamanho ? `width: ${tamanho.trim()} !important; max-height: none;` : '';
         return `<img src="${link}" class="wiki-custom-img" style="${sizeStyle}">`;
     });
-
-    processado = processado.replace(/\{width:\s*[^}]+\}/g, '');
-    processado = processado.replace(/\{margin:\s*[^}]+\}/g, '');
 
     return processado;
 };
@@ -110,7 +111,7 @@ window.atualizarLayoutFolha = () => {
 
     const texto = edit.value;
 
-    const customWidth = texto.match(/\{width:\s*([^}]+)\}/);
+    const customWidth = texto.match(/\{width:\s*([^}]+)\}/i);
     if (customWidth) {
         edit.style.setProperty('max-width', customWidth[1], 'important');
         prev.style.setProperty('max-width', customWidth[1], 'important');
@@ -119,7 +120,7 @@ window.atualizarLayoutFolha = () => {
         prev.style.removeProperty('max-width');
     }
 
-    const customMargin = texto.match(/\{margin:\s*([^}]+)\}/);
+    const customMargin = texto.match(/\{margin:\s*([^}]+)\}/i);
     if (customMargin) {
         edit.style.setProperty('padding', customMargin[1], 'important');
         prev.style.setProperty('padding', customMargin[1], 'important');
@@ -135,38 +136,121 @@ window.setWikiMode = (mode) => {
     const toc = document.getElementById('wiki-toc');
     const metaPanel = document.getElementById('wiki-metadata'); 
 
+    // O PULO DO GATO: Sempre atualiza o layout da folha lendo o {width} e {margin}
+    if (typeof window.atualizarLayoutFolha === 'function') window.atualizarLayoutFolha();
+
     if (mode === 'preview') {
         if (edit && prev) {
             let textoBruto = edit.value;
-            const textoConvertido = textoBruto.replace(/https?:\/\/(www\.)?dropbox\.com\/[^\s)]+/g, (match) => window.converterLinkDireto(match));
-            
-            let htmlGerado = marked.parse(textoConvertido);
-            if (typeof window.processarTagsCustomizadas === 'function') {
-                htmlGerado = window.processarTagsCustomizadas(htmlGerado);
-            }
-            prev.innerHTML = htmlGerado;
-            prev.dataset.originalHtml = htmlGerado;
+            let htmlMetadados = '';
 
-            edit.style.display = 'none';
-            prev.style.display = 'block';
-            if (metaPanel) metaPanel.style.display = 'block';
+            // TOLERÂNCIA YAML: Encontra o bloco YAML mesmo se tiver um {width: 100%} antes dele
+            const yamlRegex = /^[\s\n]*(?:\{[^}]+\}[\s\n]*)*---\n([\s\S]*?)\n---/;
+            const matchYaml = textoBruto.match(yamlRegex);
             
-            if (toc) {
-                const headers = prev.querySelectorAll('h2, h3');
-                if (headers.length > 0) {
-                    toc.innerHTML = '<div class="wiki-toc-title">Nesta Página</div>' + Array.from(headers).map(h => {
-                        if(!h.id) h.id = h.innerText.toLowerCase().replace(/\s+/g, '-');
-                        return `<a class="wiki-toc-item ${h.tagName.toLowerCase()==='h2'?'toc-h2':'toc-h3'}" onclick="rolarParaAncora(event, '${h.id}')">${h.innerText}</a>`;
-                    }).join('');
-                    toc.classList.add('active');
-                } else { toc.classList.remove('active'); }
+            if (matchYaml) {
+                const yaml = matchYaml[1];
+                textoBruto = textoBruto.replace(/---\n[\s\S]*?\n---/, ''); 
+                
+                const linhasYaml = yaml.split('\n');
+                htmlMetadados = '<div class="wiki-frontmatter">';
+                linhasYaml.forEach(l => {
+                    if(l.includes(':')) {
+                        const [key, ...rest] = l.split(':');
+                        htmlMetadados += `<div class="wiki-meta-row"><span class="wiki-meta-key">${key.trim()}</span><span class="wiki-meta-value">${rest.join(':').trim()}</span></div>`;
+                    }
+                });
+                htmlMetadados += '</div>';
             }
-            window.desenharGraficosMermaid(prev);
+
+            if (metaPanel) {
+                metaPanel.innerHTML = htmlMetadados;
+                metaPanel.style.display = htmlMetadados ? 'block' : 'none';
+            }
+
+            // MÁGICA 2: Remove as formatações inline ANTES do Markdown ser lido
+            let textoLimpo = textoBruto;
+            textoLimpo = textoLimpo.replace(/\{width:[^}]+\}/gi, '');
+            textoLimpo = textoLimpo.replace(/\{margin:[^}]+\}/gi, '');
+            
+            textoLimpo = textoLimpo.replace(/\{cor:([^}]+)\}/gi, '<span style="color: $1;">');
+            textoLimpo = textoLimpo.replace(/\{\/cor\}/gi, '</span>');
+            
+            textoLimpo = textoLimpo.replace(/\{font:([^}]+)\}/gi, '<span style="font-family: \'$1\';">');
+            textoLimpo = textoLimpo.replace(/\{\/font\}/gi, '</span>');
+
+            // O NOVO MOTOR DE CALLOUTS (Padrão Obsidian Completo)
+            let textoComCallouts = textoLimpo.replace(/^> \[!([a-zA-Z]+)\](.*?)\n((?:>.*\n?)*)/gim, (match, tipo, titulo, conteudo) => {
+                const limpo = conteudo.replace(/^>\s?/gm, ''); 
+                
+                // Dicionário completo de ícones
+                const icones = { 
+                    info: 'ℹ️', note: '📓', abstract: '📋', summary: '📋', tldr: '📋',
+                    warning: '⚠️', caution: '⚠️', attention: '⚠️',
+                    danger: '🚨', error: '🚨', bug: '🐛',
+                    success: '✅', check: '✅', done: '✅',
+                    tip: '💡', hint: '💡', 
+                    question: '❓', help: '❓', faq: '❓',
+                    quote: '💬', cite: '💬', example: '📝'
+                };
+                
+                const t = tipo.toLowerCase();
+                const iconeRender = icones[t] || '📌'; // Padrão se não achar o ícone
+                const tituloRender = titulo.trim() || (t.charAt(0).toUpperCase() + t.slice(1)); // Capitaliza a primeira letra
+                
+                return `<div class="wiki-callout callout-${t}">
+                            <div class="wiki-callout-title">${iconeRender} ${tituloRender}</div>
+                            <div class="wiki-callout-content">\n\n${limpo}\n\n</div>
+                        </div>`;
+            });
+
+            const textoConvertido = textoComCallouts.replace(/https?:\/\/(www\.)?dropbox\.com\/[^\s)]+/g, (match) => {
+                if (window.converterLinkDireto) return window.converterLinkDireto(match);
+                return match;
+            });
+            
+            // Renderização Final
+            let htmlGerado = marked.parse(textoConvertido);
+            prev.innerHTML = window.processarTagsCustomizadas(htmlGerado);
+            prev.dataset.originalHtml = prev.innerHTML;
+
+            edit.style.setProperty('display', 'none', 'important');
+            prev.style.setProperty('display', 'block', 'important');
+            
+            setTimeout(() => {
+                 if (typeof window.desenharGraficosMermaid === 'function') {
+                      window.desenharGraficosMermaid(prev);
+                 }
+            }, 100);
+            
+            document.getElementById('btn-wiki-preview')?.classList.add('active');
+            document.getElementById('btn-wiki-edit')?.classList.remove('active');
+            
+            if (prev) {
+                const headers = prev.querySelectorAll('h2, h3');
+                if (headers.length > 0 && toc) {
+                    let tocHtml = '<div class="wiki-toc-title">Nesta Página</div>';
+                    headers.forEach(h => {
+                        if(!h.id) h.id = h.innerText.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
+                        const level = h.tagName.toLowerCase() === 'h2' ? 'toc-h2' : 'toc-h3';
+                        tocHtml += `<a class="wiki-toc-item ${level}" onclick="window.rolarParaAncora(event, '${h.id}')">${h.innerText}</a>`;
+                    });
+                    toc.innerHTML = tocHtml;
+                    toc.classList.add('active'); 
+                } else if (toc) {
+                    toc.classList.remove('active');
+                }
+            }
+
+            if (window.wikiAtualId) window.carregarComentariosWiki(window.wikiAtualId);
+
         }
     } else {
-        edit.style.display = 'block';
-        prev.style.display = 'none';
-        if (metaPanel) metaPanel.style.display = 'none';
+        edit.style.setProperty('display', 'block', 'important');
+        prev.style.setProperty('display', 'none', 'important');
+        if (metaPanel) metaPanel.style.display = 'none'; 
+        document.getElementById('btn-wiki-edit')?.classList.add('active');
+        document.getElementById('btn-wiki-preview')?.classList.remove('active');
         if (toc) toc.classList.remove('active');
     }
 };
@@ -1004,18 +1088,31 @@ window.carregarComentariosWiki = (wikiId) => {
             let conteudoVisual = "";
 
             if (c.tipo === 'sugestao') {
-                const renderNovo = marked.parse((c.textoNovo || "").replace(/@([a-zA-Z0-9_À-ÿ]+)/g, '<span class="chat-mention">@$1</span>'));
+                // Renderiza o markdown e remove os <p> malditos que empurram o layout
+                let renderNovo = marked.parse((c.textoNovo || "").replace(/@([a-zA-Z0-9_À-ÿ]+)/g, '<span class="chat-mention">@$1</span>'));
+                renderNovo = renderNovo.replace(/^<p>/, '').replace(/<\/p>\n?$/, '');
+                
                 conteudoVisual = `
-                    <div style="background: rgba(0, 234, 255, 0.05); border: 1px solid rgba(0, 234, 255, 0.2); border-radius: 8px; padding: 12px; margin-top: 10px; margin-bottom: 10px;">
-                        <div style="font-size: 0.75rem; color: #ff5252; text-decoration: line-through; margin-bottom: 8px; border-bottom: 1px dashed rgba(255,82,82,0.3); padding-bottom: 8px;"><strong>Remover:</strong><br> ${c.textoAntigo}</div>
-                        <div style="font-size: 0.85rem; color: #00eaff; margin-bottom: 0;"><strong>Adicionar:</strong><br> ${renderNovo}</div>
+                    <div style="background: rgba(0,0,0,0.2); border-left: 3px solid #00eaff; border-radius: 4px; padding: 8px; margin: 4px 0; font-size: 0.8rem; line-height: 1.4;">
+                        <div style="color: #ff5252; margin-bottom: 4px;">
+                            <span style="font-weight: 800; font-size: 0.7rem; opacity: 0.7;">- REMOVER:</span> 
+                            <span style="text-decoration: line-through;">${c.textoAntigo}</span>
+                        </div>
+                        <div style="color: #00eaff;">
+                            <span style="font-weight: 800; font-size: 0.7rem; opacity: 0.7;">+ ADICIONAR:</span> 
+                            <span>${renderNovo}</span>
+                        </div>
                     </div>`;
-                if (!isResolved) conteudoVisual += `<button onclick="window.aceitarSugestaoWiki('${d.id}')" class="btn-primary" style="width: 100%; padding: 8px; font-size: 0.85rem; background: #00eaff; color: #000; border: none;">✨ Aplicar no Texto</button>`;
+                    
+                if (!isResolved) {
+                    conteudoVisual += `<button onclick="window.aceitarSugestaoWiki('${d.id}')" style="width: 100%; padding: 5px; font-size: 0.75rem; font-weight: bold; background: rgba(0, 234, 255, 0.1); color: #00eaff; border: 1px solid rgba(0, 234, 255, 0.2); border-radius: 4px; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='#00eaff'; this.style.color='#000'" onmouseout="this.style.background='rgba(0, 234, 255, 0.1)'; this.style.color='#00eaff'">✨ Aplicar Alteração</button>`;
+                }
             } else {
                 conteudoVisual = marked.parse((c.texto || "").replace(/@([a-zA-Z0-9_À-ÿ]+)/g, '<span class="chat-mention">@$1</span>'));
             }
 
-            const itemHtml = `<li class="art-comment-item ${isMe ? 'is-me' : ''}" style="border-left-color: ${corBorda}; margin-bottom: 5px; opacity: ${opacidade}; transition: 0.3s;">${menuHtml}<div class="comment-top-row"><span class="comment-author">${c.autor}</span><span class="comment-time">${new Date(c.dataCriacao).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span></div><div class="comment-text markdown-body" style="background:transparent!important; padding:0!important; border:none!important; box-shadow:none!important;">${conteudoVisual}</div></li>`;
+            // O PULO DO GATO: As tags 'min-height: 0 !important' e 'height: auto !important' matam qualquer herança gigante do CSS
+            const itemHtml = `<li class="art-comment-item ${isMe ? 'is-me' : ''}" style="border-left-color: ${corBorda}; margin-bottom: 5px; opacity: ${opacidade}; transition: 0.3s; min-height: 0 !important; height: auto !important; flex: none !important; display: block;">${menuHtml}<div class="comment-top-row"><span class="comment-author">${c.autor}</span><span class="comment-time">${new Date(c.dataCriacao).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span></div><div class="comment-text markdown-body" style="background:transparent!important; padding:0!important; border:none!important; box-shadow:none!important; min-height: 0 !important; height: auto !important;">${conteudoVisual}</div></li>`;
 
             if (isResolved) { resolvidosHtml += itemHtml; countResolvidos++; } 
             else abertosHtml += itemHtml;
@@ -1027,23 +1124,39 @@ window.carregarComentariosWiki = (wikiId) => {
         }
         lista.innerHTML = finalHtml || '<li style="color:#666; text-align:center; padding:15px;">Documento limpo!</li>';
 
-        // MÁGICA DO MARCA-TEXTO
         const preview = document.getElementById('wiki-preview-area');
         if (preview && preview.dataset.originalHtml && preview.style.display !== 'none') {
             let htmlPintado = preview.dataset.originalHtml;
+            
             snap.docs.forEach(d => {
                 const c = d.data();
                 if (c.status !== 'resolved') {
-                    let alvo = c.textoAntigo; 
-                    if (!alvo) { const match = (c.texto || "").match(/^>\s*"([^"]+)"/); if (match) alvo = match[1]; }
-                    if (alvo && alvo.length > 3) {
-                        const regexSafe = alvo.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                        const regex = new RegExp(`(${regexSafe})`, 'g');
-                        htmlPintado = htmlPintado.replace(regex, `<span class="wiki-highlight" onclick="window.abrirFeedbackWiki()" title="Comentário de ${c.autor}">$1</span>`);
+                    
+                    // Pega o alvo SEMPRE pela citação para garantir precisão máxima
+                    let alvo = "";
+                    const match = (c.texto || "").match(/^>\s*"([^"]+)"/);
+                    if (match) alvo = match[1];
+                    else alvo = c.textoAntigo; 
+
+                    if (alvo && alvo.trim().length > 2) {
+                        // MÁGICA: Escapa os caracteres e permite que o marcador ignore espaços extras ou tags HTML (como negrito) no meio da frase!
+                        const regexSafe = alvo.trim().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&').replace(/\s+/g, '\\s*(?:<[^>]+>)*\\s*');
+                        
+                        try {
+                            const regex = new RegExp(`(${regexSafe})`, 'gi'); // 'gi' faz ele ignorar maiúsculas/minúsculas
+                            htmlPintado = htmlPintado.replace(regex, `<span class="wiki-highlight" onclick="window.abrirFeedbackWiki()" title="Nota/Sugestão de ${c.autor}">$1</span>`);
+                        } catch(e) {}
                     }
                 }
             });
             preview.innerHTML = htmlPintado;
+
+            // Pede ao Mermaid para redesenhar os gráficos após a pintura
+            setTimeout(() => {
+                if (typeof window.desenharGraficosMermaid === 'function') {
+                    window.desenharGraficosMermaid(preview);
+                }
+            }, 100);
         }
     });
 };

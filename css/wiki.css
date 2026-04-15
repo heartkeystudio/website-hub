@@ -828,3 +828,140 @@ body.wiki-fullscreen-active .content-area {
     color: var(--primary);
     font-weight: bold;
 }
+
+/* ==========================================
+   CALLOUTS ESTILO OBSIDIAN (WIKI)
+   ========================================== */
+.wiki-callout {
+    --callout-color: 158, 158, 158; /* Cor Padrão (Cinza) */
+    background-color: rgba(var(--callout-color), 0.1);
+    border-left: 4px solid rgb(var(--callout-color));
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin: 20px 0;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.wiki-callout-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: rgb(var(--callout-color));
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+}
+
+.wiki-callout-content {
+    font-size: 0.95rem;
+    color: #d1d5db;
+    line-height: 1.6;
+}
+
+/* Remove a margem extra do último parágrafo de dentro do callout */
+.wiki-callout-content p:last-child {
+    margin-bottom: 0;
+}
+
+/* --- TEMAS E CORES DOS CALLOUTS --- */
+/* Azul (Informativo) */
+.callout-info, .callout-note, .callout-help, .callout-question, .callout-faq { --callout-color: 8, 109, 221; }
+/* Roxo (Resumo / Abstract) */
+.callout-abstract, .callout-summary, .callout-tldr { --callout-color: 171, 71, 188; }
+/* Amarelo (Atenção / Aviso) */
+.callout-warning, .callout-caution, .callout-attention { --callout-color: 255, 160, 0; }
+/* Vermelho (Perigo / Erro / Bug) */
+.callout-danger, .callout-error, .callout-bug { --callout-color: 239, 83, 80; }
+/* Verde (Sucesso / Concluído) */
+.callout-success, .callout-check, .callout-done { --callout-color: 76, 175, 80; }
+/* Ciano (Dicas) */
+.callout-tip, .callout-hint { --callout-color: 0, 234, 255; }
+/* Cinza (Citação / Exemplo) */
+.callout-quote, .callout-cite, .callout-example { --callout-color: 158, 158, 158; }
+
+/* ==========================================
+   METADADOS / FRONTMATTER (ESTILO OBSIDIAN)
+   ========================================== */
+.wiki-frontmatter {
+    background: rgba(20, 20, 25, 0.6); /* Fundo escuro translúcido */
+    border: 1px solid rgba(255, 255, 255, 0.08); /* Borda sutil */
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    font-family: 'JetBrains Mono', monospace, sans-serif;
+}
+
+/* Adiciona um título elegante gerado automaticamente */
+.wiki-frontmatter::before {
+    content: '⚙️ PROPRIEDADES';
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--primary, #81fe4e);
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Linha contendo Chave e Valor */
+.wiki-meta-row {
+    display: flex;
+    align-items: flex-start;
+    padding: 6px 0;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.03);
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.wiki-meta-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+/* A Chave (Lado Esquerdo) */
+.wiki-meta-key {
+    flex: 0 0 150px; /* Trava a largura para alinhar todas perfeitamente */
+    color: #888; /* Cinza discreto */
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+/* O Valor (Lado Direito) */
+.wiki-meta-value {
+    flex: 1;
+    color: #e5e7eb; /* Branco mais vivo */
+    font-weight: 500;
+    word-break: break-word; /* MÁGICA: Impede que links longos vazem para fora da caixa! */
+}
+
+/* Estilização para aspas soltas nos metadados */
+.wiki-meta-value {
+    font-family: inherit;
+}
+
+/* ==========================================
+   MARCADOR DE TEXTO (FEEDBACKS DA WIKI)
+   ========================================== */
+.wiki-highlight {
+    background-color: rgba(255, 193, 7, 0.3);
+    border-bottom: 2px dashed #ffc107;
+    border-radius: 3px;
+    cursor: help; /* Muda o cursor para uma interrogação */
+    transition: all 0.2s ease;
+}
+
+.wiki-highlight:hover {
+    background-color: rgba(255, 193, 7, 0.6);
+    color: #fff;
+}
+
+/* Compacta as margens dos parágrafos injetados na Sugestão de Edição */
+.compact-markdown p {
+    margin-bottom: 4px !important;
+}
+.compact-markdown p:last-child {
+    margin-bottom: 0 !important;
+}
