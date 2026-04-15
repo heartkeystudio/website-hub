@@ -1,12 +1,17 @@
-import { auth, db, collection, addDoc, getDocs, query, deleteDoc, doc, updateDoc, onSnapshot, orderBy, limit } from './firebase.js';
+import { auth, db, collection, addDoc, getDocs, query, deleteDoc, doc, updateDoc, onSnapshot, orderBy, limit, arrayUnion, arrayRemove } from './firebase.js';
 
 window.salvarPostMural = async (e) => {
+    console.log("Tentando atualizar mural...");
     e.preventDefault();
     
     // Lemos dos IDs fixos do modal da Incubadora
-    const titulo = document.getElementById('brainTitulo').value;
-    const tag = document.getElementById('brainTag').value;
-    const conteudo = document.getElementById('brainDesc').value;
+    const titulo = document.getElementById('muralTitulo').value;
+    const tag = document.getElementById('muralTag').value;
+    const conteudo = document.getElementById('muralConteudo').value;
+
+    console.log(titulo);
+    console.log(tag);
+    console.log(conteudo);
 
     if (!conteudo) return;
 
@@ -23,7 +28,7 @@ window.salvarPostMural = async (e) => {
         });
 
         console.log("✅ Mural atualizado com sucesso!");
-        window.closeModal('modalNovaIdeia');
+        window.closeModal('modalMuralNovo');
         window.mostrarToastNotificacao("Mural", "Mensagem publicada!", "geral");
     } catch(err) { console.error(err); }
 };
