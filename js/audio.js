@@ -53,11 +53,12 @@ window.salvarAudio = async (e) => {
         return;
     }
 
-    const assetsUrl = document.getElementById('audioAssetsUrl')?.value.trim() || ""; // Captura o link
+    // Pega o valor do novo campo do HTML
+    const assetLinkValor = document.getElementById('audioAssetLink')?.value.trim() || ""; 
 
     const dados = {
         titulo, tag, bpm, sampleRate, lufs, loopStart, loopEnd, letra,
-        assetsUrl: assetsUrl, // <--- ADICIONE ESTA LINHA
+        assetLink: assetLinkValor, // Salva com o nome padronizado
         camadas: camadasConvertidas, 
         projetoId: window.projetoAtualId,
         dataAtualizacao: new Date().toISOString()
@@ -165,6 +166,8 @@ window.renderizarAudios = () => {
         const souDono = a.enviadoPor === auth.currentUser.email;
         const souAdmin = window.userRole === 'admin';
 
+        
+
         const menuAcoes = `
             <div style="position:relative; display:inline-block;">
                 <button class="icon-btn" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')" style="font-size:1.5rem; padding: 0 5px;">⋮</button>
@@ -176,11 +179,13 @@ window.renderizarAudios = () => {
             </div>
         `;
 
-        const btnDownloadAssets = a.assetsUrl ? `
-            <a href="${a.assetsUrl}" target="_blank" class="btn-secondary" 
-            style="font-size: 0.65rem; padding: 4px 8px; color: var(--primary); border-color: var(--primary); text-decoration: none; display: flex; align-items: center; gap: 5px; margin-top: 10px; width: fit-content;"
-            title="Abrir pasta de arquivos originais">
-            <span>⬇️</span> BAIXAR FONTES
+        const linkDownload = a.assetLink || a.assetsUrl;
+        const btnDownloadAssets = linkDownload ? `
+            <a href="${linkDownload}" target="_blank" class="btn-primary" 
+            style="background: rgba(0, 234, 255, 0.1); color: #00eaff; border: 1px solid #00eaff; padding: 8px 12px; font-size: 0.75rem; text-decoration: none; border-radius: 6px; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 5px; margin-top: 15px; width: 100%; transition: 0.2s;"
+            onmouseover="this.style.background='#00eaff'; this.style.color='#000';"
+            onmouseout="this.style.background='rgba(0, 234, 255, 0.1)'; this.style.color='#00eaff';">
+            📥 BAIXAR ASSET DIRETO
             </a>` : '';
 
         return `
@@ -1029,16 +1034,19 @@ window.abrirEdicaoAudio = (id) => {
 
     window.audioEditandoId = id;
 
-    // Preenche os campos básicos
-    document.getElementById('audioTitulo').value = audio.titulo || "";
-    document.getElementById('audioTag').value = audio.tag || "BGM";
-    document.getElementById('audioBpm').value = audio.bpm || "";
-    document.getElementById('audioSampleRate').value = audio.sampleRate || "48kHz";
-    document.getElementById('audioLufs').value = audio.lufs || "";
-    document.getElementById('audioLoopStart').value = audio.loopStart || "";
-    document.getElementById('audioLoopEnd').value = audio.loopEnd || "";
-    document.getElementById('audioLetra').value = audio.letra || "";
-    document.getElementById('audioAssetsUrl').value = audio.assetsUrl || "";
+    // Preenche os campos básicos com proteção contra campos inexistentes (null)
+    if(document.getElementById('audioTitulo')) document.getElementById('audioTitulo').value = audio.titulo || "";
+    if(document.getElementById('audioTag')) document.getElementById('audioTag').value = audio.tag || "BGM";
+    if(document.getElementById('audioBpm')) document.getElementById('audioBpm').value = audio.bpm || "";
+    if(document.getElementById('audioSampleRate')) document.getElementById('audioSampleRate').value = audio.sampleRate || "48kHz";
+    if(document.getElementById('audioLufs')) document.getElementById('audioLufs').value = audio.lufs || "";
+    if(document.getElementById('audioLoopStart')) document.getElementById('audioLoopStart').value = audio.loopStart || "";
+    if(document.getElementById('audioLoopEnd')) document.getElementById('audioLoopEnd').value = audio.loopEnd || "";
+    if(document.getElementById('audioLetra')) document.getElementById('audioLetra').value = audio.letra || "";
+    
+    // 🛡️ A CORREÇÃO DO ERRO AQUI: Agora ele busca o ID certo e a variável 'audio'
+    const inputAsset = document.getElementById('audioAssetLink');
+    if (inputAsset) inputAsset.value = audio.assetLink || audio.assetsUrl || ""; 
 
     // Preenche os links das camadas (Stems)
     const camadas = audio.camadas || [];
@@ -1049,8 +1057,10 @@ window.abrirEdicaoAudio = (id) => {
 
     // Muda o visual do Modal para "Modo Edição"
     const modal = document.getElementById('modalNovoAudio');
-    modal.querySelector('h2').innerText = "✏️ Editar Áudio (Engine)";
-    modal.querySelector('button[type="submit"]').innerText = "Salvar Alterações";
+    if (modal) {
+        modal.querySelector('h2').innerText = "✏️ Editar Áudio (Engine)";
+        modal.querySelector('button[type="submit"]').innerText = "Salvar Alterações";
+    }
 
     window.openModal('modalNovoAudio');
 };
