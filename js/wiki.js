@@ -22,15 +22,32 @@ window.wikiSortMode = localStorage.getItem('hub_wiki_sort') || 'manual';
 window.processarTagsCustomizadas = (html) => {
     let processado = html;
 
-    // 1. Resolve a guerra do Markdown com o {center} blindando contra a tag <p>
+    // 1. Resolve a guerra do Markdown com o {center}
     processado = processado.replace(/<p>\s*\{center\}\s*<\/p>/gi, '<div class="wiki-center">');
     processado = processado.replace(/<p>\s*\{\/center\}\s*<\/p>/gi, '</div>');
     processado = processado.replace(/\{center\}/gi, '<div class="wiki-center">');
     processado = processado.replace(/\{\/center\}/gi, '</div>');
 
-    // 2. Links Internos
-    processado = processado.replace(/\[\[(.*?)\]\]/g, (match, conteudo) => {
-        let partes = conteudo.split('#');
+    // --- NOVA REGRA: CITAÇÃO DE ARTE ---
+    processado = processado.replace(/\[\[arte:(.*?)\]\]/gi, (match, nomeArte) => {
+        const tituloBusca = nomeArte.trim().toLowerCase();
+        
+        // Procura a arte no cache da galeria
+        if (window.artesProjetoCache) {
+            const arte = window.artesProjetoCache.find(a => a.titulo.toLowerCase() === tituloBusca);
+            if (arte) {
+                const tituloSafe = arte.titulo.replace(/'/g, "\\'");
+                // Transforma num link que chama o Ateliê
+                return `<a class="wiki-internal-link" style="color: #e040fb; border-bottom-color: #e040fb;" onclick="window.abrirVisualizadorAtelie('${arte.id}', '${arte.url}', '${tituloSafe}')">🎨 ${arte.titulo}</a>`;
+            }
+        }
+        // Se a arte não existir ou o nome estiver errado:
+        return `<span style="color: #ff5252; text-decoration: line-through;" title="Asset não encontrado">🎨 ${nomeArte}</span>`;
+    });
+    // ------------------------------------
+
+    // 2. Links Internos (Wiki)
+    processado = processado.replace(/\[\[(.*?)\]\]/g, (match, conteudo) => {       let partes = conteudo.split('#');
         let titulo = partes[0].trim();
         let ancora = partes[1] ? partes[1].trim() : '';
         let tituloSafe = titulo.replace(/'/g, "\\'");

@@ -305,7 +305,9 @@ window.carregarArtesDoProjeto = (pid) => {
                 <div style="position:relative; display:inline-block; margin-left: auto;">
                     <button class="icon-btn" onclick="event.stopPropagation(); this.nextElementSibling.classList.toggle('show')" style="padding:0 5px; font-size:1.2rem; line-height:0.5; color:var(--text-muted);">⋮</button>
                     <div class="dropdown-content">
-                        ${isDonoOuAdmin ? `<button class="icon-btn" onclick="event.stopPropagation(); window.abrirEdicaoArte('${a.id}')" style="font-size:0.8rem; text-align:left; width:100%; padding:8px 10px; color:#e0e0e0;">✏️ Editar</button>` : ''}
+                        <button class="icon-btn" onclick="event.stopPropagation(); navigator.clipboard.writeText('[[arte:${a.titulo}]]'); if(window.mostrarToastNotificacao) window.mostrarToastNotificacao('Tag Copiada!', 'Cole na descrição da tarefa.', 'geral');" style="font-size:0.8rem; text-align:left; width:100%; padding:8px 10px; color:#00eaff;">📋 Copiar Tag</button>
+                        
+                        ${isDonoOuAdmin ? `<button class="icon-btn" onclick="event.stopPropagation(); window.abrirEdicaoArte('${a.id}')" style="font-size:0.8rem; text-align:left; width:100%; padding:8px 10px; color:#e0e0e0; border-top:1px solid rgba(255,255,255,0.1);">✏️ Editar</button>` : ''}
                         ${btnApagar}
                     </div>
                 </div>
