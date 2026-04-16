@@ -353,6 +353,16 @@ window.salvarEdicaoProjeto = async (e) => {
         window.projetoAtualRepo = repo;
         window.projetoAtualVersaoAlvo = versao; 
         
+        // --- ATUALIZA A VERSÃO IMEDIATAMENTE APÓS EDITAR ---
+        let faseNova = "Concept";
+        if (versao === 2) faseNova = "Alpha";
+        else if (versao === 3) faseNova = "Beta";
+        else if (versao >= 4) faseNova = "Release";
+        
+        const versaoElNova = document.getElementById('project-version-text');
+        if (versaoElNova) versaoElNova.innerText = `v${versao}.0 (${faseNova})`;
+        // ---------------------------------------------------
+
         window.tagsAtivasDoProjeto = window.projetoTagsCustomizadas; 
         
         if (updateData.capaBase64) {
@@ -378,6 +388,17 @@ window.abrirProjeto = async (id, nome, repo, capaBase64, versaoAlvo) => {
     document.getElementById('titulo-workspace').innerText = nome;
     const bannerDiv = document.getElementById('project-banner');
     if (bannerDiv) bannerDiv.style.backgroundImage = capaBase64 ? `url('${capaBase64}')` : `url('default-bg.jpg')`;
+
+    // --- ATUALIZA A VERSÃO NA TELA ---
+    const versaoLabel = parseInt(versaoAlvo) || 1;
+    let fase = "Concept";
+    if (versaoLabel === 2) fase = "Alpha";
+    else if (versaoLabel === 3) fase = "Beta";
+    else if (versaoLabel >= 4) fase = "Release";
+    
+    const versaoEl = document.getElementById('project-version-text');
+    if (versaoEl) versaoEl.innerText = `v${versaoLabel}.0 (${fase})`;
+    // ---------------------------------
 
     document.getElementById('projetos-home').style.display = 'none';
     document.getElementById('projeto-view').style.display = 'block';
