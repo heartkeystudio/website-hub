@@ -975,6 +975,10 @@
                         ⚠️ Exige aprovação de um Administrador para ser concluída (Fechada)
                     </label>
                 </div>
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>🔗 Asset Vinculado (Opcional)</label>
+                    <input type="url" id="taskAssetLink" placeholder="Link da Arte, Áudio ou Referência..." style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; width: 100%; color: #fff;">
+                </div>
                 <div class="modal-footer">
                     <button type="submit" class="btn-primary" style="width: 100%;">Criar Tarefa</button>
                 </div>
@@ -987,18 +991,20 @@
             
             <div class="modal-header" style="align-items: flex-start; padding-bottom: 20px;">
                 <div style="flex: 1;">
-                    <<div id="task-view-header">
+                    <div id="task-view-header">
                         <h2 id="detalheTaskTitulo" style="margin-bottom: 8px; font-size: 1.8rem;">Título da Tarefa</h2>
                         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                             <span id="detalheTaskTag" class="badge">TAG</span>
                             <span id="detalheTaskPrioBadge" class="badge" style="display: none;">PRIORIDADE</span>
                             <span id="detalheTaskDiffBadge" class="badge" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff;">XP: 1x</span>
                             <span id="detalheTaskAdminReqBadge" class="badge" style="background: rgba(255, 193, 7, 0.2); color: #ffc107; border: 1px solid #ffc107; display: none;">⚠️ REVISÃO OBRIGATÓRIA</span>
+                            <span id="detalheTaskReviewBadge" class="badge" style="background: rgba(0, 234, 255, 0.2); color: #00eaff; border: 1px solid #00eaff; display: none;">🛎️ AGUARDANDO REVISÃO</span>
                         </div>
                     </div>
                     
                     <div id="task-edit-header" style="display: none; gap: 15px; flex-direction: column;">
                         <input type="text" id="editTaskInputTitulo" style="font-size: 1.5rem; font-weight: bold; background: rgba(255,255,255,0.05); border: 1px solid var(--primary); color: #fff; width: 100%; padding: 10px;">
+                        
                         <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
                             <select id="editTaskInputTag" style="width: auto; margin: 0; padding: 5px 15px; background: #222; border-color: var(--primary);">
                                 <option value="feature">💻 Dev / Feature</option>
@@ -1023,6 +1029,8 @@
                                 Exigir Aprovação Admin
                             </label>
                         </div>
+                        
+                        <input type="url" id="editTaskInputAsset" placeholder="🔗 Link do Asset (Arte/Música)..." style="width: 100%; padding: 8px 15px; background: #222; border: 1px solid var(--primary); border-radius: 6px; color: #fff; margin-top: 5px;">
                     </div>
                 </div>
 
@@ -1040,7 +1048,11 @@
             
             <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05);">
                 <div style="display: flex; gap: 10px;">
-                    <a id="btn-abrir-git" href="#" target="_blank" class="btn-primary" style="display: none; text-decoration: none; padding: 10px 20px; background: #24292e;">🐙 GitHub</a>
+                    <a id="btn-abrir-git" href="#" target="_blank" class="btn-primary" style="display: none; background: #24292e;">🐙 GitHub</a>
+                    
+                    <a id="btn-abrir-asset" href="#" target="_blank" class="btn-primary" style="display: none; background: #8e8e93; border-color: #8e8e93; color: #000;">🎨 Ver Asset</a>
+                    <button id="btn-pedir-revisao" class="btn-primary" onclick="window.pedirRevisaoTarefa()" style="display: none; background: rgba(0, 234, 255, 0.1); color: #00eaff; border: 1px solid #00eaff;">🛎️ Pedir Revisão</button>
+                    
                     <button id="btn-admin-approve-task" class="btn-primary" onclick="window.aprovarTarefaAdmin()" style="display: none; background: transparent; color: #ffc107; border: 1px solid #ffc107;">🛡️ Aprovar & Concluir</button>
                 </div>
 

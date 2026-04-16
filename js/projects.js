@@ -471,6 +471,44 @@ window.sairDoProjeto = async (id, nome) => {
     }
 };
 
+window.pedirRevisaoTarefa = async () => {
+    if (!window.taskAbertaAtual) return;
+    try {
+        await updateDoc(doc(db, "tarefas", window.taskAbertaAtual.id), { aguardandoRevisao: true });
+        
+        // Atualiza a tela na hora
+        window.taskAbertaAtual.aguardandoRevisao = true;
+        document.getElementById('detalheTaskReviewBadge').style.display = 'inline-block';
+        document.getElementById('btn-pedir-revisao').style.display = 'none';
+        
+        window.mostrarToastNotificacao("Kanban", "Campainha tocada! Os Admins foram avisados.", "geral");
+        window.renderizarKanban();
+
+        // 🔔 MÁGICA DA NOTIFICAÇÃO: Dispara pro sininho dos Admins
+        try {
+            // Busca todos os usuários no banco para achar os Diretores/Admins
+            const snapUsers = await getDocs(collection(db, "usuarios"));
+            const admins = snapUsers.docs.map(d => d.data()).filter(u => u.role === 'admin' && u.uid !== auth.currentUser.uid);
+            
+            // Dispara um alerta no sininho para cada Admin encontrado
+            admins.forEach(admin => {
+                if (typeof window.criarNotificacao === 'function') {
+                    window.criarNotificacao(
+                        admin.uid, 
+                        'geral', 
+                        '🛎️ Revisão Solicitada', 
+                        `A tarefa "${window.taskAbertaAtual.titulo}" foi finalizada por ${window.obterNomeExibicao()} e precisa da sua aprovação!`, 
+                        { abaAlvo: 'projetos', projetoId: window.projetoAtualId }
+                    );
+                }
+            });
+        } catch (errNotif) {
+            console.error("Erro ao enviar notificação pro sininho:", errNotif);
+        }
+
+    } catch(err) { console.error(err); }
+};
+
 // ==========================================
 // 8. RENDERIZAÇÃO DO KANBAN E TAREFAS
 // ==========================================
@@ -550,6 +588,10 @@ window.renderizarKanban = () => {
             </div>
         `;
 
+        const avisoRevisao = (t.aguardandoRevisao && t.status !== 'done') 
+            ? `<div style="font-size:0.75rem; color:#00eaff; margin-top:8px; font-weight:800; background: rgba(0, 234, 255, 0.1); padding: 4px; border-radius: 4px; text-align: center; border: 1px solid #00eaff;">🛎️ AGUARDANDO REVISÃO</div>` 
+            : '';
+
         card.innerHTML = `
             <div style="display:flex; justify-content:space-between; margin-bottom:10px; align-items:center;">
                 <div>${prioBadge}<span class="badge ${badgeClass}" style="${tagStyle}">${t.tag.toUpperCase()}</span></div>
@@ -558,10 +600,14 @@ window.renderizarKanban = () => {
             <h4>${t.titulo} ${iconDesc}</h4>
             <div class="card-footer" style="margin-top: 5px; padding-top: 8px;">
                 <div style="display:flex; align-items:center; gap:8px;">${assignedHtml} ${ghLink}</div>
-            </div>`;
+                ${avisoRevisao}
+            </div>`
+            ;
             
         const alvo = document.getElementById(t.status);
         if (alvo) { alvo.appendChild(card); counts[t.status]++; }
+        
+        
     });
 
     document.getElementById('count-todo').innerText = counts.todo;
@@ -669,6 +715,29 @@ window.abrirDetalhesTarefa = async (id, data) => {
         btnApprove.style.display = (data.exigeAprovacao && window.userRole === 'admin' && data.status !== 'done') ? 'inline-block' : 'none';
     }
 
+    // Controle do Asset
+    const btnAsset = document.getElementById('btn-abrir-asset');
+    if (data.assetLink && btnAsset) {
+        btnAsset.href = data.assetLink;
+        btnAsset.style.display = 'inline-block';
+    } else if (btnAsset) {
+        btnAsset.style.display = 'none';
+    }
+
+    // Controle de Revisão
+    const badgeRev = document.getElementById('detalheTaskReviewBadge');
+    if (badgeRev) badgeRev.style.display = data.aguardandoRevisao ? 'inline-block' : 'none';
+
+    const btnPedirRev = document.getElementById('btn-pedir-revisao');
+    if (btnPedirRev) {
+        // Só mostra "Pedir Revisão" se exige aprovação, NÃO está concluída e NÃO foi pedida ainda
+        if (data.exigeAprovacao && data.status !== 'done' && !data.aguardandoRevisao) {
+            btnPedirRev.style.display = 'inline-block';
+        } else {
+            btnPedirRev.style.display = 'none';
+        }
+    }
+
     // Configura Badge de Prioridade
     const prioBadge = document.getElementById('detalheTaskPrioBadge');
     if (prioBadge) {
@@ -716,9 +785,11 @@ window.ativarModoEdicaoFull = () => {
     document.getElementById('editTaskInputPriority').value = t.prioridade || 3;
     document.getElementById('editTaskInputDifficulty').value = t.dificuldade || 1;
     document.getElementById('editTaskInputDesc').value = t.descricao || "";
+    document.getElementById('editTaskInputAsset').value = t.assetLink || "";
     document.getElementById('editTaskInputAdminReq').checked = t.exigeAprovacao || false;
 
     document.getElementById('editTaskInputDesc').focus();
+    
 };
 
 // 3. CANCELAR EDIÇÃO (Volta para Visualização)
@@ -743,7 +814,7 @@ window.salvarEdicaoFull = async () => {
     const novoAdminReq = document.getElementById('editTaskInputAdminReq').checked;
     const novaPrio = parseInt(document.getElementById('editTaskInputPriority').value) || 3;
     const novaDiff = parseFloat(document.getElementById('editTaskInputDifficulty').value) || 1;
-
+    const novoAsset = document.getElementById('editTaskInputAsset').value;
 
     try {
         await updateDoc(doc(db, "tarefas", id), {
@@ -752,7 +823,8 @@ window.salvarEdicaoFull = async () => {
             prioridade: novaPrio,
             dificuldade: novaDiff,
             descricao: novaDesc,
-            exigeAprovacao: novoAdminReq
+            exigeAprovacao: novoAdminReq,
+            assetLink: novoAsset // <-- INCLUA ESTA LINHA AQUI
         });
 
         // Atualiza o cache pra mudar de tela sem recarregar a página
@@ -761,6 +833,7 @@ window.salvarEdicaoFull = async () => {
         window.taskAbertaAtual.titulo = novoTitulo;
         window.taskAbertaAtual.tag = novaTag;
         window.taskAbertaAtual.descricao = novaDesc;
+        window.taskAbertaAtual.assetLink = novoAsset;
         window.taskAbertaAtual.exigeAprovacao = novoAdminReq;
 
         // Atualiza os textos da visualização
@@ -796,9 +869,13 @@ window.salvarEdicaoTarefa = async () => {
 };
 
 window.aprovarTarefaAdmin = async () => {
-    if (!window.taskAtualEditando.id || window.userRole !== 'admin') return;
+    // Usa a variável certa do painel de tela cheia:
+    if (!window.taskAbertaAtual.id || window.userRole !== 'admin') return;
     try {
-        await updateDoc(doc(db, "tarefas", window.taskAtualEditando.id), { status: 'done' });
+        await updateDoc(doc(db, "tarefas", window.taskAbertaAtual.id), { 
+            status: 'done',
+            aguardandoRevisao: false // <-- DESLIGA O SINAL DE REVISÃO QUANDO APROVAR
+        });
         window.closeModal('modalDetalhesTarefa');
         window.renderizarKanban(); // Atualiza a tela
     } catch(err) { console.error(err); }
@@ -817,6 +894,7 @@ window.salvarTarefa = async (e) => {
         const desc = document.getElementById('taskDesc')?.value || ""; 
         const prioridade = document.getElementById('taskPriority')?.value || "3";
         const adminReq = document.getElementById('taskAdminReq')?.checked || false;
+        const assetL = document.getElementById('taskAssetLink')?.value || "";
         
         if (window.tarefaEditandoId) {
             const adminReq = document.getElementById('taskAdminReq')?.checked || false; // Pega o novo valor
@@ -826,7 +904,8 @@ window.salvarTarefa = async (e) => {
                 tag: tag, 
                 descricao: desc, 
                 prioridade: parseInt(prioridade),
-                exigeAprovacao: adminReq
+                exigeAprovacao: adminReq,
+                assetLink: assetL
             });
 
             window.mostrarToastNotificacao("Kanban", "Tarefa atualizada!", "geral");
@@ -853,7 +932,8 @@ window.salvarTarefa = async (e) => {
             const dificuldade = parseFloat(document.getElementById('taskDifficulty')?.value) || 1;
 
             await addDoc(collection(db, "tarefas"), {
-                titulo: titulo, tag: tag, descricao: desc, prioridade: parseInt(prioridade), exigeAprovacao: adminReq, // AQUI!
+                titulo: titulo, tag: tag, descricao: desc, prioridade: parseInt(prioridade), exigeAprovacao: adminReq, 
+                assetLink: assetL, // <-- INCLUA ESTA LINHA AQUI
                 dificuldade: dificuldade, projetoId: window.projetoAtualId, status: 'todo', 
                 githubIssue: issueNumber, githubUrl: issueUrl, userId: auth.currentUser.uid, 
                 dataCriacao: new Date().toISOString()
