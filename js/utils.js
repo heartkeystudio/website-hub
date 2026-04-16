@@ -1,4 +1,4 @@
-import { auth, db, collection, addDoc } from './firebase.js';
+import { auth, db, collection, doc, updateDoc, addDoc, increment } from './firebase.js';
 
 window.obterNomeExibicao = () => {
     if (window.meuApelido) return window.meuApelido;
@@ -114,5 +114,45 @@ window.desenharGraficosMermaid = async (container) => {
             bloco.style.color = "#ff5252";
             bloco.innerText = `Erro na sintaxe do diagrama:\n${error.message}`;
         }
+    }
+};
+
+ // Garanta que o 'increment' está importado no topo do arquivo!
+
+// ==========================================
+// MOTOR DE GAMIFICAÇÃO (XP)
+// ==========================================
+window.pontuarGamificacao = async (tipoAcao, userId, tag, reverter = false, multiplicador = 1) => {
+    if (!userId) return;
+    
+    // 1. Define os pontos base (A Regra do Jogo)
+    let pontosBase = 0;
+    if (tipoAcao === 'checklist') pontosBase = 5;  // 5 XP por caixinha marcada
+    if (tipoAcao === 'tarefa') pontosBase = 20;    // 20 XP por tarefa concluída
+    if (tipoAcao === 'bug') pontosBase = 30;       // Matar bug dá mais XP!
+    
+    // 2. Aplica a dificuldade
+    let pontosGanhos = Math.round(pontosBase * multiplicador);
+    
+    // 3. Sistema Anti-Cheat (Tira os pontos se a pessoa desmarcar a caixa)
+    if (reverter) pontosGanhos = -pontosGanhos;
+    
+    // Se não tiver ponto pra dar, aborta
+    if (pontosGanhos === 0) return;
+
+    try {
+        // 4. Injeta os pontos no Firebase do Usuário
+        await updateDoc(doc(db, "usuarios", userId), {
+            xp: increment(pontosGanhos)
+        });
+
+        // 5. Mostra o aviso na tela (Só se for ponto positivo e para o próprio usuário)
+        if (pontosGanhos > 0 && userId === auth.currentUser?.uid) {
+            if (typeof window.mostrarToastNotificacao === 'function') {
+                window.mostrarToastNotificacao('LEVEL UP!', `+${pontosGanhos} XP adquiridos!`, tag);
+            }
+        }
+    } catch (e) {
+        console.error("Erro ao processar XP:", e);
     }
 };

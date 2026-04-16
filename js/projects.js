@@ -951,32 +951,42 @@ window.renderizarDescricaoTask = (texto) => {
 };
 
 window.toggleTaskCheck = async (linhaIndex, isCheckedAtualmente) => {
-    if (!window.taskAtualEditando.id) return;
+    // 1. Usa a variável correta da tarefa aberta
+    if (!window.taskAbertaAtual || !window.taskAbertaAtual.id) return;
 
-    let linhas = window.taskAtualEditando.rawBody.split('\n');
+    // 2. Pega a descrição direto do objeto atual
+    let linhas = (window.taskAbertaAtual.descricao || "").split('\n');
+    
     if (isCheckedAtualmente) linhas[linhaIndex] = linhas[linhaIndex].replace(/\[x\]/i, '[ ]');
     else linhas[linhaIndex] = linhas[linhaIndex].replace(/\[ \]/, '[x]');
 
     const novoBody = linhas.join('\n');
-    window.taskAtualEditando.rawBody = novoBody;
+    window.taskAbertaAtual.descricao = novoBody; // Atualiza a janela atual
     
-    const tarefaNoCache = window.tarefasProjetoCache.find(t => t.id === window.taskAtualEditando.id);
+    // 3. Atualiza o cache do Kanban
+    const tarefaNoCache = window.tarefasProjetoCache.find(t => t.id === window.taskAbertaAtual.id);
     if (tarefaNoCache) tarefaNoCache.descricao = novoBody;
     
+    // 4. Redesenha a tela instantaneamente
     window.renderizarDescricaoTask(novoBody); 
-    window.renderizarKanban(); 
-
+    
     try { 
-        await updateDoc(doc(db, "tarefas", window.taskAtualEditando.id), { descricao: novoBody }); 
+        // 5. Salva no banco de dados
+        await updateDoc(doc(db, "tarefas", window.taskAbertaAtual.id), { descricao: novoBody }); 
+        
+        // 6. Roda a gamificação!
         const diff = tarefaNoCache ? (tarefaNoCache.dificuldade || 1) : 1;
         const tag = tarefaNoCache ? tarefaNoCache.tag : 'geral';
-        window.pontuarGamificacao('checklist', auth.currentUser.uid, tag, isCheckedAtualmente, diff);
+        if (typeof window.pontuarGamificacao === 'function') {
+            window.pontuarGamificacao('checklist', auth.currentUser.uid, tag, isCheckedAtualmente, diff);
+        }
     } catch(e) { console.error("Erro Firebase:", e); }
 
+    // 7. Sincroniza com o Github se existir
     const token = localStorage.getItem('github_token');
-    if (window.projetoAtualRepo && token && window.taskAtualEditando.githubIssue) {
+    if (window.projetoAtualRepo && token && window.taskAbertaAtual.githubIssue) {
         try {
-            await fetch(`https://api.github.com/repos/${window.projetoAtualRepo}/issues/${window.taskAtualEditando.githubIssue}`, {
+            await fetch(`https://api.github.com/repos/${window.projetoAtualRepo}/issues/${window.taskAbertaAtual.githubIssue}`, {
                 method: "PATCH",
                 headers: { "Accept": "application/vnd.github+json", "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
                 body: JSON.stringify({ body: novoBody })
