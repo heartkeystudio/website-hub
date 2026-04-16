@@ -876,6 +876,7 @@ window.renderizarDescricaoTask = (texto) => {
     const container = document.getElementById('detalheTaskDesc');
     if (!texto) { container.innerHTML = "Sem detalhes adicionais."; return; }
 
+    // 1. Processa Checkboxes Interativos (Mantido do Kanban)
     const linhas = texto.split('\n');
     const linhasProcessadas = linhas.map((linha, index) => {
         const uncheckMatch = linha.match(/^([\s\-*+]+)\[ \]\s+(.*)/);
@@ -891,14 +892,62 @@ window.renderizarDescricaoTask = (texto) => {
         return linha;
     });
 
-    let htmlGerado = marked.parse(linhasProcessadas.join('\n'));
-    if (typeof window.processarTagsCustomizadas === 'function') htmlGerado = window.processarTagsCustomizadas(htmlGerado);
+    let textoPreparado = linhasProcessadas.join('\n');
 
+    // 2. MÁGICA DA WIKI (Pré-processamento Inline)
+    textoPreparado = textoPreparado.replace(/\{cor:([^}]+)\}/gi, '<span style="color: $1;">');
+    textoPreparado = textoPreparado.replace(/\{\/cor\}/gi, '</span>');
+    
+    textoPreparado = textoPreparado.replace(/\{font:([^}]+)\}/gi, '<span style="font-family: \'$1\';">');
+    textoPreparado = textoPreparado.replace(/\{\/font\}/gi, '</span>');
+
+    // 3. MOTOR DE CALLOUTS (Padrão Obsidian)
+    textoPreparado = textoPreparado.replace(/^> \[!([a-zA-Z]+)\](.*?)\n((?:>.*\n?)*)/gim, (match, tipo, titulo, conteudo) => {
+        const limpo = conteudo.replace(/^>\s?/gm, ''); 
+        const icones = { 
+            info: 'ℹ️', note: '📓', abstract: '📋', summary: '📋', tldr: '📋',
+            warning: '⚠️', caution: '⚠️', attention: '⚠️',
+            danger: '🚨', error: '🚨', bug: '🐛',
+            success: '✅', check: '✅', done: '✅',
+            tip: '💡', hint: '💡', 
+            question: '❓', help: '❓', faq: '❓',
+            quote: '💬', cite: '💬', example: '📝'
+        };
+        const t = tipo.toLowerCase();
+        const iconeRender = icones[t] || '📌'; 
+        const tituloRender = titulo.trim() || (t.charAt(0).toUpperCase() + t.slice(1)); 
+        
+        return `<div class="wiki-callout callout-${t}">
+                    <div class="wiki-callout-title">${iconeRender} ${tituloRender}</div>
+                    <div class="wiki-callout-content">\n\n${limpo}\n\n</div>
+                </div>`;
+    });
+
+    // 4. Conversor Inteligente de Links (Dropbox, Drive, etc)
+    textoPreparado = textoPreparado.replace(/https?:\/\/(www\.)?dropbox\.com\/[^\s)]+/g, (match) => {
+        if (window.converterLinkDireto) return window.converterLinkDireto(match);
+        return match;
+    });
+
+    // 5. Parse Oficial do Markdown
+    let htmlGerado = marked.parse(textoPreparado);
+    
+    // 6. Pós-Processamento da Wiki ({center}, vídeos, imagens em tamanhos customizados)
+    if (typeof window.processarTagsCustomizadas === 'function') {
+        htmlGerado = window.processarTagsCustomizadas(htmlGerado);
+    }
+
+    // Injeta na tela
     container.className = 'markdown-body checklist-container';
     container.style.cssText = 'background: transparent; padding: 0; box-shadow: none; border: none; min-height: auto;';
     container.innerHTML = htmlGerado;
 
-    window.desenharGraficosMermaid(container);
+    // 7. Dispara os Diagramas Mermaid (com um micro-atraso de segurança pro DOM atualizar)
+    setTimeout(() => {
+        if (typeof window.desenharGraficosMermaid === 'function') {
+            window.desenharGraficosMermaid(container);
+        }
+    }, 100);
 };
 
 window.toggleTaskCheck = async (linhaIndex, isCheckedAtualmente) => {
