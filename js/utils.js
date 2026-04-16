@@ -69,55 +69,141 @@ window.converterLinkDireto = (url) => {
 };
 
 window.desenharGraficosMermaid = async (container) => {
-    // 1. Verificações de segurança
     if (!container) return;
     
-    // Aguarda um instante para garantir que a variável window.mermaid do HTML carregou
     if (typeof window.mermaid === 'undefined') {
         setTimeout(() => window.desenharGraficosMermaid(container), 200);
         return;
     }
 
-    // 2. Busca todas as caixas de código que o Markdown gerou com a tag "mermaid"
     const blocos = container.querySelectorAll('pre code.language-mermaid, pre code.mermaid');
     if (blocos.length === 0) return;
 
-    // Configura o tema Escuro antes de desenhar
     window.mermaid.initialize({ theme: 'dark', startOnLoad: false });
 
-    // 3. Processa cada bloco individualmente
     for (let i = 0; i < blocos.length; i++) {
         const bloco = blocos[i];
         const preElement = bloco.parentElement;
         
-        // Pega o código do diagrama do jeito que você digitou
-        const codigoDiagrama = bloco.textContent;
+        let codigoDiagrama = bloco.textContent || bloco.innerText;
+        codigoDiagrama = codigoDiagrama.replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&');
 
         try {
-            // Pede pro Mermaid transformar o texto em uma imagem SVG
             const idGerado = `mermaid-svg-${Date.now()}-${i}`;
             const { svg } = await window.mermaid.render(idGerado, codigoDiagrama);
             
-            // Cria um container bonitinho para a imagem
             const divGrafico = document.createElement('div');
             divGrafico.className = 'mermaid-renderizado';
             divGrafico.style.textAlign = 'center';
             divGrafico.style.margin = '25px 0';
+            divGrafico.style.cursor = 'zoom-in';
+            divGrafico.title = "Clique para abrir a Mesa de Luz";
             divGrafico.innerHTML = svg;
             
-            // Substitui a caixa de texto preta pela imagem do diagrama!
+            // O PULO DO GATO: A NOVA MESA DE LUZ COM ZOOM 🔍
+            divGrafico.onclick = () => {
+                let overlay = document.getElementById('mermaid-zoom-overlay');
+                
+                // Cria a tela de fundo se ela não existir
+                if (!overlay) {
+                    overlay = document.createElement('div');
+                    overlay.id = 'mermaid-zoom-overlay';
+                    overlay.style.position = 'fixed';
+                    overlay.style.top = '0'; overlay.style.left = '0';
+                    overlay.style.width = '100vw'; overlay.style.height = '100vh';
+                    overlay.style.background = 'rgba(0,0,0,0.95)';
+                    overlay.style.zIndex = '2147483647';
+                    overlay.style.display = 'flex';
+                    overlay.style.justifyContent = 'center';
+                    overlay.style.alignItems = 'center';
+                    document.body.appendChild(overlay);
+                }
+                
+                // Injeta a tela de rolagem e os botões de controle do Zoom
+                overlay.innerHTML = `
+                    <div id="mermaid-scroll-box" style="background: #111; border-radius: 12px; width: 95vw; height: 95vh; box-shadow: 0 0 50px rgba(0,0,0,1); border: 1px solid var(--primary); overflow: auto; position: relative;">
+                        
+                        <button id="close-mermaid-btn" style="position: fixed; top: 30px; right: 40px; background: rgba(255,82,82,0.2); color: #ff5252; border: 1px solid #ff5252; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; font-size: 1.5rem; z-index: 1000; display: flex; align-items: center; justify-content: center; transition: 0.2s;">×</button>
+                        
+                        <div style="position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); border: 1px solid var(--primary); padding: 10px 20px; border-radius: 30px; display: flex; gap: 20px; align-items: center; z-index: 1000; backdrop-filter: blur(5px);">
+                            <button id="m-zoom-out" style="background: transparent; color: #fff; border: none; cursor: pointer; font-size: 1.1rem; font-weight: bold; transition: 0.2s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='#fff'">-</button>
+                            <span id="m-zoom-text" style="color: var(--primary); font-weight: bold; min-width: 50px; text-align: center; font-size: 0.9rem;">100%</span>
+                            <button id="m-zoom-in" style="background: transparent; color: #fff; border: none; cursor: pointer; font-size: 1.1rem; font-weight: bold; transition: 0.2s;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='#fff'">+</button>
+                        </div>
+
+                        <div id="mermaid-svg-wrapper" style="width: 100%; min-height: 100%; display: flex; align-items: center; justify-content: center; padding: 50px;">
+                            ${svg}
+                        </div>
+                    </div>`;
+                
+                const scrollBox = overlay.querySelector('#mermaid-scroll-box');
+                const wrapper = overlay.querySelector('#mermaid-svg-wrapper');
+                const svgDentro = overlay.querySelector('svg');
+                const zoomText = overlay.querySelector('#m-zoom-text');
+                
+                let currentScale = 1; // 100%
+
+                // A função que estica e encolhe a imagem DE VERDADE
+                const updateZoom = (newScale) => {
+                    currentScale = Math.max(0.5, Math.min(newScale, 5)); // Limite de 50% a 500%
+                    zoomText.innerText = Math.round(currentScale * 100) + '%';
+                    
+                    if (wrapper) {
+                        // Esticamos a caixa que envolve o SVG. Isso obriga a barra de rolagem a aparecer!
+                        wrapper.style.width = (100 * currentScale) + '%';
+                        wrapper.style.minWidth = (100 * currentScale) + '%';
+                    }
+                };
+
+                if(svgDentro) {
+                    // MATA AS TRAVAS DO MERMAID: Forçamos o SVG a obedecer o tamanho da nossa caixa
+                    svgDentro.removeAttribute('width'); 
+                    svgDentro.removeAttribute('height');
+                    svgDentro.style.width = '100%';
+                    svgDentro.style.height = 'auto';
+                    svgDentro.style.maxWidth = 'none'; // Tira o limite máximo
+                    
+                    // Adiciona a animação suave na caixa de fora
+                    wrapper.style.transition = 'width 0.2s ease-out, min-width 0.2s ease-out';
+                    
+                    updateZoom(1); 
+                    
+                    // Clique direto na imagem para dar Zoom Rápido
+                    svgDentro.style.cursor = 'zoom-in';
+                    svgDentro.onclick = (e) => {
+                        e.stopPropagation();
+                        // Se estiver menor que 300%, ele amplia. Se passar, reseta.
+                        if(currentScale < 3) updateZoom(currentScale + 0.5);
+                        else updateZoom(1); 
+                        
+                        svgDentro.style.cursor = currentScale >= 3 ? 'zoom-out' : 'zoom-in';
+                    };
+                }
+
+                // Ligando os botões da barra inferior
+                overlay.querySelector('#m-zoom-in').onclick = (e) => { e.stopPropagation(); updateZoom(currentScale + 0.25); };
+                overlay.querySelector('#m-zoom-out').onclick = (e) => { e.stopPropagation(); updateZoom(currentScale - 0.25); };
+                
+                // Botão de Fechar e clicar fora da imagem
+                const closeOverlay = () => overlay.style.display = 'none';
+                overlay.querySelector('#close-mermaid-btn').onclick = closeOverlay;
+                
+                scrollBox.onclick = (e) => {
+                    if (e.target === scrollBox || e.target === wrapper) closeOverlay();
+                };
+
+                overlay.style.display = 'flex';
+            };
+            
             preElement.parentNode.replaceChild(divGrafico, preElement);
 
         } catch (error) {
             console.error("Erro ao desenhar o diagrama Mermaid:", error);
-            // Se o código tiver erro (ex: faltou uma seta), ele mostra o erro na tela pro usuário
             bloco.style.color = "#ff5252";
             bloco.innerText = `Erro na sintaxe do diagrama:\n${error.message}`;
         }
     }
 };
-
- // Garanta que o 'increment' está importado no topo do arquivo!
 
 // ==========================================
 // MOTOR DE GAMIFICAÇÃO (XP)
