@@ -317,11 +317,17 @@ window.carregarArtesDoProjeto = (pid) => {
             const btnRight = temCarrossel ? `<button onclick="event.stopPropagation(); window.mudarCarrosselArte('${a.id}', 1)" style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.7); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 50%; width: 28px; height: 28px; cursor: pointer; z-index: 5;">&gt;</button>` : '';
             const contadorVersao = temCarrossel ? `<span id="contador-${a.id}" style="position: absolute; bottom: 5px; left: 5px; background: rgba(0,0,0,0.8); color: #fff; font-size: 0.6rem; padding: 3px 6px; border-radius: 4px; font-weight: bold; border: 1px solid rgba(255,255,255,0.2);">v${a.versoes.length}/${a.versoes.length}</span>` : '';
 
+            const isVideoThumb = a.url.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i);
+            
+            const mediaTag = isVideoThumb 
+                ? `<video src="${a.url}" id="img-art-${a.id}" class="art-thumb" autoplay loop muted playsinline onclick="window.abrirVisualizadorAtelie('${a.id}', '${a.url}', '${a.titulo.replace(/'/g, "\\'")}')" style="cursor: pointer; height: 100%; width: 100%; object-fit: cover; background: #000;" title="Clique para abrir no Ateliê"></video>`
+                : `<img src="${a.url}" id="img-art-${a.id}" class="art-thumb" onclick="window.abrirVisualizadorAtelie('${a.id}', '${a.url}', '${a.titulo.replace(/'/g, "\\'")}')" style="cursor: pointer; height: 100%; width: 100%; object-fit: cover;" title="Clique para abrir no Ateliê">`;
+
             // O CLIQUE ABRE O ATELIÊ IMERSIVO
             return `
                 <div class="art-card">
                     <div style="position: relative; width: 100%; height: 180px; overflow: hidden; border-radius: 10px 10px 0 0;">
-                        <img src="${a.url}" id="img-art-${a.id}" class="art-thumb" onclick="window.abrirVisualizadorAtelie('${a.id}', this.src, '${a.titulo.replace(/'/g, "\\'")}')" style="cursor: pointer; height: 100%; object-fit: cover;" title="Clique para abrir no Ateliê">
+                        ${mediaTag}
                         ${btnLeft} ${btnRight} ${contadorVersao}
                     </div>
                     
@@ -502,10 +508,37 @@ window.abrirVisualizadorAtelie = (id, url, titulo) => {
     window.ateliePanY = 0;
     window.aplicarTransformAtelie();
 
-    const img = document.getElementById('atelieImagemPrincipal');
-    if (img) {
-        img.src = url;
-        img.style.filter = 'none'; 
+    const wrapper = document.getElementById('atelieImagemWrapper');
+    let img = document.getElementById('atelieImagemPrincipal');
+    let vid = document.getElementById('atelieVideoPrincipal');
+
+    // 1. Cria o player de vídeo invisível se ele ainda não existir na tela
+    if (!vid && wrapper) {
+        vid = document.createElement('video');
+        vid.id = 'atelieVideoPrincipal';
+        vid.autoplay = true; vid.loop = true; vid.muted = true; vid.playsInline = true;
+        vid.draggable = false;
+        vid.style.cssText = 'max-width: 100%; max-height: 100%; object-fit: contain; outline: none; pointer-events: none;';
+        wrapper.insertBefore(vid, document.getElementById('atelieGrid'));
+    }
+
+    // 2. Verifica se a URL termina com formato de vídeo
+    const isVideo = url.match(/\.(mp4|webm|ogg|mov)(\?.*)?$/i);
+
+    if (isVideo) {
+        if (img) img.style.display = 'none';
+        if (vid) {
+            vid.style.display = 'block';
+            vid.src = url;
+            vid.style.filter = 'none';
+        }
+    } else {
+        if (vid) { vid.style.display = 'none'; vid.pause(); }
+        if (img) {
+            img.style.display = 'block';
+            img.src = url;
+            img.style.filter = 'none';
+        }
     }
 
     const gridOverlay = document.getElementById('atelieGrid');
@@ -515,7 +548,6 @@ window.abrirVisualizadorAtelie = (id, url, titulo) => {
     if (zoomText) zoomText.innerText = '100%';
 
     window.carregarPinosArte(id);
-    
     if (typeof window.limparNotificacaoItem === 'function') window.limparNotificacaoItem(id);
 
     window.openModal('modalAtelieArte');
@@ -597,17 +629,20 @@ setTimeout(() => {
 
 // --- LIGHTROOM FILTROS ---
 window.toggleLightroom = (filtro) => {
-    const img = document.getElementById('atelieImagemPrincipal');
+    // Agora ele descobre quem está ativo: a Imagem ou o Vídeo
+    const imgObj = document.getElementById('atelieImagemPrincipal');
+    const vidObj = document.getElementById('atelieVideoPrincipal');
+    const ativo = (vidObj && vidObj.style.display === 'block') ? vidObj : imgObj;
+    
     const grid = document.getElementById('atelieGrid');
-    if (!img || !grid) return;
+    if (!ativo || !grid) return;
     
     if (filtro === 'grayscale') {
-        const atual = img.style.filter;
-        img.style.filter = atual.includes('grayscale') ? 'none' : 'grayscale(100%)';
+        const atual = ativo.style.filter;
+        ativo.style.filter = atual.includes('grayscale') ? 'none' : 'grayscale(100%)';
     } 
     else if (filtro === 'flip') {
-        // Precisa alterar a lógica do flip para funcionar junto com o scale() do Pan
-        img.style.transform = img.style.transform.includes('scaleX(-1)') ? 'scaleX(1)' : 'scaleX(-1)';
+        ativo.style.transform = ativo.style.transform.includes('scaleX(-1)') ? 'scaleX(1)' : 'scaleX(-1)';
     }
     else if (filtro === 'grid') {
         grid.style.display = grid.style.display === 'none' ? 'block' : 'none';
@@ -625,10 +660,13 @@ window.adicionarPinoArte = async (e) => {
     e.preventDefault(); 
     if (window.hasMovedAtelie || !window.arteVisualizandoId) return;
 
-    const img = document.getElementById('atelieImagemPrincipal');
-    if (!img) return;
+    // Busca quem está visível
+    const imgObj = document.getElementById('atelieImagemPrincipal');
+    const vidObj = document.getElementById('atelieVideoPrincipal');
+    const ativo = (vidObj && vidObj.style.display === 'block') ? vidObj : imgObj;
+    if (!ativo) return;
 
-    const rect = img.getBoundingClientRect();
+    const rect = ativo.getBoundingClientRect();
     
     // Calcula a porcentagem exata
     const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
