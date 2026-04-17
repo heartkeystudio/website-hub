@@ -1,4 +1,7 @@
 ##Alterações necessárias
 
 
-Outra coisa, o modo tela cheia do Wiki ficou muito ruim depois de umas modificações nossas, quero fazer diferente, quero que ele abra uma tela extra focada no texto e que fique 100% parecido com um sublime text da vida, super clean, com o gestor de arquivos do lado, mas preenchendo a tela inteira e escondendo todo o resto do site. exemplo:
+bug:
+    Notificação não está direcionando quando é na documentação;
+    As vezes a lista de musica não atualiza e quando vou para outro projeto as musicas são do projeto anterior;
+    tasklist/checklist com informação de quem concluiu elas;

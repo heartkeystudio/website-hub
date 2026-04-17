@@ -1051,7 +1051,11 @@
                     <a id="btn-abrir-git" href="#" target="_blank" class="btn-primary" style="display: none; background: #24292e;">🐙 GitHub</a>
                     
                     <a id="btn-abrir-asset" href="#" target="_blank" class="btn-primary" style="display: none; background: #8e8e93; border-color: #8e8e93; color: #000;">🎨 Ver Asset</a>
+                    <a id="btn-abrir-asset" href="#" target="_blank" class="btn-primary" style="display: none; background: #8e8e93; border-color: #8e8e93; color: #000;">🎨 Ver Asset</a>
+                    
                     <button id="btn-pedir-revisao" class="btn-primary" onclick="window.pedirRevisaoTarefa()" style="display: none; background: rgba(0, 234, 255, 0.1); color: #00eaff; border: 1px solid #00eaff;">🛎️ Pedir Revisão</button>
+                    
+                    <button id="btn-admin-reject-task" class="btn-primary" onclick="window.reprovarTarefaAdmin()" style="display: none; background: rgba(255, 82, 82, 0.1); color: #ff5252; border: 1px solid #ff5252;">❌ Solicitar Ajustes</button>
                     
                     <button id="btn-admin-approve-task" class="btn-primary" onclick="window.aprovarTarefaAdmin()" style="display: none; background: transparent; color: #ffc107; border: 1px solid #ffc107;">🛡️ Aprovar & Concluir</button>
                 </div>
@@ -1309,6 +1313,13 @@
                 <label>📥 Link para Baixar Asset (Google Drive/Dropbox)</label>
                 <input type="url" id="audioAssetLink" placeholder="https://..." style="background: rgba(0, 234, 255, 0.05); border: 1px solid rgba(0, 234, 255, 0.2); color: #fff; padding: 12px; border-radius: 8px; width: 100%;">
                 <p style="font-size: 0.65rem; color: #888; margin-top: 5px;">Este link aparecerá como um botão de download direto na lista de áudios.</p>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ffc107; font-size: 0.85rem; font-weight: bold;">
+                    <input type="checkbox" id="audioAdminReq" style="width: 16px; height: 16px; accent-color: #ffc107;"> 
+                    ⚠️ Exige aprovação de um Administrador (Finalizado)
+                </label>
             </div>
 
             <div class="modal-footer">

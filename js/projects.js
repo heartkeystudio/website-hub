@@ -709,10 +709,19 @@ window.abrirDetalhesTarefa = async (id, data) => {
     const badgeReq = document.getElementById('detalheTaskAdminReqBadge');
     if (badgeReq) badgeReq.style.display = data.exigeAprovacao ? 'inline-block' : 'none';
 
-    // Botão de Aprovação (Só para Admin)
+    // Botão de Aprovação e Reprovação (Só para Admin)
     const btnApprove = document.getElementById('btn-admin-approve-task');
-    if (btnApprove) {
-        btnApprove.style.display = (data.exigeAprovacao && window.userRole === 'admin' && data.status !== 'done') ? 'inline-block' : 'none';
+    const btnReject = document.getElementById('btn-admin-reject-task');
+    
+    if (btnApprove && btnReject) {
+        if (data.exigeAprovacao && window.userRole === 'admin' && data.status !== 'done') {
+            btnApprove.style.display = 'inline-block';
+            // Só mostra o botão de reprovar se a tarefa estiver aguardando revisão
+            btnReject.style.display = data.aguardandoRevisao ? 'inline-block' : 'none';
+        } else {
+            btnApprove.style.display = 'none';
+            btnReject.style.display = 'none';
+        }
     }
 
     // Controle do Asset
@@ -744,6 +753,16 @@ window.abrirDetalhesTarefa = async (id, data) => {
         if (data.prioridade === 1) { prioBadge.innerText = '🚩 ALTA'; prioBadge.style.background = 'rgba(255,82,82,0.2)'; prioBadge.style.color = '#ff5252'; prioBadge.style.display = 'inline-block'; }
         else if (data.prioridade === 2) { prioBadge.innerText = '🟡 MÉDIA'; prioBadge.style.background = 'rgba(255,193,7,0.2)'; prioBadge.style.color = '#ffc107'; prioBadge.style.display = 'inline-block'; }
         else { prioBadge.style.display = 'none'; } // Baixa não precisa de badge
+    }
+
+    const btnReopen = document.getElementById('btn-admin-reopen-task'); // Precisas de adicionar este ID no index.html
+    
+    if (data.status === 'done' && window.userRole === 'admin') {
+        if (btnReopen) btnReopen.style.display = 'inline-block';
+        if (btnApprove) btnApprove.style.display = 'none';
+        if (btnReject) btnReject.style.display = 'none';
+    } else if (btnReopen) {
+        btnReopen.style.display = 'none';
     }
 
     // Configura Badge de Dificuldade
@@ -1253,4 +1272,31 @@ window.sincronizarGitHub = async () => {
     }
     btn.innerText = textoOriginal;
     btn.disabled = false;
+};
+
+window.reprovarTarefaAdmin = async () => {
+    if (!window.taskAbertaAtual || window.userRole !== 'admin') return;
+    
+    // Se a tarefa já estava em 'done', o fluxo de reprovação funciona como um "Reabrir"
+    try {
+        await updateDoc(doc(db, "tarefas", window.taskAbertaAtual.id), {
+            aguardandoRevisao: false,
+            status: 'doing' 
+        });
+        
+        window.mostrarToastNotificacao("Kanban", "Tarefa reaberta e movida para 'Fazendo'.", "geral");
+        
+        if (window.taskAbertaAtual.assignedTo) {
+            window.criarNotificacao(
+                window.taskAbertaAtual.assignedTo,
+                'geral',
+                '🔓 Tarefa Reaberta',
+                `A tarefa "${window.taskAbertaAtual.titulo}" foi reaberta pelo Admin para ajustes.`,
+                { abaAlvo: 'projetos', projetoId: window.projetoAtualId }
+            );
+        }
+        
+        window.closeModal('modalDetalhesTarefa');
+        window.renderizarKanban();
+    } catch(err) { console.error(err); }
 };
